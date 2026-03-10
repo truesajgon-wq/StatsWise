@@ -1,0 +1,17 @@
+node_modules/
+dist/
+
+.env
+.env.local
+.env.*.local
+backend/.env
+backend/.env.local
+backend/.env.*.local
+
+.vscode/
+.idea/
+
+.DS_Store
+Thumbs.db
+
+backend/billing-store.json
