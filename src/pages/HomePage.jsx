@@ -19,6 +19,7 @@ import { SIDEBAR_KEY_MAP, viewKeyToStat, extractStatValue, getStatDef } from '..
 import StatsWiseWordmark from '../components/StatsWiseWordmark.jsx'
 import { getAppToday } from '../utils/appDate.js'
 import { getValuePickConfidenceBadgeStyle } from '../utils/confidenceBadge.js'
+import CountryFlag from '../components/CountryFlag.jsx'
 
 function toDateStr(d) { return d.toISOString().split('T')[0] }
 
@@ -802,10 +803,7 @@ function handleViewChange(key) {
                           {groups.map(({ league, fixtures: lf }) => (
                           <div key={league.id} className="fixture-group-card" style={{ marginBottom: 20, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--sw-border)' }}>
                             <div className="fixture-group-header" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--sw-surface-2)', borderBottom: '1px solid var(--sw-border)' }}>
-                              {league.flag?.startsWith('http')
-                                ? <img src={league.flag} alt={league.country} style={{ width: 22, height: 16, objectFit: 'cover', borderRadius: 2 }} />
-                                : <span style={{ fontSize: 18 }}>{league.flag}</span>
-                              }
+                              <CountryFlag flag={league.flag} country={league.country} countryCode={league.countryCode} alt={league.country} size={16} />
                               {league.logo && <img src={league.logo} alt={league.name} style={{ width: 20, height: 20, objectFit: 'contain' }} />}
                               <span style={{ fontWeight: 700, fontSize: 13, color: '#f1f5f9' }}>{league.name}</span>
                               <span style={{ color: '#6b7280', fontSize: 12 }}> - {league.country}</span>

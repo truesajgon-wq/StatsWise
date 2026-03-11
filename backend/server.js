@@ -677,6 +677,90 @@ function toIsoDateTime(date, time) {
   return `${d}T${t}Z`
 }
 
+const COUNTRY_CODE_MAP = new Map([
+  ['england', 'GB'],
+  ['scotland', 'GB'],
+  ['wales', 'GB'],
+  ['northern ireland', 'GB'],
+  ['united kingdom', 'GB'],
+  ['great britain', 'GB'],
+  ['spain', 'ES'],
+  ['germany', 'DE'],
+  ['italy', 'IT'],
+  ['france', 'FR'],
+  ['poland', 'PL'],
+  ['netherlands', 'NL'],
+  ['holland', 'NL'],
+  ['portugal', 'PT'],
+  ['belgium', 'BE'],
+  ['switzerland', 'CH'],
+  ['austria', 'AT'],
+  ['denmark', 'DK'],
+  ['sweden', 'SE'],
+  ['norway', 'NO'],
+  ['finland', 'FI'],
+  ['ireland', 'IE'],
+  ['czech republic', 'CZ'],
+  ['slovakia', 'SK'],
+  ['hungary', 'HU'],
+  ['romania', 'RO'],
+  ['croatia', 'HR'],
+  ['serbia', 'RS'],
+  ['slovenia', 'SI'],
+  ['greece', 'GR'],
+  ['turkey', 'TR'],
+  ['ukraine', 'UA'],
+  ['russia', 'RU'],
+  ['united states', 'US'],
+  ['usa', 'US'],
+  ['mexico', 'MX'],
+  ['argentina', 'AR'],
+  ['brazil', 'BR'],
+  ['colombia', 'CO'],
+  ['uruguay', 'UY'],
+  ['chile', 'CL'],
+  ['peru', 'PE'],
+  ['ecuador', 'EC'],
+  ['paraguay', 'PY'],
+  ['bolivia', 'BO'],
+  ['venezuela', 'VE'],
+  ['japan', 'JP'],
+  ['south korea', 'KR'],
+  ['korea republic', 'KR'],
+  ['china', 'CN'],
+  ['saudi arabia', 'SA'],
+  ['qatar', 'QA'],
+  ['uae', 'AE'],
+  ['united arab emirates', 'AE'],
+  ['australia', 'AU'],
+  ['new zealand', 'NZ'],
+  ['world', 'WORLD'],
+  ['europe', 'EU'],
+  ['international', 'WORLD'],
+])
+
+function countryToCountryCode(country) {
+  const normalized = String(country || '').trim().toLowerCase()
+  if (!normalized) return ''
+  return COUNTRY_CODE_MAP.get(normalized) || ''
+}
+
+function countryCodeToEmojiFlag(code) {
+  if (code === 'WORLD') return '🌍'
+  if (code === 'EU') return '🇪🇺'
+  if (code === 'GB') return '🏴'
+  if (!/^[A-Z]{2}$/.test(code)) return ''
+  return [...code].map(char => String.fromCodePoint(127397 + char.charCodeAt(0))).join('')
+}
+
+function leagueFlagInfo(country, explicitFlag = '') {
+  const countryCode = countryToCountryCode(country)
+  return {
+    countryCode,
+    flag: explicitFlag || countryCodeToEmojiFlag(countryCode) || '',
+  }
+}
+
 function statsBlock(teamId, teamName, stats = {}) {
   return {
     team: { id: teamId, name: teamName, logo: null },
@@ -703,6 +787,7 @@ function fixtureRowToApiShape(row) {
   const status = isScheduledCsvFixture
     ? { short: 'NS', elapsed: null }
     : { short: 'FT', elapsed: 90 }
+  const leagueFlag = leagueFlagInfo(row.league_country)
 
   return {
     fixture: {
@@ -717,7 +802,8 @@ function fixtureRowToApiShape(row) {
       name: row.league_name,
       country: row.league_country,
       season: row.season_start_year,
-      flag: null,
+      flag: leagueFlag.flag || null,
+      countryCode: leagueFlag.countryCode || null,
       logo: null,
     },
     teams: {
@@ -2137,6 +2223,7 @@ function mapFixture(f) {
   const awayGoals = f.goals?.away ?? null
   const status    = f.fixture.status.short
   const isLive    = ['1H','HT','2H','ET','BT','P'].includes(status)
+  const leagueFlag = leagueFlagInfo(f.league.country, f.league.flag)
 
   return {
     id: f.fixture.id,
@@ -2145,7 +2232,8 @@ function mapFixture(f) {
       name:    f.league.name,
       country: f.league.country,
       season:  f.league.season,
-      flag:    f.league.flag,
+      flag:    leagueFlag.flag || null,
+      countryCode: leagueFlag.countryCode || null,
       logo:    f.league.logo,
       top:     TOP_LEAGUE_IDS.has(f.league.id),
     },

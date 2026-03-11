@@ -3,6 +3,7 @@ import { TOP_LEAGUE_IDS } from '../data/api.js'
 import { useLang } from '../context/LangContext.jsx'
 import { STATS_ORDER, STAT_GROUPS, statViewKey } from '../data/statsConfig.js'
 import { getValuePickConfidenceBadgeStyle } from '../utils/confidenceBadge.js'
+import CountryFlag from './CountryFlag.jsx'
 
 const PRIORITY_COUNTRY_ORDER = ['England', 'Spain', 'Italy', 'Germany', 'France', 'Poland', 'Portugal']
 const PRIORITY_LEAGUE_ORDER = [2, 3, 39, 78, 140, 61, 135, 106, 94] // UCL, UEL, then top domestic leagues
@@ -25,14 +26,6 @@ function priorityLeagueByName(leagueName = '', country = '') {
   return Number.MAX_SAFE_INTEGER
 }
 
-function Flag({ src, alt, size = 18 }) {
-  if (!src) return null
-  if (src.startsWith('http')) {
-    return <img src={src} alt={alt} style={{ width: size * 1.4, height: size, objectFit: 'cover', borderRadius: 2, flexShrink: 0 }} onError={e => { e.target.style.display = 'none' }} />
-  }
-  return <span style={{ fontSize: size }}>{src}</span>
-}
-
 function LeagueLogo({ src, alt, size = 16 }) {
   if (!src) return null
   return <img src={src} alt={alt} style={{ width: size, height: size, objectFit: 'contain', flexShrink: 0 }} onError={e => { e.target.style.display = 'none' }} />
@@ -45,7 +38,7 @@ function LeagueTree({ leaguesByCountry, activeLeague, onLeagueSelect }) {
 
   return (
     <div>
-      {entries.map(([country, { flag, leagues }]) => {
+      {entries.map(([country, { flag, countryCode, leagues }]) => {
         const isOpen = openCountries[country]
         const hasActive = leagues.some(l => l.id === activeLeague)
         return (
@@ -54,7 +47,7 @@ function LeagueTree({ leaguesByCountry, activeLeague, onLeagueSelect }) {
               onClick={() => setOpenCountries(p => ({ ...p, [country]: !p[country] }))}
               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px 9px 14px', background: hasActive ? 'rgba(249,115,22,0.07)' : 'transparent', border: 'none', borderBottom: '1px solid var(--sw-border)', color: hasActive ? '#e5e7eb' : '#9ca3af', cursor: 'pointer', textAlign: 'left', fontSize: 12, fontWeight: hasActive ? 700 : 500 }}
             >
-              <Flag src={flag} alt={country} size={14} />
+              <CountryFlag flag={flag} country={country} countryCode={countryCode} alt={country} size={14} />
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{country}</span>
               <span style={{ fontSize: 10, color: '#4b5563', display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>{'>'}</span>
             </button>
@@ -112,11 +105,11 @@ export default function Sidebar({ activeView, onViewChange, activeLeague, onLeag
     fixtures.forEach(f => {
       const league = f?.league
       if (!league?.id) return
-      const { id, name, country, flag, logo } = league
+      const { id, name, country, flag, countryCode, logo } = league
       const top = TOP_LEAGUE_IDS.has(id)
       const safeCountry = country || 'Unknown'
-      if (!map[safeCountry]) map[safeCountry] = { flag, leagues: [] }
-      if (!map[safeCountry].leagues.find(l => l.id === id)) map[safeCountry].leagues.push({ id, name: name || `League ${id}`, flag, logo, top })
+      if (!map[safeCountry]) map[safeCountry] = { flag, countryCode, leagues: [] }
+      if (!map[safeCountry].leagues.find(l => l.id === id)) map[safeCountry].leagues.push({ id, name: name || `League ${id}`, flag, countryCode, logo, top })
     })
     Object.values(map).forEach(({ leagues }) => leagues.sort((a, b) => {
       const ap = priorityLeagueIndex(a.id)

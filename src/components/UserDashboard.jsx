@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react'
 import { useLang } from '../context/LangContext.jsx'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { COUNTRIES, COUNTRY_CURRENCY } from '../data/currency.js'
@@ -575,13 +576,13 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
     { key: 'haslo', label: t('dash_password') },
   ]
 
-  return (
+  const modal = (
     <div
       className="user-dashboard-overlay"
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 1000,
+        zIndex: 2000,
         background: 'rgba(0,0,0,0.72)',
         backdropFilter: 'blur(8px)',
         display: 'flex',
@@ -699,6 +700,8 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
       </div>
     </div>
   )
+
+  return createPortal(modal, document.body)
 }
 
 
