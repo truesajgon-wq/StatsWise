@@ -583,7 +583,7 @@ function H2HPanel({ h2h, homeHistory, awayHistory, fixture }) {
 
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, padding: compact ? '10px 12px' : '12px 16px', borderBottom:'1px solid var(--sw-border)', background:'rgba(255,255,255,0.015)', flexWrap:'wrap' }}>
         <div style={{ color:'#94a3b8', fontSize:11 }}>
-          Showing <span style={{ color:'#f8fafc', fontWeight:800 }}>{Math.min(active.length, visibleCount)}</span> of <span style={{ color:'#f8fafc', fontWeight:800 }}>{activeAll?.length || 0}</span> matches
+          Showing <span style={{ color:'#f8fafc', fontWeight:800 }}>{active.length}</span> matches for <span style={{ color:'#ffb36b', fontWeight:800 }}>{range}</span>
         </div>
         <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
           {rangeOptions.map(option => (
@@ -1023,6 +1023,8 @@ export default function MatchDetails() {
     })
     return Array.from(map.entries())
   }, [todayFixtures])
+  const returnDateFromQuery = searchParams.get('date') || ''
+  const fallbackHomeHref = returnDateFromQuery ? `/?date=${returnDateFromQuery}` : '/'
 
   const formatFixtureTime = (f) => {
     if (f?.time && String(f.time).trim()) return String(f.time).trim()
@@ -1204,7 +1206,7 @@ export default function MatchDetails() {
   if (loading) return (
     <div style={{ background:'var(--sw-bg)', minHeight:'100vh', display:'flex', flexDirection:'column' }}>
       <div style={{ padding:'10px 14px', borderBottom:'1px solid var(--sw-border)', display:'flex', background:'var(--sw-surface-0)' }}>
-        <button onClick={() => navigate('/')} style={{ background:'none', border:'1px solid #374151', borderRadius:6, color:'#9ca3af', cursor:'pointer', padding:'5px 10px', fontSize:13 }}>Back</button>
+        <button onClick={() => navigate(fallbackHomeHref)} style={{ background:'none', border:'1px solid #374151', borderRadius:6, color:'#9ca3af', cursor:'pointer', padding:'5px 10px', fontSize:13 }}>Back</button>
       </div>
       <Spinner text={t('md_loading')} />
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
@@ -1217,7 +1219,7 @@ export default function MatchDetails() {
       <p style={{ color:'#ef4444', marginBottom:12, fontSize:14 }}>{error}</p>
       <button onClick={refetch} style={{ color:'#d1d5db', background:'none', border:'1px solid #374151', borderRadius:6, cursor:'pointer', padding:'8px 16px', fontSize:13 }}>Retry</button>
       <br />
-      <button onClick={() => navigate('/')} style={{ marginTop:10, color:'#6b7280', background:'none', border:'none', cursor:'pointer', fontSize:13 }}>Back</button>
+      <button onClick={() => navigate(fallbackHomeHref)} style={{ marginTop:10, color:'#6b7280', background:'none', border:'none', cursor:'pointer', fontSize:13 }}>Back</button>
     </div>
   )
 
@@ -1229,6 +1231,8 @@ export default function MatchDetails() {
   const awayHistory = data?.awayHistory || []
   const h2h = data?.h2h || []
   const statFromQuery = searchParams.get('stat') || undefined
+  const returnDate = searchParams.get('date') || String(fixture?.date || '').slice(0, 10)
+  const homeHref = returnDate ? `/?date=${returnDate}` : '/'
   const matchTabLabel = 'Match Stats'
   const playerTabLabel = 'Player Statistics'
   const isFinished = FINISHED_STATUSES.has(fixture?.status)
@@ -1252,11 +1256,11 @@ export default function MatchDetails() {
 
       {/* Top bar */}
       <div className="match-details-topbar" style={{ padding:'9px 12px', borderBottom:'1px solid var(--sw-border)', display:'flex', alignItems:'center', gap:10, background:'var(--sw-surface-0)', flexShrink:0 }}>
-        <button onClick={() => navigate('/')} style={{ background:'none', border:'1px solid #374151', borderRadius:6, color:'#9ca3af', cursor:'pointer', padding:'4px 10px', fontSize:13, flexShrink:0 }}>Back</button>
+        <button onClick={() => navigate(homeHref)} style={{ background:'none', border:'1px solid #374151', borderRadius:6, color:'#9ca3af', cursor:'pointer', padding:'4px 10px', fontSize:13, flexShrink:0 }}>Back</button>
         {fixture.isLive && <span style={{ fontSize:11, fontWeight:800, color:'#ef4444', background:'rgba(239,68,68,0.15)', borderRadius:4, padding:'2px 7px', animation:'blink 1.5s infinite' }}>LIVE {fixture.elapsed}'</span>}
         <div style={{ flex:1, display:'flex', justifyContent:'center' }}>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate(homeHref)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, transform: 'scale(0.55)', transformOrigin: 'center' }}
             aria-label="Go to home page"
           >

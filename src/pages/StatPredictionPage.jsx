@@ -158,7 +158,7 @@ export function runPredictionEngine(fixtures, statKey, alts, minRate = 0.6) {
 
 // â”€â”€â”€ Confidence styling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function getTier(rate) {
-  if (rate > 0.9) return { label:'90%+', color:'#f59e0b', glow:'rgba(245,158,11,0.26)', bg:'rgba(245,158,11,0.10)', border:'rgba(245,158,11,0.34)' }
+  if (rate > 0.9) return { label:'90%+', color:'#facc15', glow:'rgba(250,204,21,0.26)', bg:'rgba(250,204,21,0.10)', border:'rgba(250,204,21,0.34)' }
   if (rate > 0.6) return { label:'60%+', color:'#f59e0b', glow:'rgba(245,158,11,0.18)', bg:'rgba(245,158,11,0.07)', border:'rgba(245,158,11,0.28)' }
   return { label:'<=60%', color:'#22c55e', glow:'rgba(34,197,94,0.18)', bg:'rgba(34,197,94,0.07)', border:'rgba(34,197,94,0.28)' }
 }

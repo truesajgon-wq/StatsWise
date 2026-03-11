@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Sidebar from '../components/Sidebar.jsx'
 import DayBar from '../components/DayBar.jsx'
 import FixtureRow from '../components/FixtureRow.jsx'
@@ -239,7 +239,18 @@ function buildTips(fixtures, t) {
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const [dayOffset, setDayOffset] = useState(0)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialDayOffset = useMemo(() => {
+    const dateParam = searchParams.get('date')
+    if (!dateParam) return 0
+    const target = new Date(`${dateParam}T00:00:00`)
+    const today = getAppToday()
+    if (Number.isNaN(target.getTime()) || Number.isNaN(today.getTime())) return 0
+    const utcTarget = Date.UTC(target.getFullYear(), target.getMonth(), target.getDate())
+    const utcToday = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+    return Math.round((utcTarget - utcToday) / 86400000)
+  }, [searchParams])
+  const [dayOffset, setDayOffset] = useState(initialDayOffset)
   const [search, setSearch] = useState('')
   const [activeView, setActiveView] = useState('mecze')
   const [activeLeague, setActiveLeague] = useState(null)
@@ -289,6 +300,19 @@ export default function HomePage() {
 
   const selectedDateStr = toDateStr(days[dayIdx])
   const { fixtures, loading, error, usingMock, refetch } = useFixturesByDate(selectedDateStr)
+
+  useEffect(() => {
+    if (dayOffset !== initialDayOffset) return
+    setDayOffset(initialDayOffset)
+  }, [initialDayOffset, dayOffset])
+
+  useEffect(() => {
+    const currentDate = searchParams.get('date') || ''
+    if (currentDate === selectedDateStr) return
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('date', selectedDateStr)
+    setSearchParams(nextParams, { replace: true })
+  }, [selectedDateStr, searchParams, setSearchParams])
 
   function handleLeagueSelect(id) {
     setActiveLeague(p => (p === id ? null : id))
