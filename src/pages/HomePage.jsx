@@ -18,7 +18,7 @@ import StatPredictionPage from './StatPredictionPage.jsx'
 import { SIDEBAR_KEY_MAP, viewKeyToStat, extractStatValue, getStatDef } from '../data/statsConfig.js'
 import StatsWiseWordmark from '../components/StatsWiseWordmark.jsx'
 import { getAppToday } from '../utils/appDate.js'
-import { getValuePickConfidenceBadgeStyle } from '../utils/confidenceBadge.js'
+import { getValuePickConfidenceBadgeStyle, getValuePickConfidenceTier } from '../utils/confidenceBadge.js'
 import CountryFlag from '../components/CountryFlag.jsx'
 
 function toDateStr(d) { return d.toISOString().split('T')[0] }
@@ -73,6 +73,17 @@ function localizedLabel(statKey, t) {
 
 function clamp01(n) {
   return Math.max(0, Math.min(1, n))
+}
+
+function percentText(rate) {
+  return rate == null ? '-' : `${Math.round(rate * 100)}%`
+}
+
+function styleReasonCopy(style) {
+  if (style === 'high-tempo') return 'Recent matches trend high-event, which supports goals and attacking markets.'
+  if (style === 'physical') return 'Recent matches trend physical, which supports cards and fouls markets.'
+  if (style === 'wide-play') return 'Recent matches trend wide and corner-heavy, which supports corner markets.'
+  return 'Recent form is balanced, so the selection leans more on raw hit rates than style bias.'
 }
 
 function timeAgo(isoLike) {
@@ -153,6 +164,7 @@ function styleTag(homeHistory, awayHistory) {
 
 function fallbackTips(fixtures, t, count = 5) {
   return (fixtures || []).slice(0, count).map((fixture, idx) => ({
+    fixture,
     fixtureId: fixture.id,
     statKey: 'goals',
     confidence: 55,
@@ -214,6 +226,7 @@ function buildTips(fixtures, t) {
     const confidence = Math.max(55, Math.min(95, Math.round(best.score * 100)))
     const thresholdText = best.def?.binary ? 'YES' : `Over ${best.alt}`
     tips.push({
+      fixture,
       fixtureId: fixture.id,
       statKey: best.statKey,
       confidence,
@@ -257,6 +270,7 @@ export default function HomePage() {
   const [dashboardOpen, setDashboardOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [insightPred, setInsightPred] = useState(null)
+  const [selectedTip, setSelectedTip] = useState(null)
   const [panelTab, setPanelTab] = useState('tips')
   const [newsItems, setNewsItems] = useState([])
   const [newsLoading, setNewsLoading] = useState(false)
@@ -440,7 +454,18 @@ function handleViewChange(key) {
   }
 
   function handleTipClick(tip) {
-    navigate(`/match/${tip.fixtureId}?stat=${encodeURIComponent(tip.statKey)}`)
+    setSelectedTip(tip)
+  }
+
+  function openTipDeepDive(tip) {
+    const fixtureId = tip?.fixtureId
+    if (!fixtureId) return
+    const fixtureDate = String(tip?.fixture?.date || '').slice(0, 10) || selectedDateStr
+    const query = new URLSearchParams()
+    if (tip?.statKey) query.set('stat', tip.statKey)
+    if (fixtureDate) query.set('date', fixtureDate)
+    navigate(`/match/${fixtureId}${query.toString() ? `?${query.toString()}` : ''}`)
+    setSelectedTip(null)
   }
 
   function handleDaySelect(idx) {
@@ -933,6 +958,68 @@ function handleViewChange(key) {
         </main>
       </div>
       
+      {selectedTip && (
+        <div className="theme-overlay" onClick={() => setSelectedTip(null)} style={{ position: 'fixed', inset: 0, zIndex: 142, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
+          <div className="theme-card" onClick={e => e.stopPropagation()} style={{ width: 'min(860px, 100%)', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(2,6,23,0.7)' }}>
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--sw-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Top 5 Bet Tip</div>
+              <button onClick={() => setSelectedTip(null)} style={{ minHeight: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#94a3b8', cursor: 'pointer' }}>Close</button>
+            </div>
+            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 0, flex: '1 1 320px' }}>
+                  <div style={{ fontSize: 17, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.3 }}>{selectedTip?.match}</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{selectedTip?.fixture?.league?.name || 'League'}{selectedTip?.fixture?.time ? ` • ${selectedTip.fixture.time}` : ''}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#e5e7eb', marginTop: 10 }}>{selectedTip?.bet}</div>
+                </div>
+                <div style={{ alignSelf: 'flex-start', fontSize: 12, fontWeight: 900, borderRadius: 999, padding: '6px 10px', ...getValuePickConfidenceBadgeStyle(selectedTip?.confidence || 0) }}>
+                  {selectedTip?.confidence || 0}%
+                </div>
+              </div>
+
+              <div style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid var(--sw-border)', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Why this is a top bet tip</div>
+                <div style={{ fontSize: 13, color: '#e5e7eb', lineHeight: 1.55 }}>
+                  {selectedTip?.fallback
+                    ? 'This is a fallback recommendation because the full history signal is still thin for this fixture, but it remains one of the best available edges on the selected day.'
+                    : `This pick is ranked highly because the recent form windows and the head-to-head sample align in the same direction. ${styleReasonCopy(selectedTip?.breakdown?.style)}`}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+                {[
+                  { label: 'Confidence tier', value: getValuePickConfidenceTier(selectedTip?.confidence || 0), color: '#f8fafc' },
+                  { label: 'L5 hit rate', value: percentText(selectedTip?.breakdown?.l5), color: '#22c55e' },
+                  { label: 'L10 hit rate', value: percentText(selectedTip?.breakdown?.l10), color: '#34d399' },
+                  { label: 'L15 hit rate', value: percentText(selectedTip?.breakdown?.l15), color: '#86efac' },
+                  { label: 'H2H support', value: percentText(selectedTip?.breakdown?.h2h), color: '#fbbf24' },
+                  { label: 'Match style', value: String(selectedTip?.breakdown?.style || 'unknown').replace(/-/g, ' '), color: '#c4b5fd' },
+                ].map((item) => (
+                  <div key={item.label} style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)' }}>
+                    <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{item.label}</div>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: item.color, lineHeight: 1.3, wordBreak: 'break-word' }}>{item.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid var(--sw-border)', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Selection logic</div>
+                <div style={{ fontSize: 13, color: '#e5e7eb', lineHeight: 1.55 }}>{selectedTip?.why || 'Historical edge summary unavailable.'}</div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => openTipDeepDive(selectedTip)}
+                  style={{ minHeight: 38, padding: '0 14px', borderRadius: 10, border: '1px solid rgba(255,122,0,0.35)', background: 'rgba(255,122,0,0.14)', color: '#f8fafc', fontWeight: 800, cursor: 'pointer' }}
+                >
+                  Deep Dive Into Stat Details
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {insightPred && (
         <div className="theme-overlay" onClick={() => setInsightPred(null)} style={{ position: 'fixed', inset: 0, zIndex: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
           <div className="theme-card" onClick={e => e.stopPropagation()} style={{ width: 'min(860px, 100%)', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(2,6,23,0.7)' }}>
