@@ -61,12 +61,55 @@ async function currentAccessToken() {
   return data?.session?.access_token || null
 }
 
+function authRedirectMode() {
+  if (typeof window === 'undefined') return ''
+  return new URL(window.location.href).searchParams.get('mode') || ''
+}
+
+function cleanupAuthRedirectUrl() {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  url.hash = ''
+  url.searchParams.delete('code')
+  window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`)
+}
+
+async function establishSessionFromUrl() {
+  if (!supabase || typeof window === 'undefined') return null
+
+  const url = new URL(window.location.href)
+  const hashParams = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : url.hash)
+  const accessToken = hashParams.get('access_token')
+  const refreshToken = hashParams.get('refresh_token')
+  const code = url.searchParams.get('code')
+
+  if (accessToken && refreshToken) {
+    const { data, error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    })
+    if (error) throw error
+    cleanupAuthRedirectUrl()
+    return data?.session || null
+  }
+
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+    if (error) throw error
+    cleanupAuthRedirectUrl()
+    return data?.session || null
+  }
+
+  return null
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(false)
   const [initializing, setInitializing] = useState(true)
   const [error, setError] = useState(null)
+  const [recoverySessionReady, setRecoverySessionReady] = useState(false)
 
   useEffect(() => {
     setApiAccessTokenGetter(currentAccessToken)
@@ -82,19 +125,40 @@ export function AuthProvider({ children }) {
         return
       }
 
+      try {
+        const urlSession = await establishSessionFromUrl()
+        if (cancelled) return
+        if (urlSession) {
+          setSession(urlSession)
+          if (authRedirectMode() === 'reset') setRecoverySessionReady(true)
+        }
+      } catch (sessionUrlError) {
+        if (!cancelled) setError(sessionUrlError.message || 'Could not restore password reset session.')
+      }
+
       const { data, error: sessionError } = await supabase.auth.getSession()
       if (cancelled) return
       if (sessionError) setError(sessionError.message)
       setSession(data?.session || null)
+      setRecoverySessionReady(Boolean(data?.session && authRedirectMode() === 'reset'))
       setInitializing(false)
     }
 
     bootstrap()
 
     if (!supabase) return undefined
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (cancelled) return
       setSession(nextSession || null)
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoverySessionReady(Boolean(nextSession))
+        return
+      }
+      if (!nextSession) {
+        setRecoverySessionReady(false)
+        return
+      }
+      setRecoverySessionReady(authRedirectMode() === 'reset')
     })
 
     return () => {
@@ -322,8 +386,14 @@ export function AuthProvider({ children }) {
     setLoading(true)
     setError(null)
     try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) throw sessionError
+      if (!sessionData?.session) {
+        throw new Error('Reset link is invalid or expired. Request a new password reset email.')
+      }
       const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
       if (updateError) throw updateError
+      setRecoverySessionReady(false)
       return { ok: true }
     } catch (err) {
       setError(err.message || 'Password reset failed')
@@ -348,12 +418,13 @@ export function AuthProvider({ children }) {
     resetPassword,
     changePassword,
     completePasswordReset,
+    recoverySessionReady,
     updateUser,
     clearError,
     TIERS,
     PRICING,
     isSupabaseConfigured,
-  }), [user, session, loading, initializing, error])
+  }), [user, session, loading, initializing, error, recoverySessionReady])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

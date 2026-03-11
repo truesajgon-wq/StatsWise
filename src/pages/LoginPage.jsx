@@ -70,7 +70,7 @@ function PasswordStrength({ password }) {
 export default function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { loginEmail, register, resetPassword, completePasswordReset, loading, error, clearError, isSupabaseConfigured } = useAuth()
+  const { loginEmail, register, resetPassword, completePasswordReset, loading, error, clearError, isSupabaseConfigured, recoverySessionReady, initializing } = useAuth()
 
   const initialMode = useMemo(() => {
     const queryMode = searchParams.get('mode')
@@ -272,14 +272,24 @@ export default function LoginPage() {
             {mode === 'reset' && (
               <form onSubmit={handleResetSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
-                  Enter your new password below. This page is opened from your email recovery link.
+                  Enter your new password below. This page must be opened from a valid password recovery email.
                 </div>
-                <Field label="NEW PASSWORD" type="password" value={resetForm.password} onChange={e => setResetForm(v => ({ ...v, password: e.target.value }))} error={resetErrors.password} placeholder="New password" autoComplete="new-password" />
-                <Field label="CONFIRM PASSWORD" type="password" value={resetForm.confirmPassword} onChange={e => setResetForm(v => ({ ...v, confirmPassword: e.target.value }))} error={resetErrors.confirmPassword} placeholder="Repeat new password" autoComplete="new-password" />
-                {resetForm.password && <PasswordStrength password={resetForm.password} />}
-                <SubmitButton loading={loading} label="Save new password" />
-                <button type="button" onClick={() => switchMode('login')} className="theme-button-ghost" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 12, borderRadius: 8, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  Back to login
+                {initializing ? (
+                  <div style={{ fontSize: 12, color: '#94a3b8' }}>Checking your recovery session...</div>
+                ) : recoverySessionReady ? (
+                  <>
+                    <Field label="NEW PASSWORD" type="password" value={resetForm.password} onChange={e => setResetForm(v => ({ ...v, password: e.target.value }))} error={resetErrors.password} placeholder="New password" autoComplete="new-password" />
+                    <Field label="CONFIRM PASSWORD" type="password" value={resetForm.confirmPassword} onChange={e => setResetForm(v => ({ ...v, confirmPassword: e.target.value }))} error={resetErrors.confirmPassword} placeholder="Repeat new password" autoComplete="new-password" />
+                    {resetForm.password && <PasswordStrength password={resetForm.password} />}
+                    <SubmitButton loading={loading} label="Save new password" />
+                  </>
+                ) : (
+                  <div style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.08)', color: '#fcd34d', fontSize: 13 }}>
+                    This reset link is missing or expired. Request a new password recovery email and use the latest link.
+                  </div>
+                )}
+                <button type="button" onClick={() => switchMode(recoverySessionReady ? 'login' : 'recover')} className="theme-button-ghost" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 12, borderRadius: 8, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  {recoverySessionReady ? 'Back to login' : 'Request new reset link'}
                 </button>
               </form>
             )}
