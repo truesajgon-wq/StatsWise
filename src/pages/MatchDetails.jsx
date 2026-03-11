@@ -413,18 +413,34 @@ function LineupsPanel({ lineups, fixture }) {
 // TAB 4 — H2H
 // ─────────────────────────────────────────────────────────────────────────────
 
-function H2HRow({ match, compact = false }) {
+function historyRangeCount(range) {
+  if (range === 'L5') return 5
+  if (range === 'L10') return 10
+  return 15
+}
+
+function buildFixtureLabel(match, teamName) {
+  const ownTeam = teamName || 'Team'
+  const opponent = match?.opponent || 'Opponent'
+  return match?.isHome ? `${ownTeam} vs ${opponent}` : `${opponent} vs ${ownTeam}`
+}
+
+function H2HRow({ match, teamName, compact = false }) {
   const rc = match.result === 'W' ? '#22c55e' : match.result === 'L' ? '#ef4444' : '#f59e0b'
   let ds = '-'
   try { ds = new Date(match.date).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'2-digit' }) } catch {}
+  const fixtureLabel = buildFixtureLabel(match, teamName)
+  const venueLabel = match.isHome ? 'Home fixture' : 'Away fixture'
+  const goalsLabel = match.goals != null ? `${match.goals} total goals` : 'Goal total n/a'
+  const cornersLabel = match.corners > 0 ? `${match.corners} corners` : 'Corners n/a'
   return (
     <div
       style={{
-        padding: compact ? '12px' : '14px 16px',
+        padding: compact ? '12px' : '15px 18px',
         borderBottom:'1px solid rgba(255,255,255,0.05)',
-        background: compact ? 'transparent' : 'rgba(255,255,255,0.015)',
+        background: compact ? 'transparent' : 'rgba(255,255,255,0.02)',
         display:'grid',
-        gap:10,
+        gap:12,
       }}
     >
       <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:0 }}>
@@ -432,17 +448,20 @@ function H2HRow({ match, compact = false }) {
         <span style={{ fontSize:9, fontWeight:800, padding:'3px 6px', borderRadius:999, background: match.isHome ? 'rgba(255,122,0,0.12)' : 'rgba(148,163,184,0.12)', color: match.isHome ? '#ffb36b' : '#cbd5e1', flexShrink:0 }}>{match.isHome ? 'HOME' : 'AWAY'}</span>
         <span style={{ color:'#64748b', fontSize:10, marginLeft:'auto', flexShrink:0 }}>{ds}</span>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) auto', gap:12, alignItems:'center' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
-          {match.opponentLogo && <img src={match.opponentLogo} alt="" width={20} height={20} style={{ objectFit:'contain', flexShrink:0, opacity:0.9 }} />}
+      <div style={{ display:'grid', gridTemplateColumns: compact ? '1fr' : 'minmax(0,1.45fr) minmax(180px, auto)', gap:12, alignItems:'center' }}>
+        <div style={{ display:'flex', alignItems:'flex-start', gap:10, minWidth:0 }}>
+          {match.opponentLogo && <img src={match.opponentLogo} alt="" width={22} height={22} style={{ objectFit:'contain', flexShrink:0, opacity:0.9, marginTop: 2 }} />}
           <div style={{ minWidth:0 }}>
-            <div style={{ color:'#f8fafc', fontSize:13, fontWeight:800, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{match.opponent}</div>
-            <div style={{ color:'#94a3b8', fontSize:11, marginTop:2 }}>{match.goals != null ? `${match.goals} total goals` : 'No goal data'}</div>
+            <div style={{ color:'#f8fafc', fontSize:13, fontWeight:800, lineHeight:1.35, wordBreak:'break-word' }}>{fixtureLabel}</div>
+            <div style={{ color:'#64748b', fontSize:10, marginTop:3, textTransform:'uppercase', letterSpacing:'0.06em' }}>{venueLabel}</div>
+            <div style={{ color:'#94a3b8', fontSize:11, marginTop:4 }}>{goalsLabel}</div>
           </div>
         </div>
-        <div style={{ textAlign:'right', flexShrink:0 }}>
-          <div style={{ fontFamily:'monospace', fontWeight:900, color:'#f8fafc', fontSize:compact ? 14 : 15 }}>{match.homeGoals}-{match.awayGoals}</div>
-          <div style={{ color:'#64748b', fontSize:10, marginTop:2 }}>{match.corners > 0 ? `${match.corners} corners` : 'Corners n/a'}</div>
+        <div style={{ display:'grid', gap:6, justifyItems: compact ? 'start' : 'end', flexShrink:0 }}>
+          <div style={{ fontFamily:'monospace', fontWeight:900, color:'#f8fafc', fontSize:compact ? 15 : 16 }}>{match.homeGoals}-{match.awayGoals}</div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', justifyContent: compact ? 'flex-start' : 'flex-end' }}>
+            <span style={{ fontSize:10, color:'#94a3b8', padding:'4px 8px', borderRadius:999, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)' }}>{cornersLabel}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -479,6 +498,7 @@ function H2HSummary({ matches, homeTeam, awayTeam, compact = false }) {
               <span style={{ color:'#f8fafc', fontWeight:900, fontSize:18 }}>{card.value}</span>
               <span style={{ color:card.color, fontSize:11, fontWeight:700 }}>{Math.round((card.value / total) * 100)}%</span>
             </div>
+            <div style={{ color:'#64748b', fontSize:10, marginTop:4 }}>{card.value} of {total} matches</div>
             <div style={{ marginTop:10, height:6, borderRadius:999, background:'rgba(255,255,255,0.05)', overflow:'hidden' }}>
               <div style={{ width:`${(card.value / total) * 100}%`, height:'100%', background:card.color, borderRadius:999 }} />
             </div>
@@ -491,27 +511,33 @@ function H2HSummary({ matches, homeTeam, awayTeam, compact = false }) {
 
 function FormBadges({ matches, label, compact = false }) {
   if (!matches?.length) return null
-  const last5 = matches.slice(0,5)
-  const wins = last5.filter(m => m.result==='W').length
-  const draws = last5.filter(m => m.result==='D').length
-  const losses = last5.filter(m => m.result==='L').length
+  const wins = matches.filter(m => m.result==='W').length
+  const draws = matches.filter(m => m.result==='D').length
+  const losses = matches.filter(m => m.result==='L').length
+  const total = Math.max(matches.length, 1)
   return (
     <div style={{ display:'grid', gap:12, padding:compact ? '12px' : '14px 16px', background:'rgba(255,255,255,0.02)', borderBottom:'1px solid var(--sw-border)' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
         <span style={{ fontSize:11, color:'#ffb36b', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase' }}>{label} form</span>
-        <span style={{ color:'#64748b', fontSize:11 }}>Last {last5.length} matches</span>
+        <span style={{ color:'#64748b', fontSize:11 }}>Last {matches.length} matches</span>
       </div>
-      <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-        {last5.map((m,i) => {
+      <div style={{ display:'grid', gridTemplateColumns:`repeat(${Math.max(matches.length, 1)}, minmax(${compact ? 28 : 34}px, 1fr))`, gap:8, alignItems:'center' }}>
+        {matches.map((m,i) => {
           const rc = m.result==='W' ? '#22c55e' : m.result==='L' ? '#ef4444' : '#f59e0b'
-          return <span key={i} style={{ minWidth:32, height:32, borderRadius:999, background:`${rc}1a`, border:`1px solid ${rc}55`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:900, color:rc }}>{m.result}</span>
+          return <span key={i} title={buildFixtureLabel(m, label)} style={{ minWidth:compact ? 28 : 34, height:compact ? 28 : 34, borderRadius:999, background:`${rc}1a`, border:`1px solid ${rc}55`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:900, color:rc }}>{m.result}</span>
         })}
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:8 }}>
         {[{ label:'Wins', value:wins, color:'#22c55e' }, { label:'Draws', value:draws, color:'#f59e0b' }, { label:'Losses', value:losses, color:'#ef4444' }].map(item => (
           <div key={item.label} style={{ padding:'10px 12px', borderRadius:10, border:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.015)' }}>
             <div style={{ color:'#94a3b8', fontSize:10, marginBottom:6 }}>{item.label}</div>
-            <div style={{ color:item.color, fontWeight:900, fontSize:16 }}>{item.value}</div>
+            <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
+              <div style={{ color:item.color, fontWeight:900, fontSize:16 }}>{item.value}</div>
+              <div style={{ color:'#64748b', fontSize:10 }}>{Math.round((item.value / total) * 100)}%</div>
+            </div>
+            <div style={{ marginTop:8, height:6, borderRadius:999, background:'rgba(255,255,255,0.05)', overflow:'hidden' }}>
+              <div style={{ width:`${(item.value / total) * 100}%`, height:'100%', background:item.color, borderRadius:999 }} />
+            </div>
           </div>
         ))}
       </div>
@@ -521,6 +547,7 @@ function FormBadges({ matches, label, compact = false }) {
 
 function H2HPanel({ h2h, homeHistory, awayHistory, fixture }) {
   const [sub, setSub] = useState('h2h')
+  const [range, setRange] = useState('L10')
   const [compact, setCompact] = useState(() => window.innerWidth <= 640)
 
   useEffect(() => {
@@ -534,7 +561,11 @@ function H2HPanel({ h2h, homeHistory, awayHistory, fixture }) {
     { key:'home', label: fixture?.homeTeam?.name || 'Home' },
     { key:'away', label: fixture?.awayTeam?.name || 'Away' },
   ]
-  const active = sub==='h2h' ? h2h : sub==='home' ? homeHistory : awayHistory
+  const activeAll = sub==='h2h' ? h2h : sub==='home' ? homeHistory : awayHistory
+  const visibleCount = historyRangeCount(range)
+  const active = (activeAll || []).slice(0, visibleCount)
+  const teamLabel = sub === 'away' ? (fixture?.awayTeam?.name || 'Away') : (fixture?.homeTeam?.name || 'Home')
+  const rangeOptions = ['L5', 'L10', 'L15']
 
   return (
     <div>
@@ -550,12 +581,40 @@ function H2HPanel({ h2h, homeHistory, awayHistory, fixture }) {
         ))}
       </div>
 
-      {sub==='h2h' && h2h?.length>0     && <H2HSummary matches={h2h} homeTeam={fixture?.homeTeam} awayTeam={fixture?.awayTeam} compact={compact} />}
-      {sub==='home' && homeHistory?.length>0 && <FormBadges matches={homeHistory} label={fixture?.homeTeam?.name || 'Home'} compact={compact} />}
-      {sub==='away' && awayHistory?.length>0  && <FormBadges matches={awayHistory} label={fixture?.awayTeam?.name || 'Away'} compact={compact} />}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, padding: compact ? '10px 12px' : '12px 16px', borderBottom:'1px solid var(--sw-border)', background:'rgba(255,255,255,0.015)', flexWrap:'wrap' }}>
+        <div style={{ color:'#94a3b8', fontSize:11 }}>
+          Showing <span style={{ color:'#f8fafc', fontWeight:800 }}>{Math.min(active.length, visibleCount)}</span> of <span style={{ color:'#f8fafc', fontWeight:800 }}>{activeAll?.length || 0}</span> matches
+        </div>
+        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+          {rangeOptions.map(option => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setRange(option)}
+              style={{
+                minHeight: 32,
+                padding: '0 12px',
+                borderRadius: 999,
+                border: `1px solid ${range === option ? 'rgba(249,115,22,0.45)' : 'rgba(255,255,255,0.08)'}`,
+                background: range === option ? 'rgba(249,115,22,0.12)' : 'rgba(255,255,255,0.02)',
+                color: range === option ? '#ffb36b' : '#94a3b8',
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {sub==='h2h' && active.length>0     && <H2HSummary matches={active} homeTeam={fixture?.homeTeam} awayTeam={fixture?.awayTeam} compact={compact} />}
+      {sub==='home' && active.length>0 && <FormBadges matches={active} label={fixture?.homeTeam?.name || 'Home'} compact={compact} />}
+      {sub==='away' && active.length>0  && <FormBadges matches={active} label={fixture?.awayTeam?.name || 'Away'} compact={compact} />}
 
       {active?.length>0
-        ? active.map((m,i) => <H2HRow key={i} match={m} compact={compact} />)
+        ? active.map((m,i) => <H2HRow key={`${m?.date || 'row'}-${i}`} match={m} teamName={teamLabel} compact={compact} />)
         : <EmptyState icon={'\u{1F50D}'} text="No historical data available." />}
     </div>
   )
