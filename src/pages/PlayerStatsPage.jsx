@@ -61,11 +61,18 @@ function LastNSection({ gameHistory, playerName, playerTeam }) {
   const max = Math.max(1, ...allVals, alt + 1)
   const mapRow = (r) => {
     const value = Number(r?.[statKey] || 0)
+    const playerTeamScore = Number.isFinite(Number(r?.playerTeamGoals)) ? Number(r.playerTeamGoals) : null
+    const opponentScore = Number.isFinite(Number(r?.opponentGoals)) ? Number(r.opponentGoals) : null
     return {
       fixtureId: r.fixtureId || null,
       opponent: r.opponent,
       fixtureName: r.isHome ? `${playerTeam} vs ${r.opponent}` : `${r.opponent} vs ${playerTeam}`,
       date: r.date,
+      isHome: Boolean(r.isHome),
+      homeGoals: playerTeamScore != null && opponentScore != null ? (r.isHome ? playerTeamScore : opponentScore) : null,
+      awayGoals: playerTeamScore != null && opponentScore != null ? (r.isHome ? opponentScore : playerTeamScore) : null,
+      myGoals: playerTeamScore,
+      theirGoals: opponentScore,
       value,
       label: Number.isInteger(value) ? String(value) : value.toFixed(1),
       isOver: value > alt,
@@ -113,6 +120,12 @@ function generateGameHistory(stats, n = 20) {
     g.opponent = opponents[i % opponents.length]
     g.fixtureId = null
     g.isHome = i % 2 === 0
+    const playerGoals = Number(g.goals || 0)
+    const playerShotsOnTarget = Number(g.shotsOnTarget || 0)
+    const teamBase = Math.max(playerGoals, Math.round(playerShotsOnTarget / 2))
+    const opponentBase = Math.max(0, Math.round(Math.random() * 3))
+    g.playerTeamGoals = Math.min(6, teamBase + Math.round(Math.random() * 2))
+    g.opponentGoals = Math.min(5, opponentBase)
     games.push(g)
   }
   return games

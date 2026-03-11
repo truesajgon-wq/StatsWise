@@ -20,6 +20,7 @@ import StatsWiseWordmark from '../components/StatsWiseWordmark.jsx'
 import { getAppToday } from '../utils/appDate.js'
 import { getValuePickConfidenceBadgeStyle, getValuePickConfidenceTier } from '../utils/confidenceBadge.js'
 import CountryFlag from '../components/CountryFlag.jsx'
+import { buildModelBreakdown, evaluateFixturePrediction } from '../utils/predictionModel.js'
 
 function toDateStr(d) { return d.toISOString().split('T')[0] }
 
@@ -188,36 +189,38 @@ function buildTips(fixtures, t) {
       const def = getStatDef(statKey)
       const alt = def?.defaultAlt ?? 0
       if (!def) continue
-
-      const homeTrend = weightedRate(fixture.homeHistory, statKey, alt, def, true)
-      const awayTrend = weightedRate(fixture.awayHistory, statKey, alt, def, false)
-      if (homeTrend.score == null || awayTrend.score == null) continue
-
-      const h2hRate = safeRate(fixture.h2h?.slice(0, 15) || [], statKey, alt, def, true)
-      const formScore = (homeTrend.score + awayTrend.score) / 2
-      const h2hScore = h2hRate == null ? formScore : h2hRate
-      const l5Boost = ((homeTrend.l5 ?? homeTrend.score) + (awayTrend.l5 ?? awayTrend.score)) / 2
+      const candidates = evaluateFixturePrediction(fixture, statKey, alt)
+      if (!candidates.length) continue
       const style = styleTag(fixture.homeHistory, fixture.awayHistory)
-      const styleBoost = style === 'high-tempo' && ['goals', 'btts', 'shots', 'firstHalfGoals', 'goalsInBothHalves'].includes(statKey)
+      const styleBoost = style === 'high-tempo' && ['goals', 'btts', 'shots', 'firstHalfGoals', 'goalsInBothHalves', 'teamGoals'].includes(statKey)
         ? 0.04
-        : style === 'physical' && ['cards', 'fouls'].includes(statKey)
+        : style === 'physical' && ['cards', 'fouls', 'teamFouls', 'teamCards'].includes(statKey)
           ? 0.04
-          : style === 'wide-play' && statKey === 'corners'
+          : style === 'wide-play' && ['corners', 'teamCorners'].includes(statKey)
             ? 0.04
             : 0
-
-      const combined = clamp01((formScore * 0.64) + (h2hScore * 0.26) + (l5Boost * 0.10) + styleBoost)
-      if (!best || combined > best.score) {
+      const rankedCandidates = candidates
+        .map(candidate => {
+          const breakdown = buildModelBreakdown(candidate)
+          const adjustedScore = clamp01(candidate.combinedRate + styleBoost)
+          return {
+            ...candidate,
+            score: adjustedScore,
+            breakdown,
+            style,
+          }
+        })
+        .sort((a, b) => b.score - a.score)
+      const candidate = rankedCandidates[0]
+      if (!candidate) continue
+      if (!best || candidate.score > best.score) {
         best = {
           statKey,
           alt,
-          score: combined,
+          score: candidate.score,
           def,
-          style,
-          h2hRate,
-          l5: l5Boost,
-          l10: (homeTrend.l10 == null || awayTrend.l10 == null) ? null : (homeTrend.l10 + awayTrend.l10) / 2,
-          l15: (homeTrend.l15 == null || awayTrend.l15 == null) ? null : (homeTrend.l15 + awayTrend.l15) / 2,
+          style: candidate.style,
+          candidate,
         }
       }
     }
@@ -225,6 +228,7 @@ function buildTips(fixtures, t) {
     if (!best) continue
     const confidence = Math.max(55, Math.min(95, Math.round(best.score * 100)))
     const thresholdText = best.def?.binary ? 'YES' : `Over ${best.alt}`
+    const breakdown = best.candidate?.breakdown || {}
     tips.push({
       fixture,
       fixtureId: fixture.id,
@@ -232,12 +236,15 @@ function buildTips(fixtures, t) {
       confidence,
       match: `${fixture.homeTeam.name} vs ${fixture.awayTeam.name}`,
       bet: `${localizedLabel(best.statKey, t)} - ${thresholdText}`,
-      why: `L5 ${(best.l5 ?? 0) * 100 | 0}% | L10 ${best.l10 == null ? '-' : `${(best.l10 * 100) | 0}%`} | L15 ${best.l15 == null ? '-' : `${(best.l15 * 100) | 0}%`} | H2H ${best.h2hRate == null ? '-' : `${(best.h2hRate * 100) | 0}%`} | Style: ${best.style}`,
+      why: `L5 ${breakdown.l5 == null ? '-' : `${(breakdown.l5 * 100) | 0}%`} | L10 ${breakdown.l10 == null ? '-' : `${(breakdown.l10 * 100) | 0}%`} | L15 ${breakdown.l15 == null ? '-' : `${(breakdown.l15 * 100) | 0}%`} | H2H ${breakdown.h2h == null ? '-' : `${(breakdown.h2h * 100) | 0}%`} | Opponent allowance ${breakdown.opponent == null ? '-' : `${(breakdown.opponent * 100) | 0}%`} | Style: ${best.style}`,
       breakdown: {
-        l5: best.l5,
-        l10: best.l10,
-        l15: best.l15,
-        h2h: best.h2hRate,
+        l5: breakdown.l5,
+        l10: breakdown.l10,
+        l15: breakdown.l15,
+        h2h: breakdown.h2h,
+        opponent: breakdown.opponent,
+        consistency: breakdown.consistency,
+        sample: breakdown.sample,
         style: best.style,
       },
       fallback: false,
@@ -993,6 +1000,9 @@ function handleViewChange(key) {
                   { label: 'L10 hit rate', value: percentText(selectedTip?.breakdown?.l10), color: '#34d399' },
                   { label: 'L15 hit rate', value: percentText(selectedTip?.breakdown?.l15), color: '#86efac' },
                   { label: 'H2H support', value: percentText(selectedTip?.breakdown?.h2h), color: '#fbbf24' },
+                  { label: 'Opponent allowance', value: percentText(selectedTip?.breakdown?.opponent), color: '#fda4af' },
+                  { label: 'Sample size', value: selectedTip?.breakdown?.sample ? `${selectedTip.breakdown.sample} matches` : '-', color: '#cbd5e1' },
+                  { label: 'Consistency', value: selectedTip?.breakdown?.consistency == null ? '-' : `${Math.round(selectedTip.breakdown.consistency * 100)}%`, color: '#a78bfa' },
                   { label: 'Match style', value: String(selectedTip?.breakdown?.style || 'unknown').replace(/-/g, ' '), color: '#c4b5fd' },
                 ].map((item) => (
                   <div key={item.label} style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)' }}>

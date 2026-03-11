@@ -228,6 +228,7 @@ function TeamHeader({ team, title }) {
 function MobileFixtureRow({ row, statLabel, isOutcome, altLine, onSelect }) {
   const over = Number(row?.value || 0) > Number(altLine || 0)
   const valueText = isOutcome ? formatOutcomeScore(row) : (row?.label || '-')
+  const fullTimeResult = formatFullTimeResult(row)
   return (
     <button
       type="button"
@@ -250,6 +251,9 @@ function MobileFixtureRow({ row, statLabel, isOutcome, altLine, onSelect }) {
         <span style={{ fontSize: 11, color: '#94a3b8' }}>{formatDate(row?.date)}</span>
       </div>
       <div style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0', textAlign: 'center', lineHeight: 1.35 }}>{row?.fixtureName || '-'}</div>
+      <div style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
+        FT: <span style={{ color: '#f8fafc', fontWeight: 800 }}>{fullTimeResult}</span>
+      </div>
       <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>
         {statLabel}: <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{valueText}</span>
       </div>
@@ -545,7 +549,9 @@ function ChartPanel({
                 <td className="mpt-col-fixture" style={{ padding: '10px 8px', color: '#dbe7f8', fontSize: 12, fontWeight: 700 }}>
                   <div style={{ display: 'grid', gap: 3 }}>
                     <span style={{ whiteSpace: 'normal', lineHeight: 1.35 }}>{row.fixtureName || '-'}</span>
-                    <span style={{ color: '#64748b', fontSize: 10, fontWeight: 600 }}>{formatFixtureContext(row)}</span>
+                    <span style={{ color: '#64748b', fontSize: 10, fontWeight: 600 }}>
+                      {formatFixtureContext(row)} · FT {formatFullTimeResult(row)}
+                    </span>
                   </div>
                 </td>
                 <td className="mpt-col-stat" style={{ padding: '10px 8px', color: '#93a8c4', fontSize: 12 }}>{statLabel}</td>

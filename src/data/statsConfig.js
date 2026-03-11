@@ -28,7 +28,14 @@ export function extractStatValue(match, key, isHome = true, options = {}) {
     case 'goals':               value = hg + ag; break
     case 'teamGoals':           value = myG; break
     case 'btts':                value = (match.btts != null ? match.btts : (hg > 0 && ag > 0)) ? 1 : 0; break
-    case 'corners':             value = firstNumber(match.corners); break
+    case 'corners':
+      value = firstNumber(
+        match.corners,
+        firstNumber(match.homeCorners, match.myCorners) != null && firstNumber(match.awayCorners, match.theirCorners) != null
+          ? firstNumber(match.homeCorners, match.myCorners) + firstNumber(match.awayCorners, match.theirCorners)
+          : null,
+      )
+      break
     case 'teamCorners':
       value = firstNumber(
         match.teamCorners,
@@ -36,7 +43,14 @@ export function extractStatValue(match, key, isHome = true, options = {}) {
         isHome ? match.homeCorners : match.awayCorners,
       )
       break
-    case 'cards':               value = firstNumber(match.cards); break
+    case 'cards':
+      value = firstNumber(
+        match.cards,
+        firstNumber(match.homeCards, match.myCards) != null && firstNumber(match.awayCards, match.theirCards) != null
+          ? firstNumber(match.homeCards, match.myCards) + firstNumber(match.awayCards, match.theirCards)
+          : null,
+      )
+      break
     case 'teamCards':
       value = firstNumber(
         match.teamCards,
@@ -45,7 +59,12 @@ export function extractStatValue(match, key, isHome = true, options = {}) {
       )
       break
     case 'shots':
-      value = firstNumber(match.shotsOnTarget, match.shots)
+      value = firstNumber(
+        match.shotsOnTarget,
+        firstNumber(match.homeShotsOnTarget, match.myShotsOnTarget) != null && firstNumber(match.awayShotsOnTarget, match.theirShotsOnTarget) != null
+          ? firstNumber(match.homeShotsOnTarget, match.myShotsOnTarget) + firstNumber(match.awayShotsOnTarget, match.theirShotsOnTarget)
+          : null,
+      )
       break
     case 'teamShots':
       value = firstNumber(
@@ -94,7 +113,14 @@ export function extractStatValue(match, key, isHome = true, options = {}) {
     case 'goalsInBothHalves':
       value = (match.bothHalvesGoals != null ? match.bothHalvesGoals : ((match.firstHalfGoals ?? 0) > 0 && (match.secondHalfGoals ?? 0) > 0)) ? 1 : 0
       break
-    case 'fouls':               value = firstNumber(match.fouls); break
+    case 'fouls':
+      value = firstNumber(
+        match.fouls,
+        firstNumber(match.homeFouls, match.myFouls) != null && firstNumber(match.awayFouls, match.theirFouls) != null
+          ? firstNumber(match.homeFouls, match.myFouls) + firstNumber(match.awayFouls, match.theirFouls)
+          : null,
+      )
+      break
     case 'teamFouls':
       value = firstNumber(
         match.teamFouls,

@@ -216,7 +216,25 @@ export default function SubscriptionPage() {
   return (
     <div className="theme-page" style={{ color: 'var(--sw-text)' }}>
       <header className="theme-header" style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 10 }}>
-        <div />
+        <div>
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            style={{
+              minHeight: 36,
+              padding: '0 12px',
+              borderRadius: 999,
+              border: '1px solid var(--sw-border)',
+              background: 'rgba(255,255,255,0.03)',
+              color: '#cbd5e1',
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            Back
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => navigate('/')}

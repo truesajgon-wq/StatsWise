@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
-import { extractStatValue, getStatDef, hasStatValue, STAT_GROUPS } from '../data/statsConfig.js'
+import { getStatDef, STAT_GROUPS } from '../data/statsConfig.js'
 import { useLang } from '../context/LangContext.jsx'
+import { evaluateFixturePrediction } from '../utils/predictionModel.js'
 
 // â”€â”€â”€ Prediction Engine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -40,29 +41,6 @@ function centeredHalfAltWindow(anchor, maxVisible = 5) {
   return window
 }
 
-function calcHits(history, statKey, alt, isHome) {
-  if (!history?.length) return { hits: 0, total: 0, rate: 0, values: [] }
-  const last10 = history
-    .filter(match => hasStatValue(match, statKey, isHome))
-    .slice(0, 10)
-  if (!last10.length) return { hits: 0, total: 0, rate: 0, values: [] }
-  const def    = getStatDef(statKey)
-  const values = last10.map(m => extractStatValue(m, statKey, isHome))
-  const hits   = values.filter(v => def?.binary ? v === 1 : (alt !== null && v > alt)).length
-  return { hits, total: last10.length, rate: last10.length ? hits / last10.length : 0, values }
-}
-
-function checkStreak(history, statKey, alt, isHome, n = 3) {
-  if (!history?.length) return false
-  const def  = getStatDef(statKey)
-  const last = history.filter(match => hasStatValue(match, statKey, isHome)).slice(0, n)
-  if (last.length < n) return false
-  return last.every(m => {
-    const v = extractStatValue(m, statKey, isHome)
-    return def?.binary ? v === 1 : (alt !== null && v > alt)
-  })
-}
-
 /**
  * Build a fully clear, unambiguous prediction label for team-scope stats.
  * E.g. "Arsenal (Home) - Over 1.5 Shots on Target"
@@ -88,72 +66,21 @@ function buildMatchLabel(statDef, alt) {
 export function runPredictionEngine(fixtures, statKey, alts, minRate = 0.6) {
   const def = getStatDef(statKey)
   if (!def) return []
-  const results = []
-  const isTeamScope = def.scope === 'team'
-
-  fixtures.forEach(f => {
-    alts.forEach(alt => {
-      if (isTeamScope) {
-        // Evaluate home and away SEPARATELY for team-scope stats
-        ;[true, false].forEach(isHome => {
-          const teamData = calcHits(isHome ? f.homeHistory : f.awayHistory, statKey, alt, isHome)
-          if (teamData.total === 0) return
-          if (teamData.rate < minRate) return
-
-          const streak = checkStreak(isHome ? f.homeHistory : f.awayHistory, statKey, alt, isHome)
-          const score  = Math.min(teamData.rate + (streak ? 0.06 : 0), 1)
-
-          results.push({
-            id:           `${f.id}-${statKey}-${alt}-${isHome ? 'h' : 'a'}`,
-            fixture:      f,
-            statKey,
-            alt,
-            isHome,
-            home:         isHome ? teamData : { hits:0, total:0, rate:0, values:[] },
-            away:         !isHome ? teamData : { hits:0, total:0, rate:0, values:[] },
-            combinedRate: score,
-            rawRate:      teamData.rate,
-            homeStreak:   isHome && streak,
-            awayStreak:   !isHome && streak,
-            teamScope:    true,
-            activeTeamData: teamData,
-            label:        buildTeamLabel(f, def, alt, isHome),
-          })
-        })
-      } else {
-        // Match-scope stats: evaluate both teams together
-        const home = calcHits(f.homeHistory, statKey, alt, true)
-        const away = calcHits(f.awayHistory, statKey, alt, false)
-        if (home.total === 0 && away.total === 0) return
-
-        const combined    = (home.rate + away.rate) / 2
-        if (combined < minRate) return
-
-        const homeStreak  = checkStreak(f.homeHistory, statKey, alt, true)
-        const awayStreak  = checkStreak(f.awayHistory, statKey, alt, false)
-        const streakBonus = (homeStreak ? 0.04 : 0) + (awayStreak ? 0.04 : 0)
-        const score       = Math.min(combined + streakBonus, 1)
-
-        results.push({
-          id:           `${f.id}-${statKey}-${alt}`,
-          fixture:      f,
-          statKey,
-          alt,
-          isHome:       null,
-          home,
-          away,
-          combinedRate: score,
-          rawRate:      combined,
-          homeStreak,
-          awayStreak,
-          teamScope:    false,
-          label:        buildMatchLabel(def, alt),
-        })
-      }
-    })
-  })
-
-  return results.sort((a, b) => b.combinedRate - a.combinedRate)
+  return fixtures
+    .flatMap(fixture => alts.flatMap(alt => evaluateFixturePrediction(fixture, statKey, alt)))
+    .filter(result => result.combinedRate >= minRate)
+    .map(result => ({
+      ...result,
+      id: result.teamScope
+        ? `${result.fixture.id}-${statKey}-${result.alt}-${result.isHome ? 'h' : 'a'}`
+        : `${result.fixture.id}-${statKey}-${result.alt}`,
+      label: result.teamScope
+        ? buildTeamLabel(result.fixture, def, result.alt, result.isHome)
+        : buildMatchLabel(def, result.alt),
+      homeStreak: Boolean(result.home?.streak),
+      awayStreak: Boolean(result.away?.streak),
+    }))
+    .sort((a, b) => b.combinedRate - a.combinedRate)
 }
 
 // â”€â”€â”€ Confidence styling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

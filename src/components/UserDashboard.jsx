@@ -647,7 +647,26 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
 
             <button
               onClick={onClose}
-              style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--sw-border)', color: '#64748b', cursor: 'pointer', fontSize: 16, padding: 0, flexShrink: 0, display: 'grid', placeItems: 'center' }}
+              aria-label="Close account panel"
+              style={{
+                width: 36,
+                height: 36,
+                minWidth: 36,
+                minHeight: 36,
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                color: '#cbd5e1',
+                cursor: 'pointer',
+                fontSize: 18,
+                fontWeight: 700,
+                lineHeight: 1,
+                padding: 0,
+                flexShrink: 0,
+                display: 'grid',
+                placeItems: 'center',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+              }}
             >
               ×
             </button>
