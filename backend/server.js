@@ -1195,6 +1195,8 @@ app.get('/api/match/:id/details', async (req, res) => {
       })
     }
 
+    const fallbackDate = String(req.query.date || '').trim()
+
     const [fixtureRes, statsRes, eventsRes, lineupsRes, playersRes] = await Promise.allSettled([
       apiFetch('fixtures',            { id },         TTL.fixtures),
       apiFetch('fixtures/statistics', { fixture: id }, TTL.statistics),
@@ -1203,7 +1205,15 @@ app.get('/api/match/:id/details', async (req, res) => {
       apiFetch('fixtures/players',    { fixture: id }, TTL.players),
     ])
 
-    const fixture = fixtureRes.value?.data?.[0]
+    let fixture = fixtureRes.value?.data?.[0]
+    if (!fixture && /^\d{4}-\d{2}-\d{2}$/.test(fallbackDate)) {
+      const fallbackFixturesRes = await apiFetch(
+        'fixtures',
+        { date: fallbackDate, timezone: 'Europe/Warsaw' },
+        TTL.fixtures,
+      )
+      fixture = (fallbackFixturesRes?.data ?? []).find(item => String(item?.fixture?.id || '') === String(id))
+    }
     if (!fixture) {
       return res.status(404).json({ success: false, error: 'Match not found' })
     }
