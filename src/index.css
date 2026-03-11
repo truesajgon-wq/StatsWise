@@ -701,7 +701,7 @@ button {
 
 @media (max-width: 1024px) {
   .user-dashboard-overlay {
-    align-items: flex-end !important;
+    align-items: center !important;
     justify-content: center !important;
     padding: 12px !important;
   }
@@ -730,7 +730,7 @@ button {
   }
 
   .user-profile-grid {
-    grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+    grid-template-columns: 1fr;
   }
 }
 
@@ -755,10 +755,7 @@ button {
   }
 
   .user-dashboard-tabs {
-    grid-template-columns: 1fr !important;
-    position: sticky;
-    top: 0;
-    z-index: 1;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 
   .user-dashboard-content {
@@ -833,4 +830,31 @@ button {
     border-right: none !important;
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
   }
+}
+
+.user-dashboard-shell {
+  overscroll-behavior: contain;
+}
+
+.user-dashboard-tab {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-dashboard-content > * {
+  width: 100%;
+  min-width: 0;
+}
+
+.user-dashboard-section,
+.user-profile-grid {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.user-profile-card {
+  width: 100%;
+  min-width: 0;
 }

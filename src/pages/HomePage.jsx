@@ -18,6 +18,7 @@ import StatPredictionPage from './StatPredictionPage.jsx'
 import { SIDEBAR_KEY_MAP, viewKeyToStat, extractStatValue, getStatDef } from '../data/statsConfig.js'
 import StatsWiseWordmark from '../components/StatsWiseWordmark.jsx'
 import { getAppToday } from '../utils/appDate.js'
+import { getValuePickConfidenceBadgeStyle } from '../utils/confidenceBadge.js'
 
 function toDateStr(d) { return d.toISOString().split('T')[0] }
 
@@ -161,22 +162,6 @@ function fallbackTips(fixtures, t, count = 5) {
     fallback: true,
     rankScore: 0.55 - idx * 0.01,
   }))
-}
-
-function tipConfidenceBadgeStyle(confidence) {
-  if (confidence <= 60) {
-    return {
-      color: '#22c55e',
-      background: 'rgba(34,197,94,0.10)',
-      border: '1px solid rgba(34,197,94,0.30)',
-    }
-  }
-
-  return {
-    color: '#ffb36b',
-    background: 'rgba(255,122,0,0.12)',
-    border: '1px solid rgba(255,122,0,0.30)',
-  }
 }
 
 function buildTips(fixtures, t) {
@@ -868,7 +853,7 @@ function handleViewChange(key) {
                   )}
                   {!panelTipLoading && panelTips.map((tip, idx) => {
                     const hot = idx === 0
-                    const confidenceBadge = tipConfidenceBadgeStyle(tip.confidence)
+                    const confidenceBadge = getValuePickConfidenceBadgeStyle(tip.confidence)
                     return (
                       <button
                         key={`${tip.fixtureId}-${tip.statKey}`}

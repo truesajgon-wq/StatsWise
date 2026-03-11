@@ -2,6 +2,7 @@
 import { TOP_LEAGUE_IDS } from '../data/api.js'
 import { useLang } from '../context/LangContext.jsx'
 import { STATS_ORDER, STAT_GROUPS, statViewKey } from '../data/statsConfig.js'
+import { getValuePickConfidenceBadgeStyle } from '../utils/confidenceBadge.js'
 
 const PRIORITY_COUNTRY_ORDER = ['England', 'Spain', 'Italy', 'Germany', 'France', 'Poland', 'Portugal']
 const PRIORITY_LEAGUE_ORDER = [2, 3, 39, 78, 140, 61, 135, 106, 94] // UCL, UEL, then top domestic leagues
@@ -232,7 +233,7 @@ export default function Sidebar({ activeView, onViewChange, activeLeague, onLeag
                   <button key={`${tip.fixtureId}-${tip.statKey}-${idx}`} onClick={() => mobileInsights?.onTipSelect?.(tip)} style={{ border: '1px solid var(--sw-border)', borderRadius: 8, padding: '8px 9px', background: 'var(--sw-surface-0)', textAlign: 'left', cursor: 'pointer' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
                       <span style={{ fontSize: 10, fontWeight: 800, color: '#f8fafc' }}>#{idx + 1} PICK</span>
-                      <span style={{ fontSize: 10, fontWeight: 800, color: '#22c55e' }}>{tip.confidence}%</span>
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 999, ...getValuePickConfidenceBadgeStyle(tip.confidence) }}>{tip.confidence}%</span>
                     </div>
                     <div style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 700, marginBottom: 2 }}>{tip.bet}</div>
                     <div style={{ fontSize: 10, color: '#64748b', lineHeight: 1.3 }}>{tip.match}</div>

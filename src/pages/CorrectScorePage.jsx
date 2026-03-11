@@ -107,14 +107,14 @@ function FixtureCard({ fixture, onClick, selected, topProb }) {
         <span style={{ fontSize: 10, color: 'var(--sw-muted)', fontWeight: 700, lineHeight: 1.3 }}>
           {league?.name}{time ? ` • ${time}` : ''}
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <span style={{ fontSize: 10, fontWeight: 800, borderRadius: 999, padding: '2px 6px', ...statusTone }}>
-            {statusLabel}
-          </span>
-          <span style={{ fontSize: 10, fontWeight: 800, color: '#22c55e', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 999, padding: '2px 6px' }}>
-            Top {topProb.toFixed(1)}%
-          </span>
-        </div>
+        <span style={{ fontSize: 10, fontWeight: 800, color: '#22c55e', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 999, padding: '2px 6px', flexShrink: 0 }}>
+          Top {topProb.toFixed(1)}%
+        </span>
+      </div>
+      <div style={{ marginBottom: 10 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 22, fontSize: 10, fontWeight: 800, borderRadius: 999, padding: '2px 8px', ...statusTone }}>
+          {statusLabel}
+        </span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25 }}>{homeTeam?.name}</span>
@@ -329,14 +329,14 @@ export default function CorrectScorePage({ fixtures = [], loading }) {
             </div>
 
             <div className="cs-detail-card cs-panel" style={{ padding: '16px 20px' }}>
-              <div style={{ fontSize: 11, color: 'var(--sw-muted)', marginBottom: 8 }}>{selected.league?.name}{selected.time ? ` • ${selected.time}` : ''}</div>
-              <div className="cs-selected-row" style={{ display: 'grid', gridTemplateColumns: '32px minmax(0,1fr) 42px', alignItems: 'center', gap: 12 }}>
-                <div className="cs-selected-score" style={{ width: 64, textAlign: 'center', justifySelf: 'center' }}>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: selected.status === 'FT' ? '#22c55e' : selected.isLive ? '#f97316' : '#94a3b8', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                    {selected.isLive ? `${selected.elapsed || ''}'` : selected.status === 'FT' ? 'FT' : ''}
-                  </span>
-                </div>
-                <div style={{ minWidth: 0, display: 'grid', gridTemplateRows: '1fr 1fr', gap: 10, marginLeft: -44 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 11, color: 'var(--sw-muted)', minWidth: 0 }}>{selected.league?.name}{selected.time ? ` • ${selected.time}` : ''}</div>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 24, padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 800, color: selected.status === 'FT' ? '#22c55e' : selected.isLive ? '#f97316' : '#94a3b8', background: selected.status === 'FT' ? 'rgba(34,197,94,0.12)' : selected.isLive ? 'rgba(249,115,22,0.12)' : 'rgba(148,163,184,0.10)', border: selected.status === 'FT' ? '1px solid rgba(34,197,94,0.32)' : selected.isLive ? '1px solid rgba(249,115,22,0.32)' : '1px solid rgba(148,163,184,0.22)' }}>
+                  {selected.isLive ? `${selected.elapsed || ''}'` : selected.status === 'FT' ? 'FT' : (selected.time || 'NS')}
+                </span>
+              </div>
+              <div className="cs-selected-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: 16 }}>
+                <div style={{ minWidth: 0, display: 'grid', gridTemplateRows: '1fr 1fr', gap: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                     <TeamBadge team={selected.homeTeam} size={20} />
                     <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2, textAlign: 'left' }}>{selected.homeTeam?.name}</span>
@@ -346,7 +346,7 @@ export default function CorrectScorePage({ fixtures = [], loading }) {
                     <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2, textAlign: 'left' }}>{selected.awayTeam?.name}</span>
                   </div>
                 </div>
-                <div style={{ textAlign: 'center', minWidth: 42 }}>
+                <div style={{ textAlign: 'center', minWidth: 42, justifySelf: 'end' }}>
                   {(selected.isLive || selected.status === 'FT') ? (
                     <div style={{ display: 'grid', gridTemplateRows: '1fr 1fr', gap: 10 }}>
                       <span style={{ fontSize: 20, fontWeight: 900, color: '#f8fafc', lineHeight: 1 }}>{selected.homeGoals ?? '-'}</span>

@@ -121,7 +121,7 @@ function ChangePasswordForm({ compact = false }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div className="user-dashboard-section" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 2 }}>
         {t('dash_change_pw')}
       </div>
@@ -245,7 +245,7 @@ function SubscriptionPanel({ user, onNavigate, compact = false }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="user-dashboard-section" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div
         style={{
           padding: '14px 16px',
@@ -404,7 +404,7 @@ function ProfilePanel({ user, compact = false }) {
   }
 
   return (
-    <div className="user-profile-grid" style={{ display: 'grid', gap: 14, alignItems: 'start' }}>
+    <div className="user-profile-grid" style={{ display: 'grid', gap: 14, alignItems: 'start', width: '100%' }}>
       <div
         className="user-profile-card"
         style={{
@@ -538,10 +538,10 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
   const { user, logout } = useAuth()
   const { t } = useLang()
   const [tab, setTab] = useState(initialTab)
-  const [compact, setCompact] = useState(() => window.innerWidth <= 640)
+  const [compact, setCompact] = useState(() => window.innerWidth <= 768)
 
   useEffect(() => {
-    const onResize = () => setCompact(window.innerWidth <= 640)
+    const onResize = () => setCompact(window.innerWidth <= 768)
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -585,7 +585,7 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
         background: 'rgba(0,0,0,0.72)',
         backdropFilter: 'blur(8px)',
         display: 'flex',
-        alignItems: compact ? 'center' : 'center',
+        alignItems: 'center',
         justifyContent: 'center',
         padding: compact ? '12px' : '24px',
       }}
@@ -597,7 +597,7 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
           background: 'linear-gradient(180deg, rgba(24,25,28,0.98), rgba(12,13,15,0.99))',
           border: '1px solid var(--sw-border)',
           borderRadius: 20,
-          width: compact ? '100%' : 'min(680px, calc(100vw - 48px))',
+          width: 'min(680px, 100%)',
           maxWidth: compact ? 420 : 680,
           maxHeight: compact ? 'min(92vh, 760px)' : 'min(88vh, 880px)',
           minHeight: compact ? 'min(78vh, 680px)' : 'min(640px, 80vh)',
