@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react'
 import { useLang } from '../context/LangContext.jsx'
-import { extractStatValue, getStatDef } from '../data/statsConfig.js'
+import { extractStatValue, getStatDef, hasStatValue } from '../data/statsConfig.js'
 
 const MIN_RATE = 0.6
 
@@ -14,7 +14,10 @@ function normalizeHalfAlt(value) {
 
 function calcHits(history, statKey, alt, isHome) {
   if (!history?.length) return { hits: 0, total: 0, rate: 0 }
-  const last10 = history.slice(0, 10)
+  const last10 = history
+    .filter(match => hasStatValue(match, statKey, isHome))
+    .slice(0, 10)
+  if (!last10.length) return { hits: 0, total: 0, rate: 0 }
   const def = getStatDef(statKey)
   const hits = last10.filter(m => {
     const v = extractStatValue(m, statKey, isHome)

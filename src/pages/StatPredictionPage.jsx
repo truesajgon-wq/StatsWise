@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
-import { extractStatValue, getStatDef, STAT_GROUPS } from '../data/statsConfig.js'
+import { extractStatValue, getStatDef, hasStatValue, STAT_GROUPS } from '../data/statsConfig.js'
 import { useLang } from '../context/LangContext.jsx'
 
 // â”€â”€â”€ Prediction Engine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -42,7 +42,10 @@ function centeredHalfAltWindow(anchor, maxVisible = 5) {
 
 function calcHits(history, statKey, alt, isHome) {
   if (!history?.length) return { hits: 0, total: 0, rate: 0, values: [] }
-  const last10 = history.slice(0, 10)
+  const last10 = history
+    .filter(match => hasStatValue(match, statKey, isHome))
+    .slice(0, 10)
+  if (!last10.length) return { hits: 0, total: 0, rate: 0, values: [] }
   const def    = getStatDef(statKey)
   const values = last10.map(m => extractStatValue(m, statKey, isHome))
   const hits   = values.filter(v => def?.binary ? v === 1 : (alt !== null && v > alt)).length
@@ -52,7 +55,7 @@ function calcHits(history, statKey, alt, isHome) {
 function checkStreak(history, statKey, alt, isHome, n = 3) {
   if (!history?.length) return false
   const def  = getStatDef(statKey)
-  const last = history.slice(0, n)
+  const last = history.filter(match => hasStatValue(match, statKey, isHome)).slice(0, n)
   if (last.length < n) return false
   return last.every(m => {
     const v = extractStatValue(m, statKey, isHome)
@@ -155,12 +158,9 @@ export function runPredictionEngine(fixtures, statKey, alts, minRate = 0.6) {
 
 // â”€â”€â”€ Confidence styling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function getTier(rate) {
-  if (rate >= 1.0) return { label:'100%',  color:'#a78bfa', glow:'rgba(167,139,250,0.35)', bg:'rgba(167,139,250,0.10)', border:'rgba(167,139,250,0.40)' }
-  if (rate >= 0.9) return { label:'90%+',  color:'#22c55e', glow:'rgba(34,197,94,0.35)',   bg:'rgba(34,197,94,0.10)',   border:'rgba(34,197,94,0.40)'   }
-  if (rate >= 0.8) return { label:'80%+',  color:'#22c55e', glow:'rgba(34,197,94,0.20)',   bg:'rgba(34,197,94,0.07)',   border:'rgba(34,197,94,0.28)'   }
-  if (rate >= 0.7) return { label:'70%+',  color:'#eab308', glow:'rgba(234,179,8,0.25)',   bg:'rgba(234,179,8,0.08)',   border:'rgba(234,179,8,0.32)'   }
-  if (rate >= 0.6) return { label:'60%+',  color:'#f59e0b', glow:'rgba(245,158,11,0.18)',  bg:'rgba(245,158,11,0.07)',  border:'rgba(245,158,11,0.28)'  }
-  return              { label:'<60%',  color:'#6b7280', glow:'none',                   bg:'rgba(107,114,128,0.05)', border:'var(--sw-border)'                }
+  if (rate > 0.9) return { label:'90%+', color:'#f59e0b', glow:'rgba(245,158,11,0.26)', bg:'rgba(245,158,11,0.10)', border:'rgba(245,158,11,0.34)' }
+  if (rate > 0.6) return { label:'60%+', color:'#f59e0b', glow:'rgba(245,158,11,0.18)', bg:'rgba(245,158,11,0.07)', border:'rgba(245,158,11,0.28)' }
+  return { label:'<=60%', color:'#22c55e', glow:'rgba(34,197,94,0.18)', bg:'rgba(34,197,94,0.07)', border:'rgba(34,197,94,0.28)' }
 }
 
 // â”€â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -449,6 +449,12 @@ export default function StatPredictionPage({ statKey, fixtures = [], loading, on
     () => activeAlt === null ? predictions : predictions.filter(p => p.alt === activeAlt),
     [predictions, activeAlt]
   )
+
+  useEffect(() => {
+    const fixturesWithHistory = fixtures.filter(f => f.homeHistory?.length || f.awayHistory?.length).length
+    if (!fixtures.length || !fixturesWithHistory || predictions.length) return
+    console.info(`[predictions] no qualifying predictions for ${statKeysToRun.join(',')} across ${fixturesWithHistory} enriched fixtures`)
+  }, [fixtures, predictions, statKeysToRun])
 
   const visibleAlts = useMemo(() => {
     if (statKeysToRun.every(key => getStatDef(key)?.binary)) return altsToRun

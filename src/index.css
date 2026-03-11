@@ -707,7 +707,7 @@ button {
   }
 
   .user-dashboard-shell {
-    max-width: 700px !important;
+    max-width: 760px !important;
     width: 100% !important;
     max-height: 88vh;
   }
@@ -721,12 +721,16 @@ button {
   }
 
   .user-dashboard-shell {
-    width: min(520px, 100%) !important;
-    max-width: 520px !important;
+    width: min(680px, 100%) !important;
+    max-width: 680px !important;
   }
 
   .user-dashboard-content {
     padding: 20px 24px !important;
+  }
+
+  .user-profile-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
   }
 }
 
@@ -742,7 +746,7 @@ button {
     max-width: 100% !important;
     min-height: 78dvh !important;
     max-height: 92dvh !important;
-    border-radius: 12px 12px 0 0 !important;
+    border-radius: 18px 18px 0 0 !important;
     border-bottom: none !important;
   }
 
@@ -751,6 +755,7 @@ button {
   }
 
   .user-dashboard-tabs {
+    grid-template-columns: 1fr !important;
     position: sticky;
     top: 0;
     z-index: 1;
@@ -771,6 +776,10 @@ button {
   .profile-avatar-row {
     flex-direction: column;
     align-items: flex-start !important;
+  }
+
+  .user-profile-grid {
+    grid-template-columns: 1fr !important;
   }
 
   .profile-avatar-actions {

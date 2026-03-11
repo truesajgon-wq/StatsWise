@@ -45,19 +45,22 @@ function Tab({ label, active, onClick }) {
   return (
     <button
       onClick={onClick}
+      className="user-dashboard-tab"
       style={{
         flex: 1,
-        padding: '12px 10px',
-        background: 'none',
-        border: 'none',
-        borderBottom: active ? '2px solid #f97316' : '2px solid transparent',
-        color: active ? '#d1d5db' : '#6b7280',
-        fontWeight: active ? 700 : 500,
-        fontSize: 13,
+        minHeight: 42,
+        padding: '10px 12px',
+        background: active ? 'rgba(255,122,0,0.10)' : 'transparent',
+        border: active ? '1px solid rgba(255,122,0,0.32)' : '1px solid transparent',
+        borderBottom: 'none',
+        color: active ? '#f8fafc' : '#94a3b8',
+        fontWeight: active ? 800 : 600,
+        fontSize: 12,
         cursor: 'pointer',
         transition: 'all 0.15s',
         letterSpacing: '0.04em',
         whiteSpace: 'nowrap',
+        borderRadius: 12,
       }}
     >
       {label}
@@ -401,16 +404,18 @@ function ProfilePanel({ user, compact = false }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="user-profile-grid" style={{ display: 'grid', gap: 14, alignItems: 'start' }}>
       <div
+        className="user-profile-card"
         style={{
           padding: '14px 16px',
-          borderRadius: 10,
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid var(--sw-border)',
+          borderRadius: 14,
+          background: 'linear-gradient(180deg, rgba(32,33,37,0.92), rgba(22,23,26,0.98))',
+          border: '1px solid rgba(255,255,255,0.08)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 10,
+          gap: 12,
+          boxShadow: '0 12px 28px rgba(0,0,0,0.22)',
         }}
       >
         <div className="profile-avatar-row" style={{ display: 'flex', flexDirection: compact ? 'column' : 'row', alignItems: compact ? 'flex-start' : 'center', gap: 12 }}>
@@ -466,7 +471,7 @@ function ProfilePanel({ user, compact = false }) {
         </div>
       </div>
 
-      <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--sw-border)' }}>
+      <div className="user-profile-card" style={{ padding: '14px 16px', borderRadius: 14, background: 'linear-gradient(180deg, rgba(32,33,37,0.92), rgba(22,23,26,0.98))', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 12px 28px rgba(0,0,0,0.22)' }}>
         <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, letterSpacing: '0.06em', marginBottom: 10 }}>
           {t('dash_country').toUpperCase()}
         </div>
@@ -591,11 +596,11 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
         style={{
           background: 'linear-gradient(180deg, rgba(24,25,28,0.98), rgba(12,13,15,0.99))',
           border: '1px solid var(--sw-border)',
-          borderRadius: 16,
-          width: '100%',
-          maxWidth: compact ? 420 : 520,
-          maxHeight: compact ? 'min(92vh, 760px)' : 'min(84vh, 860px)',
-          minHeight: compact ? 'min(78vh, 680px)' : 'min(620px, 78vh)',
+          borderRadius: 20,
+          width: compact ? '100%' : 'min(680px, calc(100vw - 48px))',
+          maxWidth: compact ? 420 : 680,
+          maxHeight: compact ? 'min(92vh, 760px)' : 'min(88vh, 880px)',
+          minHeight: compact ? 'min(78vh, 680px)' : 'min(640px, 80vh)',
           overflow: 'hidden',
           boxShadow: '0 30px 70px rgba(0,0,0,0.6)',
           animation: 'dashSlideDown 0.18s ease-out',
@@ -648,7 +653,7 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
           </div>
         </div>
 
-        <div className="user-dashboard-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--sw-border)', background: 'rgba(12,13,15,0.98)', flexShrink: 0, padding: compact ? '0 8px' : '0 14px' }}>
+        <div className="user-dashboard-tabs" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, borderBottom: '1px solid var(--sw-border)', background: 'rgba(12,13,15,0.98)', flexShrink: 0, padding: compact ? '10px 10px 12px' : '12px 16px 14px' }}>
           {TABS.map(tb => (
             <Tab key={tb.key} label={tb.label} active={tab === tb.key} onClick={() => setTab(tb.key)} />
           ))}
@@ -660,12 +665,12 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
           {tab === 'haslo' && <ChangePasswordForm compact={compact} />}
         </div>
 
-        <div className="user-dashboard-footer" style={{ borderTop: '1px solid var(--sw-border)', padding: '6px 0', background: 'rgba(12,13,15,0.98)', flexShrink: 0 }}>
+        <div className="user-dashboard-footer" style={{ borderTop: '1px solid var(--sw-border)', padding: '8px 0', background: 'linear-gradient(180deg, rgba(14,15,18,0.98), rgba(10,11,13,0.99))', flexShrink: 0 }}>
           <button
             onClick={() => {
               window.location.href = 'mailto:support@obstawiajzglowa.pl'
             }}
-            style={{ width: '100%', padding: '10px 20px', background: 'none', border: 'none', color: '#9ca3af', fontSize: 13, textAlign: 'left', cursor: 'pointer' }}
+            style={{ width: '100%', padding: '12px 20px', background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 13, textAlign: 'left', cursor: 'pointer' }}
             onMouseEnter={e => {
               e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
             }}
@@ -680,7 +685,7 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
 
           <button
             onClick={handleLogout}
-            style={{ width: '100%', padding: '10px 20px', background: 'none', border: 'none', color: '#ef4444', fontSize: 13, textAlign: 'left', cursor: 'pointer' }}
+            style={{ width: '100%', padding: '12px 20px', background: 'transparent', border: 'none', color: '#ef4444', fontSize: 13, textAlign: 'left', cursor: 'pointer' }}
             onMouseEnter={e => {
               e.currentTarget.style.background = 'rgba(239,68,68,0.06)'
             }}

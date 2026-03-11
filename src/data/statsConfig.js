@@ -2,49 +2,110 @@
 // Single source of truth. Every component imports from here.
 // To add a new stat: one entry in STATS_ORDER. Everything else is automatic.
 
-export function extractStatValue(match, key, isHome = true) {
-  if (!match) return 0
+function firstNumber(...values) {
+  for (const value of values) {
+    if (value == null || value === '') continue
+    const numeric = Number(value)
+    if (Number.isFinite(numeric)) return numeric
+  }
+  return null
+}
+
+export function hasStatValue(match, key, isHome = true) {
+  return extractStatValue(match, key, isHome, { raw: true }) != null
+}
+
+export function extractStatValue(match, key, isHome = true, options = {}) {
+  if (!match) return options?.raw ? null : 0
   const hg = match.homeGoals ?? 0
   const ag = match.awayGoals ?? 0
   const myG = isHome ? hg : ag
   const oppG = isHome ? ag : hg
+  let value = null
 
   switch (key) {
-    case 'matchResult':         return myG > oppG ? 1 : 0
-    case 'goals':               return hg + ag
-    case 'teamGoals':           return myG
-    case 'btts':                return (match.btts != null ? match.btts : (hg > 0 && ag > 0)) ? 1 : 0
-    case 'corners':             return match.corners ?? 0
-    case 'teamCorners':         return match.teamCorners ?? (match.corners != null ? Math.round(match.corners / 2) : 0)
-    case 'cards':               return match.cards ?? 0
-    case 'teamCards':           return match.teamCards ?? (match.cards != null ? Math.round(match.cards / 2) : 0)
-    case 'shots':               return match.shots ?? match.shotsOnTarget ?? 0
-    case 'teamShots':           return match.teamShots ?? (match.shots != null ? Math.round(match.shots / 2) : 0)
-    case 'firstHalfGoals':      return match.firstHalfGoals ?? 0
-    case 'secondHalfGoals':     return match.secondHalfGoals ?? 0
+    case 'matchResult':         value = myG > oppG ? 1 : 0; break
+    case 'goals':               value = hg + ag; break
+    case 'teamGoals':           value = myG; break
+    case 'btts':                value = (match.btts != null ? match.btts : (hg > 0 && ag > 0)) ? 1 : 0; break
+    case 'corners':             value = firstNumber(match.corners); break
+    case 'teamCorners':
+      value = firstNumber(
+        match.teamCorners,
+        isHome ? match.myCorners : match.theirCorners,
+        isHome ? match.homeCorners : match.awayCorners,
+      )
+      break
+    case 'cards':               value = firstNumber(match.cards); break
+    case 'teamCards':
+      value = firstNumber(
+        match.teamCards,
+        isHome ? match.myCards : match.theirCards,
+        isHome ? match.homeCards : match.awayCards,
+      )
+      break
+    case 'shots':
+      value = firstNumber(match.shotsOnTarget, match.shots)
+      break
+    case 'teamShots':
+      value = firstNumber(
+        match.teamShots,
+        isHome ? match.myShotsOnTarget : match.theirShotsOnTarget,
+        isHome ? match.homeShotsOnTarget : match.awayShotsOnTarget,
+      )
+      break
+    case 'firstHalfGoals':      value = firstNumber(match.firstHalfGoals); break
+    case 'secondHalfGoals':     value = firstNumber(match.secondHalfGoals); break
     case 'teamFirstHalfGoals': {
-      if (match.teamFirstHalfGoals != null) return match.teamFirstHalfGoals
+      if (match.teamFirstHalfGoals != null) {
+        value = match.teamFirstHalfGoals
+        break
+      }
+      if (isHome ? match.myFirstHalfGoals != null : match.theirFirstHalfGoals != null) {
+        value = isHome ? match.myFirstHalfGoals : match.theirFirstHalfGoals
+        break
+      }
       if (match.firstHalfGoals != null) {
-        return isHome
+        value = isHome
           ? Math.min(myG, match.firstHalfGoals)
           : Math.max(0, match.firstHalfGoals - Math.min(myG, match.firstHalfGoals))
+        break
       }
-      return 0
+      break
     }
     case 'teamSecondHalfGoals': {
-      if (match.teamSecondHalfGoals != null) return match.teamSecondHalfGoals
+      if (match.teamSecondHalfGoals != null) {
+        value = match.teamSecondHalfGoals
+        break
+      }
+      if (match.secondHalfGoals != null && (match.myFirstHalfGoals != null || match.theirFirstHalfGoals != null)) {
+        const firstHalfForTeam = isHome ? (match.myFirstHalfGoals ?? 0) : (match.theirFirstHalfGoals ?? 0)
+        value = Math.max(0, myG - firstHalfForTeam)
+        break
+      }
       if (match.secondHalfGoals != null) {
-        return isHome
+        value = isHome
           ? Math.min(myG, match.secondHalfGoals)
           : Math.max(0, match.secondHalfGoals - Math.min(myG, match.secondHalfGoals))
+        break
       }
-      return 0
+      break
     }
-    case 'goalsInBothHalves':   return (match.bothHalvesGoals != null ? match.bothHalvesGoals : ((match.firstHalfGoals ?? 0) > 0 && (match.secondHalfGoals ?? 0) > 0)) ? 1 : 0
-    case 'fouls':               return match.fouls ?? 0
-    case 'teamFouls':           return match.teamFouls ?? (match.fouls != null ? Math.round(match.fouls / 2) : 0)
-    default:                    return 0
+    case 'goalsInBothHalves':
+      value = (match.bothHalvesGoals != null ? match.bothHalvesGoals : ((match.firstHalfGoals ?? 0) > 0 && (match.secondHalfGoals ?? 0) > 0)) ? 1 : 0
+      break
+    case 'fouls':               value = firstNumber(match.fouls); break
+    case 'teamFouls':
+      value = firstNumber(
+        match.teamFouls,
+        isHome ? match.myFouls : match.theirFouls,
+        isHome ? match.homeFouls : match.awayFouls,
+      )
+      break
+    default:                    value = null
   }
+
+  return value == null ? (options?.raw ? null : 0) : value
 }
 
 export const STATS_ORDER = [

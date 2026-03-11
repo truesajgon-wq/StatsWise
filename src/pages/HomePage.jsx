@@ -163,6 +163,22 @@ function fallbackTips(fixtures, t, count = 5) {
   }))
 }
 
+function tipConfidenceBadgeStyle(confidence) {
+  if (confidence <= 60) {
+    return {
+      color: '#22c55e',
+      background: 'rgba(34,197,94,0.10)',
+      border: '1px solid rgba(34,197,94,0.30)',
+    }
+  }
+
+  return {
+    color: '#ffb36b',
+    background: 'rgba(255,122,0,0.12)',
+    border: '1px solid rgba(255,122,0,0.30)',
+  }
+}
+
 function buildTips(fixtures, t) {
   const statPool = ['teamGoals', 'goals', 'btts', 'corners', 'cards', 'shots', 'fouls', 'firstHalfGoals', 'goalsInBothHalves']
   const ready = (fixtures || []).filter(f => f.homeHistory?.length && f.awayHistory?.length)
@@ -852,6 +868,7 @@ function handleViewChange(key) {
                   )}
                   {!panelTipLoading && panelTips.map((tip, idx) => {
                     const hot = idx === 0
+                    const confidenceBadge = tipConfidenceBadgeStyle(tip.confidence)
                     return (
                       <button
                         key={`${tip.fixtureId}-${tip.statKey}`}
@@ -860,7 +877,7 @@ function handleViewChange(key) {
                       >
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
                           <span style={{ fontSize: 10, fontWeight: 900, color: hot ? '#ffb36b' : '#e5e7eb', letterSpacing: '0.08em' }}>#{idx + 1} VALUE PICK</span>
-                          <span style={{ fontSize: 11, fontWeight: 900, color: '#ffb36b', background: 'rgba(255,122,0,0.12)', border: '1px solid rgba(255,122,0,0.3)', borderRadius: 999, padding: '2px 8px' }}>{tip.confidence}%</span>
+                          <span style={{ fontSize: 11, fontWeight: 900, borderRadius: 999, padding: '2px 8px', ...confidenceBadge }}>{tip.confidence}%</span>
                         </div>
                         <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{tip.match}</div>
                         <div style={{ fontSize: 13, fontWeight: 800, color: '#f8fafc', marginBottom: 6 }}>{tip.bet}</div>

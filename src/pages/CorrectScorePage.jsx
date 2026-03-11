@@ -95,15 +95,26 @@ function ScoreGrid({ scores }) {
 
 function FixtureCard({ fixture, onClick, selected, topProb }) {
   const { homeTeam, awayTeam, league, time, isLive, elapsed, homeGoals, awayGoals, status } = fixture
+  const statusLabel = isLive ? `${elapsed || ''}'` : status === 'FT' ? 'FT' : (time || 'NS')
+  const statusTone = isLive
+    ? { color: '#f97316', background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.32)' }
+    : status === 'FT'
+      ? { color: '#22c55e', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.32)' }
+      : { color: '#94a3b8', background: 'rgba(148,163,184,0.10)', border: '1px solid rgba(148,163,184,0.22)' }
   return (
     <button onClick={() => onClick(fixture)} style={{ width: '100%', padding: '12px 14px', background: selected ? 'rgba(255,122,0,0.12)' : 'var(--sw-surface-0)', border: `1px solid ${selected ? 'var(--sw-accent)' : 'var(--sw-border)'}`, borderRadius: 14, cursor: 'pointer', textAlign: 'left' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10, gap: 8 }}>
         <span style={{ fontSize: 10, color: 'var(--sw-muted)', fontWeight: 700, lineHeight: 1.3 }}>
           {league?.name}{time ? ` • ${time}` : ''}
         </span>
-        <span style={{ fontSize: 10, fontWeight: 800, color: '#22c55e', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 999, padding: '2px 6px', flexShrink: 0 }}>
-          Top {topProb.toFixed(1)}%
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <span style={{ fontSize: 10, fontWeight: 800, borderRadius: 999, padding: '2px 6px', ...statusTone }}>
+            {statusLabel}
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 800, color: '#22c55e', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 999, padding: '2px 6px' }}>
+            Top {topProb.toFixed(1)}%
+          </span>
+        </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25 }}>{homeTeam?.name}</span>
@@ -114,7 +125,6 @@ function FixtureCard({ fixture, onClick, selected, topProb }) {
         )}
         <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, textAlign: 'right' }}>{awayTeam?.name}</span>
       </div>
-      {!isLive && status === 'FT' && <div style={{ marginTop: 8, fontSize: 10, color: '#22c55e', fontWeight: 700 }}>Finished</div>}
     </button>
   )
 }

@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext.jsx'
 import useMatchDetails from '../hooks/useMatchDetails'
-import { extractStatValue, STATS_ORDER, getStatDef, STAT_GROUPS } from '../data/statsConfig'
+import { extractStatValue, hasStatValue, STATS_ORDER, getStatDef, STAT_GROUPS } from '../data/statsConfig'
 import MatchDetailsSwimlane from '../components/MatchDetailsSwimlane'
 import PlayerStatsPage from './PlayerStatsPage.jsx'
 import { fetchFixturesByDate } from '../data/api.js'
@@ -87,11 +87,10 @@ function StatisticsPanel({ statistics, fixture }) {
     ['Offsides', home.offsides, away.offsides],
     ['Yellow Cards', home.yellowCards, away.yellowCards],
     ['Red Cards', home.redCards, away.redCards],
-    ['Saves', home.saves, away.saves],
-    ['Passes', home.passes, away.passes],
   ]
   if (fixture?.status !== 'FT' && fixture?.status !== 'AET' && fixture?.status !== 'PEN') {
     statRows.unshift(['Possession (%)', home.possession, away.possession])
+    statRows.push(['Saves', home.saves, away.saves], ['Passes', home.passes, away.passes])
   }
   return (
     <div style={{ padding: '16px 16px 20px' }}>
@@ -418,38 +417,34 @@ function H2HRow({ match, compact = false }) {
   const rc = match.result === 'W' ? '#22c55e' : match.result === 'L' ? '#ef4444' : '#f59e0b'
   let ds = '-'
   try { ds = new Date(match.date).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'2-digit' }) } catch {}
-
-  if (compact) {
-    return (
-      <div style={{ padding:'10px 12px', borderBottom:'1px solid var(--sw-surface-0)' }}>
-        <div style={{ display:'grid', gridTemplateColumns:'22px 18px 14px minmax(0,1fr) auto', alignItems:'center', gap:7 }}>
-          <span style={{ width:22, height:22, borderRadius:'50%', background:`${rc}18`, border:`1.5px solid ${rc}`, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, color:rc, fontSize:10 }}>{match.result}</span>
-          <span style={{ fontSize:9, fontWeight:800, padding:'1px 0', borderRadius:3, background: match.isHome ? 'rgba(209,213,219,0.12)' : 'rgba(167,139,250,0.12)', color: match.isHome ? '#d1d5db' : '#9ca3af', textAlign:'center' }}>{match.isHome ? 'H' : 'A'}</span>
-          {match.opponentLogo ? <img src={match.opponentLogo} alt="" width={14} height={14} style={{ objectFit:'contain', opacity:0.8 }} /> : <span />}
-          <span style={{ minWidth:0, color:'#d1d5db', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontSize:12 }}>{match.opponent}</span>
-          <span style={{ fontFamily:'monospace', fontWeight:800, color:'#f1f5f9', fontSize:12 }}>{match.homeGoals}-{match.awayGoals}</span>
-        </div>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, marginTop:6, paddingLeft:47 }}>
-          <div style={{ display:'flex', gap:8, alignItems:'center', minWidth:0 }}>
-            {match.goals != null && <span style={{ fontSize:10, color:'#4b5563', whiteSpace:'nowrap' }}>{'\u26BD'}{match.goals}</span>}
-            {match.corners > 0 && <span style={{ fontSize:10, color:'#4b5563', whiteSpace:'nowrap' }}>{'\u26F3'}{match.corners}</span>}
+  return (
+    <div
+      style={{
+        padding: compact ? '12px' : '14px 16px',
+        borderBottom:'1px solid rgba(255,255,255,0.05)',
+        background: compact ? 'transparent' : 'rgba(255,255,255,0.015)',
+        display:'grid',
+        gap:10,
+      }}
+    >
+      <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:0 }}>
+        <span style={{ width:24, height:24, borderRadius:'50%', background:`${rc}18`, border:`1.5px solid ${rc}`, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, color:rc, fontSize:10, flexShrink:0 }}>{match.result}</span>
+        <span style={{ fontSize:9, fontWeight:800, padding:'3px 6px', borderRadius:999, background: match.isHome ? 'rgba(255,122,0,0.12)' : 'rgba(148,163,184,0.12)', color: match.isHome ? '#ffb36b' : '#cbd5e1', flexShrink:0 }}>{match.isHome ? 'HOME' : 'AWAY'}</span>
+        <span style={{ color:'#64748b', fontSize:10, marginLeft:'auto', flexShrink:0 }}>{ds}</span>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) auto', gap:12, alignItems:'center' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
+          {match.opponentLogo && <img src={match.opponentLogo} alt="" width={20} height={20} style={{ objectFit:'contain', flexShrink:0, opacity:0.9 }} />}
+          <div style={{ minWidth:0 }}>
+            <div style={{ color:'#f8fafc', fontSize:13, fontWeight:800, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{match.opponent}</div>
+            <div style={{ color:'#94a3b8', fontSize:11, marginTop:2 }}>{match.goals != null ? `${match.goals} total goals` : 'No goal data'}</div>
           </div>
-          <span style={{ color:'#4b5563', fontSize:10, flexShrink:0 }}>{ds}</span>
+        </div>
+        <div style={{ textAlign:'right', flexShrink:0 }}>
+          <div style={{ fontFamily:'monospace', fontWeight:900, color:'#f8fafc', fontSize:compact ? 14 : 15 }}>{match.homeGoals}-{match.awayGoals}</div>
+          <div style={{ color:'#64748b', fontSize:10, marginTop:2 }}>{match.corners > 0 ? `${match.corners} corners` : 'Corners n/a'}</div>
         </div>
       </div>
-    )
-  }
-
-  return (
-    <div style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 14px', borderBottom:'1px solid var(--sw-surface-0)', fontSize:12 }}>
-      <span style={{ width:22, height:22, borderRadius:'50%', background:`${rc}18`, border:`1.5px solid ${rc}`, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, color:rc, fontSize:10, flexShrink:0 }}>{match.result}</span>
-      <span style={{ fontSize:9, fontWeight:800, padding:'1px 5px', borderRadius:3, background: match.isHome ? 'rgba(209,213,219,0.12)' : 'rgba(167,139,250,0.12)', color: match.isHome ? '#d1d5db' : '#9ca3af', flexShrink:0 }}>{match.isHome ? 'H' : 'A'}</span>
-      {match.opponentLogo && <img src={match.opponentLogo} alt="" width={14} height={14} style={{ objectFit:'contain', flexShrink:0, opacity:0.8 }} />}
-      <span style={{ flex:1, color:'#d1d5db', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{match.opponent}</span>
-      <span style={{ fontFamily:'monospace', fontWeight:800, color:'#f1f5f9', flexShrink:0 }}>{match.homeGoals}-{match.awayGoals}</span>
-      {match.goals != null && <span style={{ fontSize:10, color:'#4b5563', flexShrink:0 }}>{'\u26BD'}{match.goals}</span>}
-      {match.corners > 0 && <span style={{ fontSize:10, color:'#4b5563', flexShrink:0 }}>{'\u26F3'}{match.corners}</span>}
-      <span style={{ color:'#374151', fontSize:10, flexShrink:0 }}>{ds}</span>
     </div>
   )
 }
@@ -460,21 +455,35 @@ function H2HSummary({ matches, homeTeam, awayTeam, compact = false }) {
   const d  = matches.filter(m => m.result === 'D').length
   const aw = matches.filter(m => m.result === 'L').length
   const avg = (matches.reduce((s,m) => s+(m.goals||0), 0) / matches.length).toFixed(1)
+  const total = Math.max(matches.length, 1)
+  const summaryCards = [
+    { label: `${homeTeam?.name || 'Home'} wins`, value: hw, color: '#22c55e' },
+    { label: 'Draws', value: d, color: '#f59e0b' },
+    { label: `${awayTeam?.name || 'Away'} wins`, value: aw, color: '#94a3b8' },
+  ]
 
   return (
-    <div style={{ padding:compact ? '10px 12px' : '12px 14px', background:'var(--sw-bg)', borderBottom:'1px solid var(--sw-border)' }}>
-      <div style={{ fontSize:10, color:'#374151', fontWeight:700, letterSpacing:'.08em', marginBottom:8, textAlign:'center' }}>
-        LAST {matches.length} MEETINGS - avg {avg} goals/game
+    <div style={{ padding:compact ? '12px' : '14px 16px', background:'linear-gradient(180deg, rgba(16,17,20,0.98), rgba(12,13,15,0.98))', borderBottom:'1px solid var(--sw-border)' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:12, flexWrap:'wrap' }}>
+        <div>
+          <div style={{ fontSize:11, color:'#ffb36b', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase' }}>Last {matches.length} meetings</div>
+          <div style={{ color:'#94a3b8', fontSize:12, marginTop:4 }}>Average total goals: <span style={{ color:'#f8fafc', fontWeight:800 }}>{avg}</span></div>
+        </div>
+        <div style={{ color:'#64748b', fontSize:11 }}>Most recent results first</div>
       </div>
-      <div style={{ display:'flex', borderRadius:5, overflow:'hidden', height:26, marginBottom:6 }}>
-        {hw>0 && <div style={{ flex:hw, background:'#4b5563', display:'flex', alignItems:'center', justifyContent:'center' }}><span style={{ fontSize:11, fontWeight:800, color:'#fff' }}>{hw}</span></div>}
-        {d>0  && <div style={{ flex:d,  background:'#374151', display:'flex', alignItems:'center', justifyContent:'center' }}><span style={{ fontSize:11, fontWeight:800, color:'#9ca3af' }}>{d}</span></div>}
-        {aw>0 && <div style={{ flex:aw, background:'#6b7280', display:'flex', alignItems:'center', justifyContent:'center' }}><span style={{ fontSize:11, fontWeight:800, color:'#fff' }}>{aw}</span></div>}
-      </div>
-      <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) auto minmax(0,1fr)', alignItems:'center', gap:8, fontSize:10, color:'#6b7280' }}>
-        <span style={{ color:'#d1d5db', minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{homeTeam?.name} ({hw}W)</span>
-        <span style={{ justifySelf:'center', textAlign:'center', minWidth:28, fontVariantNumeric:'tabular-nums' }}>{d}D</span>
-        <span style={{ color:'#9ca3af', minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign:'right' }}>{awayTeam?.name} ({aw}W)</span>
+      <div style={{ display:'grid', gridTemplateColumns: compact ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap:10 }}>
+        {summaryCards.map(card => (
+          <div key={card.label} style={{ border:'1px solid rgba(255,255,255,0.06)', borderRadius:12, padding:'12px 14px', background:'rgba(255,255,255,0.02)' }}>
+            <div style={{ color:'#94a3b8', fontSize:11, marginBottom:8, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{card.label}</div>
+            <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
+              <span style={{ color:'#f8fafc', fontWeight:900, fontSize:18 }}>{card.value}</span>
+              <span style={{ color:card.color, fontSize:11, fontWeight:700 }}>{Math.round((card.value / total) * 100)}%</span>
+            </div>
+            <div style={{ marginTop:10, height:6, borderRadius:999, background:'rgba(255,255,255,0.05)', overflow:'hidden' }}>
+              <div style={{ width:`${(card.value / total) * 100}%`, height:'100%', background:card.color, borderRadius:999 }} />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -483,13 +492,29 @@ function H2HSummary({ matches, homeTeam, awayTeam, compact = false }) {
 function FormBadges({ matches, label, compact = false }) {
   if (!matches?.length) return null
   const last5 = matches.slice(0,5)
+  const wins = last5.filter(m => m.result==='W').length
+  const draws = last5.filter(m => m.result==='D').length
+  const losses = last5.filter(m => m.result==='L').length
   return (
-    <div style={{ display:'flex', gap:4, alignItems:'center', flexWrap:'wrap', padding:compact ? '8px 12px' : '6px 14px 8px', background:'var(--sw-bg)' }}>
-      <span style={{ fontSize:9, color:'#374151', fontWeight:700, marginRight:2 }}>FORM:</span>
-      {last5.map((m,i) => {
-        const rc = m.result==='W' ? '#22c55e' : m.result==='L' ? '#ef4444' : '#f59e0b'
-        return <span key={i} style={{ width:18, height:18, borderRadius:'50%', background:rc, display:'flex', alignItems:'center', justifyContent:'center', fontSize:8, fontWeight:900, color:'#fff' }}>{m.result}</span>
-      })}
+    <div style={{ display:'grid', gap:12, padding:compact ? '12px' : '14px 16px', background:'rgba(255,255,255,0.02)', borderBottom:'1px solid var(--sw-border)' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+        <span style={{ fontSize:11, color:'#ffb36b', fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase' }}>{label} form</span>
+        <span style={{ color:'#64748b', fontSize:11 }}>Last {last5.length} matches</span>
+      </div>
+      <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+        {last5.map((m,i) => {
+          const rc = m.result==='W' ? '#22c55e' : m.result==='L' ? '#ef4444' : '#f59e0b'
+          return <span key={i} style={{ minWidth:32, height:32, borderRadius:999, background:`${rc}1a`, border:`1px solid ${rc}55`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:900, color:rc }}>{m.result}</span>
+        })}
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:8 }}>
+        {[{ label:'Wins', value:wins, color:'#22c55e' }, { label:'Draws', value:draws, color:'#f59e0b' }, { label:'Losses', value:losses, color:'#ef4444' }].map(item => (
+          <div key={item.label} style={{ padding:'10px 12px', borderRadius:10, border:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.015)' }}>
+            <div style={{ color:'#94a3b8', fontSize:10, marginBottom:6 }}>{item.label}</div>
+            <div style={{ color:item.color, fontWeight:900, fontSize:16 }}>{item.value}</div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -526,8 +551,8 @@ function H2HPanel({ h2h, homeHistory, awayHistory, fixture }) {
       </div>
 
       {sub==='h2h' && h2h?.length>0     && <H2HSummary matches={h2h} homeTeam={fixture?.homeTeam} awayTeam={fixture?.awayTeam} compact={compact} />}
-      {sub==='home' && homeHistory?.length>0 && <FormBadges matches={homeHistory} compact={compact} />}
-      {sub==='away' && awayHistory?.length>0  && <FormBadges matches={awayHistory} compact={compact} />}
+      {sub==='home' && homeHistory?.length>0 && <FormBadges matches={homeHistory} label={fixture?.homeTeam?.name || 'Home'} compact={compact} />}
+      {sub==='away' && awayHistory?.length>0  && <FormBadges matches={awayHistory} label={fixture?.awayTeam?.name || 'Away'} compact={compact} />}
 
       {active?.length>0
         ? active.map((m,i) => <H2HRow key={i} match={m} compact={compact} />)
@@ -548,7 +573,8 @@ function rc(rate) {
 
 function calcHits(history, statKey, alt, isHome) {
   if (!history?.length) return { hits:0, total:0, rate:0, avg:0, values:[] }
-  const last10 = history.slice(0,10)
+  const last10 = history.filter(match => hasStatValue(match, statKey, isHome)).slice(0,10)
+  if (!last10.length) return { hits:0, total:0, rate:0, avg:0, values:[] }
   const def = getStatDef(statKey)
   const values = last10.map(m => extractStatValue(m, statKey, isHome))
   const hits = values.filter(v => def?.binary ? v===1 : v>(alt ?? 0)).length

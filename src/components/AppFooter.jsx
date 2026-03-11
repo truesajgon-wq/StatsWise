@@ -6,26 +6,26 @@ export default function AppFooter() {
       className="site-footer"
       style={{
         width: '100%',
-        borderTop: '1px solid var(--sw-border)',
-        background: 'linear-gradient(180deg, rgba(17,18,20,0.98), rgba(8,9,11,0.99))',
-        padding: '14px 16px',
-        color: '#94a3b8',
+        borderTop: '1px solid rgba(255,255,255,0.08)',
+        background: 'linear-gradient(180deg, rgba(12,13,16,0.99), rgba(7,8,10,1))',
+        padding: '16px 16px 18px',
+        color: '#8b98ab',
         fontSize: 12,
         lineHeight: 1.55,
         flexShrink: 0,
         textAlign: 'center',
       }}
     >
-      <div className="footer-links" style={{ marginBottom: 8, color: '#cbd5e1', fontWeight: 600 }}>
-        <Link to="/terms" style={{ color: '#e5e7eb', textDecoration: 'none' }}>
+      <div className="footer-links" style={{ marginBottom: 10, color: '#cbd5e1', fontWeight: 700 }}>
+        <Link to="/terms" style={{ color: '#e7edf6', textDecoration: 'none' }}>
           Terms &amp; Conditions
         </Link>{' '}
         |{' '}
-        <Link to="/privacy" style={{ color: '#e5e7eb', textDecoration: 'none' }}>
+        <Link to="/privacy" style={{ color: '#e7edf6', textDecoration: 'none' }}>
           Privacy Policy
         </Link>{' '}
         |{' '}
-        <Link to="/responsible-gambling" style={{ color: '#e5e7eb', textDecoration: 'none' }}>
+        <Link to="/responsible-gambling" style={{ color: '#e7edf6', textDecoration: 'none' }}>
           Responsible Gambling
         </Link>
       </div>
@@ -38,15 +38,15 @@ export default function AppFooter() {
       <p className="responsible-gambling" style={{ margin: '0 0 8px' }}>
         Please gamble responsibly. You must be 18 years or older, or the legal age in your jurisdiction, to use this site.
         If you or someone you know has a gambling problem, visit{' '}
-        <a href="https://www.begambleaware.org" target="_blank" rel="noreferrer" style={{ color: '#e5e7eb' }}>
+        <a href="https://www.begambleaware.org" target="_blank" rel="noreferrer" style={{ color: '#e7edf6' }}>
           BeGambleAware.org
         </a>
         ,{' '}
-        <a href="https://www.gamcare.org.uk" target="_blank" rel="noreferrer" style={{ color: '#e5e7eb' }}>
+        <a href="https://www.gamcare.org.uk" target="_blank" rel="noreferrer" style={{ color: '#e7edf6' }}>
           GamCare
         </a>{' '}
         or{' '}
-        <a href="https://www.gamblingtherapy.org" target="_blank" rel="noreferrer" style={{ color: '#e5e7eb' }}>
+        <a href="https://www.gamblingtherapy.org" target="_blank" rel="noreferrer" style={{ color: '#e7edf6' }}>
           Gambling Therapy
         </a>
         .
