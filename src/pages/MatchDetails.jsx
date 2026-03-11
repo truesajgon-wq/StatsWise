@@ -121,11 +121,37 @@ function evStyle(type, detail) {
   return { icon: '\u2022', color: '#6b7280' }
 }
 
+function normalizeMatchEvents(events = []) {
+  return (events || [])
+    .filter((ev) => {
+      const type = String(ev?.type || '').toLowerCase()
+      return type === 'goal' || type === 'card'
+    })
+    .map((ev) => {
+      const type = String(ev?.type || '').toLowerCase()
+      const detail = String(ev?.detail || '')
+      const detailLower = detail.toLowerCase()
+      const isGoal = type === 'goal'
+      const isCard = type === 'card'
+      return {
+        ...ev,
+        isGoal,
+        isCard,
+        isOwnGoal: isGoal && detailLower.includes('own'),
+        isPenalty: isGoal && detailLower.includes('penalty'),
+        isMissedPenalty: isGoal && detailLower.includes('missed'),
+        isYellow: isCard && detailLower.includes('yellow'),
+        isRed: isCard && detailLower.includes('red'),
+      }
+    })
+}
+
 function EventsPanel({ events, fixture }) {
-  if (!events?.length) return <EmptyState icon={'\u26BD'} text={fixture?.status === 'NS' ? 'Events appear at kick-off.' : 'No events recorded.'} />
+  const notableEvents = normalizeMatchEvents(events)
+  if (!notableEvents.length) return <EmptyState icon={'\u26BD'} text={fixture?.status === 'NS' ? 'Events appear at kick-off.' : 'No goals or cards recorded.'} />
   const homeId = fixture?.homeTeamId ?? fixture?.homeTeam?.id
-  const first  = events.filter(e => e.time <= 45)
-  const second = events.filter(e => e.time > 45)
+  const first  = notableEvents.filter(e => e.time <= 45)
+  const second = notableEvents.filter(e => e.time > 45)
   const Div = ({ label }) => (
     <div style={{ padding:'5px 16px', background:'var(--sw-bg)', display:'flex', alignItems:'center', gap:8 }}>
       <div style={{ flex:1, height:1, background:'var(--sw-border)' }} />
@@ -136,15 +162,24 @@ function EventsPanel({ events, fixture }) {
   const Row = ({ ev }) => {
     const isHome = ev.team?.id === homeId
     const { icon, color } = evStyle(ev.type, ev.detail)
+    const eventTitle = ev.isGoal
+      ? (ev.isOwnGoal ? 'Own Goal' : ev.isPenalty ? 'Penalty Goal' : ev.isMissedPenalty ? 'Missed Penalty' : 'Goal')
+      : (ev.isRed ? 'Red Card' : 'Yellow Card')
+    const detailText = ev.isGoal
+      ? [ev.assist?.name ? `Assist: ${ev.assist.name}` : null, ev.detail && !ev.isPenalty && !ev.isOwnGoal ? ev.detail : null].filter(Boolean).join(' • ')
+      : (ev.detail || '')
     return (
-      <div style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'9px 16px', borderBottom:'1px solid var(--sw-border)', flexDirection: isHome ? 'row' : 'row-reverse' }}>
+      <div style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'10px 16px', borderBottom:'1px solid var(--sw-border)', flexDirection: isHome ? 'row' : 'row-reverse' }}>
         <span style={{ fontSize:11, fontWeight:800, color:'#6b7280', fontFamily:'monospace', width:34, textAlign:'center', flexShrink:0, paddingTop:3 }}>
           {ev.time}{ev.timeExtra ? `+${ev.timeExtra}` : ''}'
         </span>
-        <div style={{ width:28, height:28, borderRadius:'50%', background:`${color}18`, border:`1.5px solid ${color}40`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, flexShrink:0 }}>{icon}</div>
+        <div style={{ width:30, height:30, borderRadius:'50%', background:`${color}18`, border:`1.5px solid ${color}40`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, flexShrink:0 }}>{icon}</div>
         <div style={{ flex:1, textAlign: isHome ? 'left' : 'right', minWidth:0 }}>
-          <div style={{ fontSize:13, fontWeight:700, color:'#e5e7eb', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ev.player?.name||''}</div>
-          {ev.assist?.name && <div style={{ fontSize:11, color:'#6b7280', marginTop:1 }}>{'\u2192'} {ev.assist.name}</div>}
+          <div style={{ display:'flex', alignItems:'center', gap:8, justifyContent: isHome ? 'flex-start' : 'flex-end', flexWrap:'wrap' }}>
+            <div style={{ fontSize:13, fontWeight:700, color:'#e5e7eb', lineHeight:1.35, wordBreak:'break-word' }}>{ev.player?.name || 'Unknown Player'}</div>
+            <span style={{ fontSize:10, fontWeight:800, color, background:`${color}14`, border:`1px solid ${color}33`, borderRadius:999, padding:'2px 7px' }}>{eventTitle}</span>
+          </div>
+          {detailText && <div style={{ fontSize:11, color:'#94a3b8', marginTop:3, lineHeight:1.35 }}>{detailText}</div>}
         </div>
       </div>
     )
@@ -769,54 +804,13 @@ function SectionCard({ title, children }) {
   )
 }
 
-function GoalScorersPanel({ events, fixture }) {
-  const homeId = fixture?.homeTeamId ?? fixture?.homeTeam?.id
-  const scorers = (events || [])
-    .filter(e => String(e?.type || '').toLowerCase() === 'goal')
-    .map(e => ({
-      time: e?.time,
-      timeExtra: e?.timeExtra,
-      name: e?.player?.name || 'Unknown',
-      assist: e?.assist?.name || null,
-      detail: e?.detail || '',
-      isHome: Number(e?.team?.id) === Number(homeId),
-    }))
-
-  if (!scorers.length) return <EmptyState icon={'\u26BD'} text="No goal scorers recorded." />
-
-  return (
-    <div style={{ padding: '10px 12px 12px' }}>
-      {scorers.map((s, i) => (
-        <div key={`${s.name}-${s.time}-${i}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: i === scorers.length - 1 ? 'none' : '1px solid var(--sw-border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-            <span style={{ width: 20, height: 20, borderRadius: '50%', background: s.isHome ? 'rgba(209,213,219,0.15)' : 'rgba(167,139,250,0.15)', color: s.isHome ? '#d1d5db' : '#9ca3af', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
-              {s.isHome ? 'H' : 'A'}
-            </span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, color: '#e5e7eb', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
-              {s.assist && <div style={{ fontSize: 11, color: '#6b7280' }}>Assist: {s.assist}</div>}
-            </div>
-          </div>
-          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: '#f59e0b' }}>{s.time}{s.timeExtra ? `+${s.timeExtra}` : ''}'</div>
-            {s.detail && <div style={{ fontSize: 10, color: '#6b7280' }}>{s.detail}</div>}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 function FinishedOverviewPanel({ fixture, statistics, events, lineups }) {
   return (
     <div style={{ paddingBottom: 14 }}>
       <SectionCard title="Match Statistics">
         <StatisticsPanel statistics={statistics} fixture={fixture} />
       </SectionCard>
-      <SectionCard title="Goal Scorers">
-        <GoalScorersPanel events={events} fixture={fixture} />
-      </SectionCard>
-      <SectionCard title="Match Events">
+      <SectionCard title="Goals & Cards">
         <EventsPanel events={events} fixture={fixture} />
       </SectionCard>
       <SectionCard title="Lineups">
