@@ -47,16 +47,17 @@ function Tab({ label, active, onClick }) {
       onClick={onClick}
       style={{
         flex: 1,
-        padding: '9px 4px',
+        padding: '12px 10px',
         background: 'none',
         border: 'none',
         borderBottom: active ? '2px solid #f97316' : '2px solid transparent',
         color: active ? '#d1d5db' : '#6b7280',
         fontWeight: active ? 700 : 500,
-        fontSize: 12,
+        fontSize: 13,
         cursor: 'pointer',
         transition: 'all 0.15s',
         letterSpacing: '0.04em',
+        whiteSpace: 'nowrap',
       }}
     >
       {label}
@@ -540,6 +541,14 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prevOverflow
+    }
+  }, [])
+
   if (!user) return null
 
   const displayName = user.nickname || user.name || '?'
@@ -568,33 +577,38 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
         position: 'fixed',
         inset: 0,
         zIndex: 1000,
-        background: 'rgba(0,0,0,0.65)',
-        backdropFilter: 'blur(2px)',
+        background: 'rgba(0,0,0,0.72)',
+        backdropFilter: 'blur(8px)',
         display: 'flex',
-        alignItems: compact ? 'center' : 'flex-start',
-        justifyContent: compact ? 'center' : 'flex-end',
-        padding: compact ? '12px' : '60px 16px 16px',
+        alignItems: compact ? 'center' : 'center',
+        justifyContent: 'center',
+        padding: compact ? '12px' : '24px',
       }}
       onClick={onClose}
     >
       <div
         className="user-dashboard-shell"
         style={{
-          background: 'var(--sw-surface-1)',
+          background: 'linear-gradient(180deg, rgba(24,25,28,0.98), rgba(12,13,15,0.99))',
           border: '1px solid var(--sw-border)',
           borderRadius: 16,
           width: '100%',
-          maxWidth: compact ? 420 : 360,
-          maxHeight: compact ? 'calc(100vh - 24px)' : 'none',
+          maxWidth: compact ? 420 : 520,
+          maxHeight: compact ? 'min(92vh, 760px)' : 'min(84vh, 860px)',
+          minHeight: compact ? 'min(78vh, 680px)' : 'min(620px, 78vh)',
           overflow: 'hidden',
           boxShadow: '0 30px 70px rgba(0,0,0,0.6)',
           animation: 'dashSlideDown 0.18s ease-out',
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'relative',
+          isolation: 'isolate',
         }}
         onClick={e => e.stopPropagation()}
       >
         <style>{`@keyframes dashSlideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }`}</style>
 
-        <div style={{ padding: compact ? '14px 14px 12px' : '18px 20px', background: 'var(--sw-surface-0)', borderBottom: '1px solid var(--sw-border)' }}>
+        <div className="user-dashboard-header" style={{ padding: compact ? '14px 14px 12px' : '20px 24px 16px', background: 'rgba(12,13,15,0.98)', borderBottom: '1px solid var(--sw-border)', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: compact ? 'flex-start' : 'center', gap: 12 }}>
             <div
               style={{
@@ -629,24 +643,24 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
               onClick={onClose}
               style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--sw-border)', color: '#64748b', cursor: 'pointer', fontSize: 16, padding: 0, flexShrink: 0, display: 'grid', placeItems: 'center' }}
             >
-              Ă—
+              ×
             </button>
           </div>
         </div>
 
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)' }}>
+        <div className="user-dashboard-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--sw-border)', background: 'rgba(12,13,15,0.98)', flexShrink: 0, padding: compact ? '0 8px' : '0 14px' }}>
           {TABS.map(tb => (
             <Tab key={tb.key} label={tb.label} active={tab === tb.key} onClick={() => setTab(tb.key)} />
           ))}
         </div>
 
-        <div className="user-dashboard-content" style={{ padding: compact ? '14px' : '18px 20px', maxHeight: compact ? 'calc(100vh - 170px)' : '70vh', overflowY: 'auto' }}>
+        <div className="user-dashboard-content" style={{ padding: compact ? '14px' : '20px 24px', flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', background: 'linear-gradient(180deg, rgba(20,21,24,0.98), rgba(12,13,15,0.98))' }}>
           {tab === 'plan' && <SubscriptionPanel user={user} onNavigate={handleNavigate} compact={compact} />}
           {tab === 'profile' && <ProfilePanel user={user} compact={compact} />}
           {tab === 'haslo' && <ChangePasswordForm compact={compact} />}
         </div>
 
-        <div style={{ borderTop: '1px solid var(--sw-border)', padding: '6px 0', background: 'var(--sw-surface-0)' }}>
+        <div className="user-dashboard-footer" style={{ borderTop: '1px solid var(--sw-border)', padding: '6px 0', background: 'rgba(12,13,15,0.98)', flexShrink: 0 }}>
           <button
             onClick={() => {
               window.location.href = 'mailto:support@obstawiajzglowa.pl'

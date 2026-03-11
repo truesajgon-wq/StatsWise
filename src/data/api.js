@@ -4,12 +4,50 @@ import {
   getMockTeamHistory,
   getMockH2H,
 } from './mockMatchDetails.js'
+import { getAppTodayIso, isAppTodayIso } from '../utils/appDate.js'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || ''
 const USE_MOCK_DATA = ['1', 'true', 'yes', 'on'].includes(
   String(import.meta.env.VITE_USE_MOCK_DATA || '').toLowerCase()
 )
 let accessTokenGetter = null
+
+function shouldSimulateUpcoming(fixture = {}) {
+  const fixtureDate = String(fixture?.date || '').slice(0, 10)
+  if (!isAppTodayIso(fixtureDate)) return false
+  if (String(fixture?.status || '').toUpperCase() === 'NS') return true
+  const seed = Number(fixture?.id || 0)
+  return Number.isFinite(seed) && seed % 3 === 0
+}
+
+function toUpcomingFixture(fixture = {}) {
+  return {
+    ...fixture,
+    status: 'NS',
+    isLive: false,
+    elapsed: null,
+    homeGoals: null,
+    awayGoals: null,
+    htHome: null,
+    htAway: null,
+  }
+}
+
+function normalizeFixtureForTesting(fixture = {}) {
+  return shouldSimulateUpcoming(fixture) ? toUpcomingFixture(fixture) : fixture
+}
+
+function normalizeDetailsForTesting(details = {}) {
+  const fixture = normalizeFixtureForTesting(details?.fixture || {})
+  if (fixture.status !== 'NS') return { ...details, fixture }
+  return {
+    ...details,
+    fixture,
+    statistics: null,
+    events: [],
+    lineups: Array.isArray(details?.lineups) ? details.lineups : [],
+  }
+}
 
 export function isMockMode() {
   return USE_MOCK_DATA
@@ -66,7 +104,8 @@ export async function fetchFixturesByDate(dateStr) {
   if (USE_MOCK_DATA) return getMockFixturesByDate(dateStr)
 
   const data = await apiFetch(`/api/matches/${dateStr}`)
-  return data.sort((a, b) => {
+  const normalized = data.map(item => normalizeFixtureForTesting(item))
+  return normalized.sort((a, b) => {
     const aTop = TOP_LEAGUE_IDS.has(a.league.id) ? 0 : 1
     const bTop = TOP_LEAGUE_IDS.has(b.league.id) ? 0 : 1
     return aTop - bTop
@@ -103,7 +142,9 @@ export async function fetchFixtureLineups(fixtureId) {
 export async function fetchMatchDetails(fixtureId, options = {}) {
   if (USE_MOCK_DATA) return buildMockMatchDetails(fixtureId)
   const { date } = options || {}
-  return apiFetch(`/api/match/${fixtureId}/details`, { date })
+  const resolvedDate = date || getAppTodayIso()
+  const data = await apiFetch(`/api/match/${fixtureId}/details`, { date: resolvedDate })
+  return normalizeDetailsForTesting(data)
 }
 
 export async function fetchHistoricalStats(fixtureId) {

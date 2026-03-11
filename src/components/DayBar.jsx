@@ -1,7 +1,8 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getAppToday } from '../utils/appDate.js'
 
-function formatDay(d, idx) {
-  const now = new Date()
+function formatDay(d) {
+  const now = getAppToday()
   const base = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   const target = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
   const diff = Math.round((target - base) / 86400000)
@@ -49,7 +50,7 @@ export default function DayBar({ days, selectedIdx, onSelect, onPrev, onNext, ma
           {'<'}
         </button>
         <div style={{ minWidth: 0, textAlign: 'center', color: '#f8fafc' }}>
-          <div style={{ fontSize: 16, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedDay ? formatDay(selectedDay, selectedIdx) : '-'}</div>
+          <div style={{ fontSize: 16, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedDay ? formatDay(selectedDay) : '-'}</div>
           <div style={{ fontSize: 11, marginTop: 2, opacity: 0.75, color: '#94a3b8' }}>
             {selectedDay ? selectedDay.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }) : ''}
           </div>
@@ -93,7 +94,7 @@ export default function DayBar({ days, selectedIdx, onSelect, onPrev, onNext, ma
               fontSize: 13,
             }}
           >
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{formatDay(d, i)}</span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{formatDay(d)}</span>
             <span style={{ fontSize: 10, marginTop: 2, opacity: 0.6 }}>
               {d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })}
             </span>
@@ -111,4 +112,3 @@ export default function DayBar({ days, selectedIdx, onSelect, onPrev, onNext, ma
     </div>
   )
 }
-

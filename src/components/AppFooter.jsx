@@ -7,7 +7,7 @@ export default function AppFooter() {
       style={{
         width: '100%',
         borderTop: '1px solid var(--sw-border)',
-        background: 'linear-gradient(180deg, rgba(16,26,42,0.96), rgba(9,17,29,0.98))',
+        background: 'linear-gradient(180deg, rgba(17,18,20,0.98), rgba(8,9,11,0.99))',
         padding: '14px 16px',
         color: '#94a3b8',
         fontSize: 12,

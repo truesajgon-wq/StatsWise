@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { analyzeDayFixtures, patternLabel, strengthColor } from '../data/lamakiEngine.js'
 import { useLang } from '../context/LangContext.jsx'
 import { formatAppDate } from '../utils/dateFormat.js'
+import { getAppToday } from '../utils/appDate.js'
 
 function ScoreRing({ score, color, size = 64 }) {
   const r = (size / 2) - 6
@@ -230,7 +231,7 @@ export default function LamakiPage({ fixtures = [], loading }) {
   const navigate = useNavigate()
   const [selected, setSelected] = useState(null)
   const [filter, setFilter] = useState('all')
-  const results = useMemo(() => (!fixtures.length ? [] : analyzeDayFixtures(fixtures, new Date())), [fixtures])
+  const results = useMemo(() => (!fixtures.length ? [] : analyzeDayFixtures(fixtures, getAppToday())), [fixtures])
   const filteredResults = useMemo(() => {
     if (filter === 'mutual') return results.filter(r => r.lamakType === 'both')
     if (filter === 'sameMonth') {

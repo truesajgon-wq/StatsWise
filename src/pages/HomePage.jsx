@@ -17,6 +17,7 @@ import AppFooter from '../components/AppFooter.jsx'
 import StatPredictionPage from './StatPredictionPage.jsx'
 import { SIDEBAR_KEY_MAP, viewKeyToStat, extractStatValue, getStatDef } from '../data/statsConfig.js'
 import StatsWiseWordmark from '../components/StatsWiseWordmark.jsx'
+import { getAppToday } from '../utils/appDate.js'
 
 function toDateStr(d) { return d.toISOString().split('T')[0] }
 
@@ -277,7 +278,7 @@ export default function HomePage() {
   }, [favoriteFixtureIds])
 
   const dayIdx = 3
-  const today = new Date()
+  const today = getAppToday()
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today)
     d.setDate(d.getDate() + dayOffset + (i - dayIdx))

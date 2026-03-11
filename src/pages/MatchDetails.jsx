@@ -79,6 +79,20 @@ function StatBar({ label, home, away }) {
 function StatisticsPanel({ statistics, fixture }) {
   if (!statistics) return <EmptyState icon={'\u{1F4CA}'} text={fixture?.status === 'NS' ? 'Statistics appear after kick-off.' : 'No statistics available.'} />
   const { home, away } = statistics
+  const statRows = [
+    ['Shots on Target', home.shots, away.shots],
+    ['Total Shots', home.shotsTotal, away.shotsTotal],
+    ['Corners', home.corners, away.corners],
+    ['Fouls', home.fouls, away.fouls],
+    ['Offsides', home.offsides, away.offsides],
+    ['Yellow Cards', home.yellowCards, away.yellowCards],
+    ['Red Cards', home.redCards, away.redCards],
+    ['Saves', home.saves, away.saves],
+    ['Passes', home.passes, away.passes],
+  ]
+  if (fixture?.status !== 'FT' && fixture?.status !== 'AET' && fixture?.status !== 'PEN') {
+    statRows.unshift(['Possession (%)', home.possession, away.possession])
+  }
   return (
     <div style={{ padding: '16px 16px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, fontSize: 12, fontWeight: 800 }}>
@@ -91,18 +105,7 @@ function StatisticsPanel({ statistics, fixture }) {
           {away.teamLogo && <img src={away.teamLogo} alt="" width={16} height={16} style={{ objectFit:'contain' }} />}
         </span>
       </div>
-      {[
-        ['Possession (%)',  home.possession,  away.possession],
-        ['Shots on Target', home.shots,       away.shots],
-        ['Total Shots',     home.shotsTotal,  away.shotsTotal],
-        ['Corners',         home.corners,     away.corners],
-        ['Fouls',           home.fouls,       away.fouls],
-        ['Offsides',        home.offsides,    away.offsides],
-        ['Yellow Cards',    home.yellowCards, away.yellowCards],
-        ['Red Cards',       home.redCards,    away.redCards],
-        ['Saves',           home.saves,       away.saves],
-        ['Passes',          home.passes,      away.passes],
-      ].map(([label, h, a]) => <StatBar key={label} label={label} home={h} away={a} />)}
+      {statRows.map(([label, h, a]) => <StatBar key={label} label={label} home={h} away={a} />)}
     </div>
   )
 }
