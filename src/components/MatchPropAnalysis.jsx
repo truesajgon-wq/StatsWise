@@ -60,6 +60,15 @@ function toNum(value) {
   return Number.isFinite(n) ? n : null
 }
 
+function getRangeSummary(range, count) {
+  if (range === 'H2H') return count === 1 ? '1 head-to-head match' : `${count} head-to-head matches`
+  return count === 1 ? '1 recent match' : `${count} recent matches`
+}
+
+function formatFixtureContext(row) {
+  return row?.isHome ? 'Home fixture' : 'Away fixture'
+}
+
 function orientedPair(row, isHome, myKey, theirKey) {
   const my = toNum(row?.[myKey])
   const their = toNum(row?.[theirKey])
@@ -240,7 +249,7 @@ function MobileFixtureRow({ row, statLabel, isOutcome, altLine, onSelect }) {
       <div style={{ display: 'flex', justifyContent: 'center', gap: 8, width: '100%' }}>
         <span style={{ fontSize: 11, color: '#94a3b8' }}>{formatDate(row?.date)}</span>
       </div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0', textAlign: 'center' }}>{row?.fixtureName || '-'}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0', textAlign: 'center', lineHeight: 1.35 }}>{row?.fixtureName || '-'}</div>
       <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>
         {statLabel}: <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{valueText}</span>
       </div>
@@ -359,14 +368,11 @@ function ChartPanel({
   isMobile,
   onSelectRow,
   singlePanel = false,
+  rangeLabel = 'L10',
 }) {
   const [hovered, setHovered] = useState(null)
   const rows = useMemo(() => [...(dataset || [])], [dataset])
   const tableRows = useMemo(() => [...rows].reverse(), [rows])
-  const fullRows = useMemo(
-    () => [...rows, { fixtureId: 'upcoming', fixtureName: upcomingLabel || 'Upcoming', date: null, isUpcoming: true, value: 0, label: '-' }],
-    [rows, upcomingLabel]
-  )
   const scale = chartMax(maxScale, altLine)
   const altPct = Math.min(95, (Number(altLine || 0) / scale) * 100)
 
@@ -391,13 +397,22 @@ function ChartPanel({
     }
   }, [rows, altLine, isOutcome])
 
-  const compactBars = fullRows.length > 10
-  const veryCompactBars = fullRows.length > 14
+  const compactBars = rows.length > 10
+  const veryCompactBars = rows.length > 14
   const chartGap = veryCompactBars ? 3 : compactBars ? 5 : 8
   const isSingleDesktop = Boolean(singlePanel && !isMobile)
   const plotHeight = isMobile ? 148 : 176
   const labelHeight = isMobile ? 8 : 24
   const lineBottomPx = Math.max(0, labelHeight + (altPct / 100) * plotHeight - 1)
+  const averageValue = useMemo(() => {
+    if (!rows.length) return null
+    if (isOutcome) {
+      const wins = rows.filter(r => Number(r.value || 0) > 0).length
+      return `${Math.round((wins / rows.length) * 100)}% wins`
+    }
+    const total = rows.reduce((acc, row) => acc + Number(row.value || 0), 0)
+    return (total / rows.length).toFixed(1)
+  }, [rows, isOutcome])
   const chartContent = (
     <div
       className="match-prop-chart-scroll"
@@ -418,7 +433,7 @@ function ChartPanel({
           gap: chartGap,
           alignItems: 'stretch',
           height: plotHeight + labelHeight,
-          gridTemplateColumns: `repeat(${fullRows.length}, minmax(0, 1fr))`,
+          gridTemplateColumns: rows.length ? `repeat(${rows.length}, minmax(${isMobile ? 30 : 40}px, 1fr))` : '1fr',
           padding: '8px 0 6px',
           borderBottom: '1px solid rgba(148,163,184,0.2)',
           borderLeft: '1px solid rgba(148,163,184,0.15)',
@@ -441,34 +456,30 @@ function ChartPanel({
             }}
           />
         )}
-        {fullRows.map((row, idx) => {
+        {rows.map((row, idx) => {
           const over = Number(row.value || 0) > Number(altLine || 0)
           const rawValue = Number(row.value || 0)
           const outcomeColor = outcomeColors(rawValue)
-          const pct = row.isUpcoming
-            ? 45
-            : isOutcome
-              ? (rawValue > 0 ? 88 : rawValue < 0 ? 58 : 74)
-              : Math.max(0, (rawValue / scale) * 100)
+          const pct = isOutcome
+            ? (rawValue > 0 ? 88 : rawValue < 0 ? 58 : 74)
+            : Math.max(0, (rawValue / scale) * 100)
           return (
             <button
               key={`${row.fixtureId || 'f'}-${idx}`}
               type="button"
               onMouseEnter={e => {
-                if (row.isUpcoming) return
                 setHovered({ row, x: e.currentTarget.offsetLeft + (e.currentTarget.clientWidth / 2), y: e.currentTarget.offsetTop + 8 })
               }}
               onMouseMove={e => {
-                if (row.isUpcoming) return
                 setHovered({ row, x: e.currentTarget.offsetLeft + (e.currentTarget.clientWidth / 2), y: e.currentTarget.offsetTop + 8 })
               }}
               onMouseLeave={() => setHovered(null)}
-              onClick={() => !row.isUpcoming && onSelectRow?.({ row, team, title })}
+              onClick={() => onSelectRow?.({ row, team, title })}
               style={{
                 border: 'none',
                 background: 'transparent',
                 padding: 0,
-                cursor: row.isUpcoming ? 'default' : 'pointer',
+                cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -482,15 +493,13 @@ function ChartPanel({
                     width: '100%',
                     height: `${pct}%`,
                     borderRadius: 7,
-                    background: row.isUpcoming
-                      ? 'transparent'
-                      : isOutcome
-                        ? outcomeColor.grad
-                        : over
-                          ? 'linear-gradient(180deg,#86efac,#34d399)'
-                          : 'linear-gradient(180deg,#fda4af,#f87171)',
-                    border: row.isUpcoming ? '2px dashed rgba(148,163,184,0.45)' : '1px solid rgba(255,255,255,0.05)',
-                    minHeight: row.isUpcoming ? 0 : 4,
+                    background: isOutcome
+                      ? outcomeColor.grad
+                      : over
+                        ? 'linear-gradient(180deg,#86efac,#34d399)'
+                        : 'linear-gradient(180deg,#fda4af,#f87171)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    minHeight: 4,
                     opacity: 0.93,
                     transition: 'all .2s ease',
                   }}
@@ -533,7 +542,12 @@ function ChartPanel({
               >
                 <td className="mpt-col-date" style={{ padding: '10px 8px', color: '#cbd5e1', fontSize: 12 }}>{formatDate(row.date, isMobile)}</td>
                 <td className="mpt-col-ft" style={{ padding: '10px 8px', color: '#e2e8f0', fontSize: 12, fontWeight: 700 }}>{formatFullTimeResult(row)}</td>
-                <td className="mpt-col-fixture" style={{ padding: '10px 8px', color: '#dbe7f8', fontSize: 12, fontWeight: 700 }}>{row.fixtureName || '-'}</td>
+                <td className="mpt-col-fixture" style={{ padding: '10px 8px', color: '#dbe7f8', fontSize: 12, fontWeight: 700 }}>
+                  <div style={{ display: 'grid', gap: 3 }}>
+                    <span style={{ whiteSpace: 'normal', lineHeight: 1.35 }}>{row.fixtureName || '-'}</span>
+                    <span style={{ color: '#64748b', fontSize: 10, fontWeight: 600 }}>{formatFixtureContext(row)}</span>
+                  </div>
+                </td>
                 <td className="mpt-col-stat" style={{ padding: '10px 8px', color: '#93a8c4', fontSize: 12 }}>{statLabel}</td>
                 <td className="mpt-col-value" style={{ padding: '10px 8px', color: '#e2e8f0', fontSize: 12, textAlign: 'center' }}>{isOutcome ? formatOutcomeScore(row) : (row.label || '-')}</td>
                 <td className="mpt-col-ou" style={{ padding: '10px 8px', fontSize: 12, textAlign: 'center' }}>
@@ -619,6 +633,30 @@ function ChartPanel({
 
         {chartContent}
 
+        <div
+          style={{
+            marginTop: 12,
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))',
+            gap: 8,
+          }}
+        >
+          <div style={{ border: '1px solid var(--sw-border)', borderRadius: 10, padding: '10px 12px', background: 'rgba(255,255,255,0.02)' }}>
+            <div style={{ color: '#64748b', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{rangeLabel}</div>
+            <div style={{ color: '#e5e7eb', fontSize: 13, fontWeight: 800, marginTop: 4 }}>{getRangeSummary(rangeLabel, rows.length)}</div>
+          </div>
+          <div style={{ border: '1px solid var(--sw-border)', borderRadius: 10, padding: '10px 12px', background: 'rgba(255,255,255,0.02)' }}>
+            <div style={{ color: '#64748b', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{isOutcome ? 'Win trend' : 'Average value'}</div>
+            <div style={{ color: '#e5e7eb', fontSize: 13, fontWeight: 800, marginTop: 4 }}>
+              {averageValue == null ? '-' : (isOutcome ? averageValue : `${averageValue} ${statLabel.toLowerCase()}`)}
+            </div>
+          </div>
+          <div style={{ border: '1px solid var(--sw-border)', borderRadius: 10, padding: '10px 12px', background: 'rgba(255,255,255,0.02)' }}>
+            <div style={{ color: '#64748b', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Upcoming fixture</div>
+            <div style={{ color: '#e5e7eb', fontSize: 13, fontWeight: 800, marginTop: 4 }}>{upcomingLabel || 'Upcoming'}</div>
+          </div>
+        </div>
+
         {!isMobile && hovered?.row && (
           <div
             style={{
@@ -637,8 +675,9 @@ function ChartPanel({
               boxShadow: '0 12px 30px rgba(2,6,23,0.6)',
             }}
           >
-            <div style={{ fontWeight: 700, marginBottom: 2 }}>{hovered.row.opponent || hovered.row.fixtureName || '-'}</div>
+            <div style={{ fontWeight: 700, marginBottom: 2, lineHeight: 1.35 }}>{hovered.row.fixtureName || hovered.row.opponent || '-'}</div>
             <div style={{ color: '#94a3b8', marginBottom: 2 }}>{formatDate(hovered.row.date)}</div>
+            <div style={{ color: '#64748b', marginBottom: 4 }}>{formatFixtureContext(hovered.row)}</div>
             <div style={{ color: '#cbd5e1' }}>
               {statLabel}: <span style={{ color: '#f8fafc', fontWeight: 700 }}>{hovered.row.label}</span>
             </div>
@@ -662,7 +701,7 @@ function ChartPanel({
           .match-prop-table .mpt-col-stat, .match-prop-table .mpt-col-ft { display: none; }
           .match-prop-table .mpt-col-date { width: 20%; }
           .match-prop-table td.mpt-col-date, .match-prop-table th.mpt-col-date { white-space: nowrap; }
-          .match-prop-table .mpt-col-fixture { width: 50%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .match-prop-table .mpt-col-fixture { width: 50%; white-space: normal; overflow: visible; text-overflow: initial; vertical-align: top; }
           .match-prop-table .mpt-col-value { width: 10%; text-align: center; }
           .match-prop-table th.mpt-col-value,
           .match-prop-table td.mpt-col-value {
@@ -916,6 +955,7 @@ export default function MatchPropAnalysis({
             isMobile={isMobile}
             onSelectRow={(payload) => setSelectedFixture(payload)}
             singlePanel={singlePanel}
+            rangeLabel={range}
           />
         </div>
         {!singlePanel && (
@@ -929,10 +969,11 @@ export default function MatchPropAnalysis({
               isOutcome={isOutcomeStat}
               altLine={altLine}
               maxScale={maxScale}
-              upcomingLabel={upcomingLabel}
-              isMobile={isMobile}
-              onSelectRow={(payload) => setSelectedFixture(payload)}
-            />
+            upcomingLabel={upcomingLabel}
+            isMobile={isMobile}
+            onSelectRow={(payload) => setSelectedFixture(payload)}
+            rangeLabel={range}
+          />
           </div>
         )}
       </div>
