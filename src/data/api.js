@@ -100,9 +100,10 @@ export async function fetchFixtureLineups(fixtureId) {
   return apiFetch(`/api/match/${fixtureId}/lineups`)
 }
 
-export async function fetchMatchDetails(fixtureId) {
+export async function fetchMatchDetails(fixtureId, options = {}) {
   if (USE_MOCK_DATA) return buildMockMatchDetails(fixtureId)
-  return apiFetch(`/api/match/${fixtureId}/details`)
+  const { date } = options || {}
+  return apiFetch(`/api/match/${fixtureId}/details`, { date })
 }
 
 export async function fetchHistoricalStats(fixtureId) {

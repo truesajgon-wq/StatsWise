@@ -8,7 +8,7 @@ import { fetchMatchDetails } from '../data/api.js'
  * data shape:
  *   { fixture, statistics, events, lineups, homeHistory, awayHistory, h2h }
  */
-export default function useMatchDetails(id) {
+export default function useMatchDetails(id, options = {}) {
   const [data,    setData]    = useState(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
@@ -18,7 +18,7 @@ export default function useMatchDetails(id) {
     setLoading(true)
     setError(null)
     try {
-      const result = await fetchMatchDetails(id)
+      const result = await fetchMatchDetails(id, options)
       setData(result)
     } catch (err) {
       console.error('[useMatchDetails]', err)
@@ -26,7 +26,7 @@ export default function useMatchDetails(id) {
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, options])
 
   useEffect(() => { load() }, [load])
 

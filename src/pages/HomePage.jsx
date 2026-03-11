@@ -399,7 +399,8 @@ function handleViewChange(key) {
   }, [filtered, favoriteFixtureIdSet])
 
   function handleFixtureClick(fixture) {
-    navigate(`/match/${fixture.id}`)
+    const fixtureDate = String(fixture?.date || '').slice(0, 10)
+    navigate(`/match/${fixture.id}${fixtureDate ? `?date=${fixtureDate}` : ''}`)
   }
 
   function toggleFavoriteFixture(fixtureId) {

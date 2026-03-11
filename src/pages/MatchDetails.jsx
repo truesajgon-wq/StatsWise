@@ -916,7 +916,10 @@ export default function MatchDetails() {
   const [searchParams]   = useSearchParams()
   const { t, lang } = useLang()
   const { user } = useAuth()
-  const { data, loading, error, refetch } = useMatchDetails(id)
+  const detailsRequest = useMemo(() => ({
+    date: searchParams.get('date') || undefined,
+  }), [searchParams])
+  const { data, loading, error, refetch } = useMatchDetails(id, detailsRequest)
   const [detailsView, setDetailsView] = useState('match')
   const [todayFixtures, setTodayFixtures] = useState([])
   const [dashboardOpen, setDashboardOpen] = useState(false)
