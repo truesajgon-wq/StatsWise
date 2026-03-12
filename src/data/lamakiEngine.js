@@ -1,103 +1,153 @@
-// ─── Łamak (Comeback) Pattern Detection Engine ───────────────────────────────
-// A "łamak" is a match where a team wins from behind:
-//   e.g. losing at HT 0:1, winning at FT 2:1
-//   OR winning at HT 1:0, then losing at FT 1:2 (the OPPONENT is the łamak)
-//
-// We analyze fixture history to score the probability of a comeback occurring.
+// Lamaki (comeback) detection engine.
+// A comeback bet is strongest when one side repeatedly wins from behind
+// and/or the opponent repeatedly throws away leads.
 
-// ─── Helper: was this a comeback win for the perspective team? ────────────────
+function asNumber(value) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function perspectiveScores(match, isHomePerspective) {
+  const directMy = asNumber(match?.myGoals)
+  const directTheir = asNumber(match?.theirGoals)
+  if (directMy !== null && directTheir !== null) return { my: directMy, their: directTheir }
+
+  const homeGoals = asNumber(match?.homeGoals)
+  const awayGoals = asNumber(match?.awayGoals)
+  if (homeGoals === null || awayGoals === null) return { my: null, their: null }
+
+  return isHomePerspective
+    ? { my: homeGoals, their: awayGoals }
+    : { my: awayGoals, their: homeGoals }
+}
+
+function perspectiveHalfTimeScores(match, isHomePerspective) {
+  const directMy = asNumber(match?.myFirstHalfGoals)
+  const directTheir = asNumber(match?.theirFirstHalfGoals)
+  if (directMy !== null && directTheir !== null) return { my: directMy, their: directTheir }
+
+  const homeHt = asNumber(match?.homeGoalsHt)
+  const awayHt = asNumber(match?.awayGoalsHt)
+  if (homeHt !== null && awayHt !== null) {
+    return isHomePerspective
+      ? { my: homeHt, their: awayHt }
+      : { my: awayHt, their: homeHt }
+  }
+
+  return { my: null, their: null }
+}
+
+function classifySwing(match, isHomePerspective) {
+  const ft = perspectiveScores(match, isHomePerspective)
+  if (ft.my === null || ft.their === null) {
+    return { comeback: false, collapse: false, certainty: 'none' }
+  }
+
+  const ht = perspectiveHalfTimeScores(match, isHomePerspective)
+  const won = ft.my > ft.their
+  const lost = ft.my < ft.their
+
+  if (ht.my !== null && ht.their !== null) {
+    return {
+      comeback: won && ht.my < ht.their,
+      collapse: lost && ht.my > ht.their,
+      certainty: 'ht',
+    }
+  }
+
+  return {
+    // Proxy fallback when halftime split is unavailable.
+    comeback: won && ft.their >= 1,
+    collapse: lost && ft.my >= 1,
+    certainty: 'proxy',
+  }
+}
+
 function isComeback(match, isHomePerspective) {
-  const hg = match.homeGoals ?? 0
-  const ag = match.awayGoals ?? 0
-  const fhg = match.firstHalfGoals ?? 0
-
-  // We only know total HT goals, not split — use available data
-  // A comeback = team was behind at some point but won
-  // Approximate: if result is W (win) but they conceded goals
-  const myGoals    = isHomePerspective ? hg : ag
-  const theirGoals = isHomePerspective ? ag : hg
-  const won        = myGoals > theirGoals
-
-  if (!won) return false
-  // Proxy for "was behind": they conceded at least 1 goal and scored later
-  return theirGoals >= 1
+  return classifySwing(match, isHomePerspective).comeback
 }
 
-// ─── Helper: did the team blow a lead? (was winning, then lost) ───────────────
 function isCollapse(match, isHomePerspective) {
-  const hg = match.homeGoals ?? 0
-  const ag = match.awayGoals ?? 0
-  const myGoals    = isHomePerspective ? hg : ag
-  const theirGoals = isHomePerspective ? ag : hg
-  const lost       = myGoals < theirGoals
-
-  if (!lost) return false
-  // Proxy: they scored but still lost — they had a lead at some point
-  return myGoals >= 1
+  return classifySwing(match, isHomePerspective).collapse
 }
 
-// ─── Helper: check date patterns ─────────────────────────────────────────────
 function checkDatePatterns(history, today) {
   const todayMonth = today.getMonth()
-  const todayDay   = today.getDate()
-  const todayYear  = today.getFullYear()
+  const todayDay = today.getDate()
+  const todayYear = today.getFullYear()
 
-  let sameDayLastYear  = 0
-  let sameMonth        = 0
-  let exactDateMinus2  = 0
+  let sameDayLastYear = 0
+  let sameMonth = 0
+  let exactDateMinus2 = 0
 
   for (const match of history) {
-    if (!match.date) continue
+    if (!match?.date) continue
     const d = match.date instanceof Date ? match.date : new Date(match.date)
-    const matchMonth = d.getMonth()
-    const matchDay   = d.getDate()
-    const matchYear  = d.getFullYear()
+    if (Number.isNaN(d.getTime())) continue
 
-    // Same calendar day ±3 days, last year
+    const matchMonth = d.getMonth()
+    const matchDay = d.getDate()
+    const matchYear = d.getFullYear()
+
     if (matchYear === todayYear - 1) {
       const dayDiff = Math.abs(matchDay - todayDay)
-      if (matchMonth === todayMonth && dayDiff <= 3) sameDayLastYear++
+      if (matchMonth === todayMonth && dayDiff <= 3) sameDayLastYear += 1
     }
 
-    // Same month (any year)
-    if (matchMonth === todayMonth) sameMonth++
+    if (matchMonth === todayMonth) sameMonth += 1
 
-    // Exact same day, 2 years ago
     if (matchYear === todayYear - 2 && matchMonth === todayMonth && matchDay === todayDay) {
-      exactDateMinus2++
+      exactDateMinus2 += 1
     }
   }
 
   return { sameDayLastYear, sameMonth, exactDateMinus2 }
 }
 
-// ─── Helper: triangle pattern check ──────────────────────────────────────────
-// Look for a "triangle": A beats B, B beats C, C beats A (circular)
-// Using opponent names in history — simplified version
 function hasTrianglePattern(homeHistory, awayHistory) {
   if (!homeHistory?.length || !awayHistory?.length) return false
 
   const homeOpponents = new Set(
-    homeHistory.filter(m => m.result === 'W').map(m => m.opponent?.toLowerCase())
+    homeHistory.filter(m => m.result === 'W').map(m => m.opponent?.toLowerCase()),
   )
   const awayOpponents = new Set(
-    awayHistory.filter(m => m.result === 'W').map(m => m.opponent?.toLowerCase())
+    awayHistory.filter(m => m.result === 'W').map(m => m.opponent?.toLowerCase()),
   )
 
-  // Check if away team has beaten opponents that home team also beat (shared victims)
-  const sharedVictims = [...homeOpponents].filter(op => op && awayOpponents.has(op))
+  const sharedVictims = [...homeOpponents].filter(opponent => opponent && awayOpponents.has(opponent))
   return sharedVictims.length >= 2
 }
 
-// ─── Score patterns for a single team perspective ────────────────────────────
 function scoreTeam(history, isHomeInMatch, today) {
-  if (!history || history.length === 0) return { score: 0, patterns: [] }
+  if (!history || history.length === 0) {
+    return {
+      score: 0,
+      patterns: [],
+      meta: {
+        sampleSize: 0,
+        comebackCount: 0,
+        collapseCount: 0,
+        comebackRate: 0,
+        collapseRate: 0,
+        recentComebacks: 0,
+        recentCollapses: 0,
+        datePatterns: { sameDayLastYear: 0, sameMonth: 0, exactDateMinus2: 0 },
+        certainty: 'none',
+      },
+    }
+  }
 
   const patterns = []
   let score = 0
+  const swingMeta = history.map(match => classifySwing(match, isHomeInMatch))
+  const certainty =
+    swingMeta.some(item => item.certainty === 'ht')
+      ? 'ht'
+      : swingMeta.some(item => item.certainty === 'proxy')
+        ? 'proxy'
+        : 'none'
 
-  // 1. Comeback wins
-  const comebacks = history.filter(m => isComeback(m, isHomeInMatch))
+  const comebacks = history.filter((match, index) => swingMeta[index].comeback)
   const comebackRate = comebacks.length / history.length
   if (comebackRate >= 0.4) {
     score += 35
@@ -110,8 +160,7 @@ function scoreTeam(history, isHomeInMatch, today) {
     patterns.push({ type: 'comeback', value: comebacks.length, rate: comebackRate })
   }
 
-  // 2. Collapses (blowing leads)
-  const collapses = history.filter(m => isCollapse(m, isHomeInMatch))
+  const collapses = history.filter((match, index) => swingMeta[index].collapse)
   const collapseRate = collapses.length / history.length
   if (collapseRate >= 0.35) {
     score += 25
@@ -121,17 +170,15 @@ function scoreTeam(history, isHomeInMatch, today) {
     patterns.push({ type: 'collapse', value: collapses.length, rate: collapseRate })
   }
 
-  // 3. Both teams scoring in comeback matches (high drama)
-  const bttsInComebacks = comebacks.filter(m => m.btts)
+  const bttsInComebacks = comebacks.filter(match => match.btts)
   if (bttsInComebacks.length >= 2) {
     score += 10
     patterns.push({ type: 'btts_comeback', value: bttsInComebacks.length })
   }
 
-  // 4. High-scoring collapses (conceded 2+ while winning)
-  const bigCollapses = history.filter(m => {
-    const myGoals    = isHomeInMatch ? (m.homeGoals ?? 0) : (m.awayGoals ?? 0)
-    const theirGoals = isHomeInMatch ? (m.awayGoals ?? 0) : (m.homeGoals ?? 0)
+  const bigCollapses = history.filter(match => {
+    const myGoals = isHomeInMatch ? (match.homeGoals ?? 0) : (match.awayGoals ?? 0)
+    const theirGoals = isHomeInMatch ? (match.awayGoals ?? 0) : (match.homeGoals ?? 0)
     return myGoals >= 1 && theirGoals >= myGoals + 1
   })
   if (bigCollapses.length >= 2) {
@@ -139,7 +186,6 @@ function scoreTeam(history, isHomeInMatch, today) {
     patterns.push({ type: 'big_collapse', value: bigCollapses.length })
   }
 
-  // 5. Date patterns (same day last year, etc.)
   const datePatterns = checkDatePatterns(history, today)
   if (datePatterns.exactDateMinus2 > 0) {
     score += 20
@@ -154,57 +200,69 @@ function scoreTeam(history, isHomeInMatch, today) {
     patterns.push({ type: 'calendar_month', value: datePatterns.sameMonth })
   }
 
-  // 6. Recent form — last 3 games
-  const last3 = history.slice(0, 3)
-  const last3Comebacks = last3.filter(m => isComeback(m, isHomeInMatch))
-  if (last3Comebacks.length >= 2) {
+  const last3SwingMeta = swingMeta.slice(0, 3)
+  const last3Comebacks = last3SwingMeta.filter(item => item.comeback).length
+  if (last3Comebacks >= 2) {
     score += 20
-    patterns.push({ type: 'recent_streak', value: last3Comebacks.length })
+    patterns.push({ type: 'recent_streak', value: last3Comebacks })
   }
 
-  return { score: Math.min(score, 100), patterns }
+  const last5SwingMeta = swingMeta.slice(0, 5)
+  const recentCollapses = last5SwingMeta.filter(item => item.collapse).length
+
+  const sampleFactor = Math.min(history.length / 10, 1)
+  score = Math.round(score * (0.82 + sampleFactor * 0.18))
+
+  return {
+    score: Math.min(score, 100),
+    patterns,
+    meta: {
+      sampleSize: history.length,
+      comebackCount: comebacks.length,
+      collapseCount: collapses.length,
+      comebackRate,
+      collapseRate,
+      recentComebacks: last3Comebacks,
+      recentCollapses,
+      datePatterns,
+      certainty,
+    },
+  }
 }
 
-// ─── Main engine: analyze a fixture ──────────────────────────────────────────
 export function analyzeFixture(fixture, today = new Date()) {
   const homeHistory = fixture.homeHistory || []
   const awayHistory = fixture.awayHistory || []
 
   const homeAnalysis = scoreTeam(homeHistory, true, today)
   const awayAnalysis = scoreTeam(awayHistory, false, today)
-
-  // Triangle bonus
-  const triangleBonus = hasTrianglePattern(homeHistory, awayHistory) ? 15 : 0
+  const hasTriangle = hasTrianglePattern(homeHistory, awayHistory)
+  const triangleBonus = hasTriangle ? 15 : 0
 
   const combinedScore = Math.round(
     (homeAnalysis.score * 0.45) +
     (awayAnalysis.score * 0.45) +
-    triangleBonus
+    triangleBonus,
   )
 
-  const hasTriangle = triangleBonus > 0
-
-  // Determine łamak type
   let lamakType = null
   if (homeAnalysis.score >= awayAnalysis.score + 20) lamakType = 'home'
   else if (awayAnalysis.score >= homeAnalysis.score + 20) lamakType = 'away'
   else if (combinedScore >= 30) lamakType = 'both'
 
-  // Strength label
   let strength = null
   if (combinedScore >= 65) strength = 'strong'
   else if (combinedScore >= 40) strength = 'moderate'
   else if (combinedScore >= 25) strength = 'weak'
 
-  // Probability estimate (sigmoid-like, 0–100%)
   const probability = Math.round(
-    100 / (1 + Math.exp(-0.07 * (combinedScore - 45)))
+    100 / (1 + Math.exp(-0.07 * (combinedScore - 45))),
   )
 
   return {
     fixture,
-    homeScore:    homeAnalysis.score,
-    awayScore:    awayAnalysis.score,
+    homeScore: homeAnalysis.score,
+    awayScore: awayAnalysis.score,
     combinedScore,
     probability,
     strength,
@@ -212,19 +270,19 @@ export function analyzeFixture(fixture, today = new Date()) {
     hasTriangle,
     homePatterns: homeAnalysis.patterns,
     awayPatterns: awayAnalysis.patterns,
-    isLamak:      strength !== null,
+    homeMeta: homeAnalysis.meta,
+    awayMeta: awayAnalysis.meta,
+    isLamak: strength !== null,
   }
 }
 
-// ─── Analyze all fixtures for the day ────────────────────────────────────────
 export function analyzeDayFixtures(fixtures, today = new Date()) {
   return fixtures
-    .map(f => analyzeFixture(f, today))
-    .filter(r => r.isLamak)
+    .map(fixture => analyzeFixture(fixture, today))
+    .filter(result => result.isLamak)
     .sort((a, b) => b.combinedScore - a.combinedScore)
 }
 
-// ─── Pattern label helpers ────────────────────────────────────────────────────
 export function patternLabel(pattern, t) {
   switch (pattern.type) {
     case 'comeback':
@@ -249,8 +307,7 @@ export function patternLabel(pattern, t) {
 }
 
 export function strengthColor(strength) {
-  if (strength === 'strong')   return '#22c55e'
+  if (strength === 'strong') return '#22c55e'
   if (strength === 'moderate') return '#f59e0b'
   return '#6b7280'
 }
-

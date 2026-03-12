@@ -1,4 +1,5 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { analyzeDayFixtures, patternLabel, strengthColor } from '../data/lamakiEngine.js'
 import { useLang } from '../context/LangContext.jsx'
@@ -56,9 +57,9 @@ function formatDate(value) {
   return formatAppDate(value)
 }
 
-function asNum(v) {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : null
+function asNum(value) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 function perspectiveScores(match, isHomePerspective) {
@@ -90,22 +91,104 @@ function isComebackWin(match, isHomePerspective) {
 }
 
 function mapComebackRows(history = [], isHomePerspective) {
-  return history.filter(m => isComebackWin(m, isHomePerspective)).slice(0, 12).map(m => {
-    const ft = perspectiveScores(m, isHomePerspective)
-    const ht = perspectiveHalfScores(m, isHomePerspective)
+  return history.filter(match => isComebackWin(match, isHomePerspective)).slice(0, 12).map(match => {
+    const ft = perspectiveScores(match, isHomePerspective)
+    const ht = perspectiveHalfScores(match, isHomePerspective)
     return {
-      date: m?.date,
-      opponent: m?.opponent || 'Opponent',
+      date: match?.date,
+      opponent: match?.opponent || 'Opponent',
       ft: ft.my === null || ft.their === null ? '-' : `${ft.my}:${ft.their}`,
       ht: ht.my === null || ht.their === null ? '-' : `${ht.my}:${ht.their}`,
     }
   })
 }
 
+function formatPercent(value) {
+  return `${Math.round((value || 0) * 100)}%`
+}
+
+function certaintyLabel(certainty) {
+  if (certainty === 'ht') return 'Backed by halftime split'
+  if (certainty === 'proxy') return 'Backed by full-time swing proxy'
+  return 'Limited evidence'
+}
+
+function buildRecommendationReasons(result, t) {
+  const {
+    lamakType,
+    hasTriangle,
+    homeMeta = {},
+    awayMeta = {},
+    homePatterns = [],
+    awayPatterns = [],
+  } = result
+
+  const reasons = []
+
+  if (lamakType === 'home' || lamakType === 'both') {
+    reasons.push(
+      `${result.fixture?.homeTeam?.name} have ${homeMeta.comebackCount || 0} comeback wins in ${homeMeta.sampleSize || 0} loaded matches (${formatPercent(homeMeta.comebackRate)}).`,
+    )
+  }
+
+  if (lamakType === 'away' || lamakType === 'both') {
+    reasons.push(
+      `${result.fixture?.awayTeam?.name} have ${awayMeta.comebackCount || 0} comeback wins in ${awayMeta.sampleSize || 0} loaded matches (${formatPercent(awayMeta.comebackRate)}).`,
+    )
+  }
+
+  if ((lamakType === 'home' || lamakType === 'both') && awayMeta.collapseCount) {
+    reasons.push(
+      `${result.fixture?.awayTeam?.name} have thrown away ${awayMeta.collapseCount} leads (${formatPercent(awayMeta.collapseRate)}), which increases the comeback path for the home side.`,
+    )
+  }
+
+  if ((lamakType === 'away' || lamakType === 'both') && homeMeta.collapseCount) {
+    reasons.push(
+      `${result.fixture?.homeTeam?.name} have thrown away ${homeMeta.collapseCount} leads (${formatPercent(homeMeta.collapseRate)}), which increases the comeback path for the away side.`,
+    )
+  }
+
+  if (homeMeta.recentComebacks >= 2 || awayMeta.recentComebacks >= 2) {
+    reasons.push('Recent form still supports the pattern: at least one side has multiple comeback wins in the last 3 loaded matches.')
+  }
+
+  if (hasTriangle) {
+    reasons.push(`${t('lamaki_triangle')} is active, which adds overlap between both teams' winning patterns and raises comeback volatility.`)
+  }
+
+  const monthHits = (homeMeta.datePatterns?.sameMonth || 0) + (awayMeta.datePatterns?.sameMonth || 0)
+  if (monthHits >= 3) {
+    reasons.push(`Calendar pattern support is present too: ${monthHits} related matches landed in the same month window.`)
+  }
+
+  const patternCount = homePatterns.length + awayPatterns.length
+  if (patternCount > 0) {
+    reasons.push(`The engine found ${patternCount} supporting pattern tags across both teams, not just one isolated stat.`)
+  }
+
+  return reasons.slice(0, 5)
+}
+
 function LamakDetailsModal({ result, onClose, onOpenMatch }) {
   const { t } = useLang()
-  if (!result) return null
-  const { fixture, homeScore, awayScore, combinedScore, probability, strength, lamakType, hasTriangle, homePatterns, awayPatterns } = result
+  if (!result || typeof document === 'undefined') return null
+
+  const {
+    fixture,
+    homeScore,
+    awayScore,
+    combinedScore,
+    probability,
+    strength,
+    lamakType,
+    hasTriangle,
+    homePatterns = [],
+    awayPatterns = [],
+    homeMeta = {},
+    awayMeta = {},
+  } = result
+
   const color = strengthColor(strength)
   const homeHistory = fixture?.homeHistory || []
   const awayHistory = fixture?.awayHistory || []
@@ -114,62 +197,139 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
   const homeRate = homeHistory.length ? Math.round((homeComebacks.length / homeHistory.length) * 100) : 0
   const awayRate = awayHistory.length ? Math.round((awayComebacks.length / awayHistory.length) * 100) : 0
   const lamakTypeLabel = { home: t('lamaki_home'), away: t('lamaki_away'), both: t('lamaki_both') }[lamakType] || 'Mixed'
-  const allPatterns = [...homePatterns.map(p => ({ ...p, side: 'home' })), ...awayPatterns.map(p => ({ ...p, side: 'away' }))]
+  const certainty =
+    homeMeta.certainty === 'ht' || awayMeta.certainty === 'ht'
+      ? 'ht'
+      : homeMeta.certainty === 'proxy' || awayMeta.certainty === 'proxy'
+        ? 'proxy'
+        : 'none'
+  const allPatterns = [...homePatterns.map(pattern => ({ ...pattern, side: 'home' })), ...awayPatterns.map(pattern => ({ ...pattern, side: 'away' }))]
+  const recommendationReasons = buildRecommendationReasons(result, t)
 
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 130, background: 'rgba(2,6,23,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: 'min(980px, 100%)', maxHeight: '92vh', overflowY: 'auto', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', boxShadow: '0 20px 60px rgba(2,6,23,0.7)' }}>
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--sw-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>COMEBACK DETAILS</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => onOpenMatch?.(result)} style={{ minHeight: 30, padding: '0 10px', borderRadius: 8, border: '1px solid rgba(209,213,219,0.4)', background: 'rgba(209,213,219,0.12)', color: '#e5e7eb', cursor: 'pointer' }}>Open Match Details</button>
-            <button onClick={onClose} style={{ minHeight: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#94a3b8', cursor: 'pointer' }}>Close</button>
+  return createPortal(
+    <div className="lamaki-modal-overlay" onClick={onClose}>
+      <div className="lamaki-modal-shell" onClick={e => e.stopPropagation()}>
+        <div className="lamaki-modal-header">
+          <div className="lamaki-modal-headline">
+            <div className="lamaki-modal-eyebrow">COMEBACK DETAILS</div>
+            <div className="lamaki-modal-title">{fixture?.homeTeam?.name} vs {fixture?.awayTeam?.name}</div>
+            <div className="lamaki-modal-subtitle">{fixture?.league?.name} · {fixture?.time || '-'} · {lamakTypeLabel}</div>
+          </div>
+          <div className="lamaki-modal-actions">
+            <button
+              onClick={() => onOpenMatch?.(result)}
+              className="theme-button-secondary"
+              style={{ minHeight: 38, padding: '0 12px', borderRadius: 10, cursor: 'pointer' }}
+            >
+              Open Match Details
+            </button>
+            <button
+              onClick={onClose}
+              className="theme-button-ghost"
+              style={{ minHeight: 38, minWidth: 38, width: 38, padding: 0, borderRadius: 999, cursor: 'pointer' }}
+              aria-label="Close comeback details"
+            >
+              X
+            </button>
           </div>
         </div>
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ border: `1px solid ${color}55`, borderRadius: 12, padding: 12, background: 'rgba(15,23,42,0.7)' }}>
-            <div style={{ fontSize: 15, fontWeight: 900, color: '#f1f5f9' }}>{fixture?.homeTeam?.name} vs {fixture?.awayTeam?.name}</div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 3 }}>{fixture?.league?.name} - {fixture?.time || '-'}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginTop: 10 }}>
-              <div style={{ border: '1px solid var(--sw-border)', borderRadius: 8, padding: '8px 10px' }}><div style={{ fontSize: 10, color: '#64748b' }}>Probability</div><div style={{ fontSize: 18, fontWeight: 900, color }}>{probability}%</div></div>
-              <div style={{ border: '1px solid var(--sw-border)', borderRadius: 8, padding: '8px 10px' }}><div style={{ fontSize: 10, color: '#64748b' }}>Combined Score</div><div style={{ fontSize: 18, fontWeight: 900, color: '#e2e8f0' }}>{combinedScore}</div></div>
-              <div style={{ border: '1px solid var(--sw-border)', borderRadius: 8, padding: '8px 10px' }}><div style={{ fontSize: 10, color: '#64748b' }}>Home/Away Scores</div><div style={{ fontSize: 14, fontWeight: 800, color: '#e2e8f0' }}>{homeScore} / {awayScore}</div></div>
-              <div style={{ border: '1px solid var(--sw-border)', borderRadius: 8, padding: '8px 10px' }}><div style={{ fontSize: 10, color: '#64748b' }}>Comeback Type</div><div style={{ fontSize: 14, fontWeight: 800, color: '#e5e7eb' }}>{lamakTypeLabel}</div></div>
-              <div style={{ border: '1px solid var(--sw-border)', borderRadius: 8, padding: '8px 10px' }}><div style={{ fontSize: 10, color: '#64748b' }}>Triangle Pattern</div><div style={{ fontSize: 14, fontWeight: 800, color: hasTriangle ? '#a78bfa' : '#64748b' }}>{hasTriangle ? 'Yes' : 'No'}</div></div>
+
+        <div className="lamaki-modal-content">
+          <div className="lamaki-modal-summary">
+            <div className="lamaki-metric-card">
+              <div className="lamaki-metric-label">Probability</div>
+              <div className="lamaki-metric-value" style={{ color }}>{probability}%</div>
+            </div>
+            <div className="lamaki-metric-card">
+              <div className="lamaki-metric-label">Combined Score</div>
+              <div className="lamaki-metric-value">{combinedScore}</div>
+            </div>
+            <div className="lamaki-metric-card">
+              <div className="lamaki-metric-label">Home / Away Edge</div>
+              <div className="lamaki-metric-value">{homeScore} / {awayScore}</div>
+            </div>
+            <div className="lamaki-metric-card">
+              <div className="lamaki-metric-label">Pattern Type</div>
+              <div className="lamaki-metric-value lamaki-metric-value-soft">{lamakTypeLabel}</div>
+            </div>
+            <div className="lamaki-metric-card">
+              <div className="lamaki-metric-label">Data Confidence</div>
+              <div className="lamaki-metric-value lamaki-metric-value-soft">{certaintyLabel(certainty)}</div>
+            </div>
+            <div className="lamaki-metric-card">
+              <div className="lamaki-metric-label">Triangle Pattern</div>
+              <div className="lamaki-metric-value lamaki-metric-value-soft" style={{ color: hasTriangle ? '#c4b5fd' : '#94a3b8' }}>{hasTriangle ? 'Active' : 'No'}</div>
             </div>
           </div>
+
+          <div className="lamaki-rationale-grid">
+            <section className="lamaki-panel-card">
+              <div className="lamaki-section-title">Why this bet is proposed</div>
+              <div className="lamaki-why-list">
+                {recommendationReasons.map((reason, index) => (
+                  <div key={index} className="lamaki-why-item">
+                    <span className="lamaki-why-bullet">{index + 1}</span>
+                    <span>{reason}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="lamaki-panel-card">
+              <div className="lamaki-section-title">Team swing profile</div>
+              <div className="lamaki-team-signal-grid">
+                <div className="lamaki-team-signal-card">
+                  <div className="lamaki-team-signal-name">{fixture?.homeTeam?.name}</div>
+                  <div className="lamaki-team-signal-line">Comebacks: <strong>{homeMeta.comebackCount || 0}/{homeMeta.sampleSize || 0}</strong> ({homeRate}%)</div>
+                  <div className="lamaki-team-signal-line">Collapses: <strong>{homeMeta.collapseCount || 0}</strong> ({formatPercent(homeMeta.collapseRate)})</div>
+                  <div className="lamaki-team-signal-line">Recent comeback wins: <strong>{homeMeta.recentComebacks || 0}</strong> in last 3</div>
+                </div>
+                <div className="lamaki-team-signal-card">
+                  <div className="lamaki-team-signal-name">{fixture?.awayTeam?.name}</div>
+                  <div className="lamaki-team-signal-line">Comebacks: <strong>{awayMeta.comebackCount || 0}/{awayMeta.sampleSize || 0}</strong> ({awayRate}%)</div>
+                  <div className="lamaki-team-signal-line">Collapses: <strong>{awayMeta.collapseCount || 0}</strong> ({formatPercent(awayMeta.collapseRate)})</div>
+                  <div className="lamaki-team-signal-line">Recent comeback wins: <strong>{awayMeta.recentComebacks || 0}</strong> in last 3</div>
+                </div>
+              </div>
+            </section>
+          </div>
+
           {allPatterns.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {allPatterns.map((p, i) => <PatternTag key={`${p.type}-${i}`} label={patternLabel(p, t)} color={p.side === 'home' ? '#d1d5db' : '#a78bfa'} />)}
+            <div className="lamaki-pattern-strip">
+              {allPatterns.map((pattern, index) => (
+                <PatternTag key={`${pattern.type}-${index}`} label={patternLabel(pattern, t)} color={pattern.side === 'home' ? '#d1d5db' : '#a78bfa'} />
+              ))}
             </div>
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 10 }}>
-            <div style={{ border: '1px solid var(--sw-border)', borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{ padding: '8px 10px', background: 'var(--sw-surface-0)', borderBottom: '1px solid var(--sw-border)', fontSize: 12, fontWeight: 800, color: '#e5e7eb' }}>{fixture?.homeTeam?.name} Comeback Wins ({homeComebacks.length}/{homeHistory.length}, {homeRate}%)</div>
-              {homeComebacks.length ? homeComebacks.map((r, idx) => (
-                <div key={`h-${idx}`} style={{ display: 'grid', gridTemplateColumns: '84px 1fr 76px 76px', gap: 8, padding: '8px 10px', borderBottom: idx === homeComebacks.length - 1 ? 'none' : '1px solid #172133', background: idx % 2 ? '#0b1424' : 'transparent' }}>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{formatDate(r.date)}</div>
-                  <div style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 700 }}>{r.opponent}</div>
-                  <div style={{ fontSize: 11, color: '#e5e7eb' }}>HT {r.ht}</div>
-                  <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>FT {r.ft}</div>
+
+          <div className="lamaki-history-grid">
+            <div className="lamaki-history-card">
+              <div className="lamaki-history-head">{fixture?.homeTeam?.name} comeback wins ({homeComebacks.length}/{homeHistory.length}, {homeRate}%)</div>
+              {homeComebacks.length ? homeComebacks.map((row, index) => (
+                <div key={`h-${index}`} className="lamaki-history-row">
+                  <div className="lamaki-history-date">{formatDate(row.date)}</div>
+                  <div className="lamaki-history-opponent">{fixture?.homeTeam?.name} vs {row.opponent}</div>
+                  <div className="lamaki-history-split">HT {row.ht}</div>
+                  <div className="lamaki-history-split lamaki-history-split-ft">FT {row.ft}</div>
                 </div>
-              )) : <div style={{ padding: '10px', fontSize: 12, color: '#64748b' }}>No comeback wins found in loaded history.</div>}
+              )) : <div className="lamaki-history-empty">No comeback wins found in loaded history.</div>}
             </div>
-            <div style={{ border: '1px solid var(--sw-border)', borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{ padding: '8px 10px', background: 'var(--sw-surface-0)', borderBottom: '1px solid var(--sw-border)', fontSize: 12, fontWeight: 800, color: '#c4b5fd' }}>{fixture?.awayTeam?.name} Comeback Wins ({awayComebacks.length}/{awayHistory.length}, {awayRate}%)</div>
-              {awayComebacks.length ? awayComebacks.map((r, idx) => (
-                <div key={`a-${idx}`} style={{ display: 'grid', gridTemplateColumns: '84px 1fr 76px 76px', gap: 8, padding: '8px 10px', borderBottom: idx === awayComebacks.length - 1 ? 'none' : '1px solid #172133', background: idx % 2 ? '#0b1424' : 'transparent' }}>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{formatDate(r.date)}</div>
-                  <div style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 700 }}>{r.opponent}</div>
-                  <div style={{ fontSize: 11, color: '#c4b5fd' }}>HT {r.ht}</div>
-                  <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>FT {r.ft}</div>
+            <div className="lamaki-history-card">
+              <div className="lamaki-history-head lamaki-history-head-away">{fixture?.awayTeam?.name} comeback wins ({awayComebacks.length}/{awayHistory.length}, {awayRate}%)</div>
+              {awayComebacks.length ? awayComebacks.map((row, index) => (
+                <div key={`a-${index}`} className="lamaki-history-row">
+                  <div className="lamaki-history-date">{formatDate(row.date)}</div>
+                  <div className="lamaki-history-opponent">{row.opponent} vs {fixture?.awayTeam?.name}</div>
+                  <div className="lamaki-history-split">HT {row.ht}</div>
+                  <div className="lamaki-history-split lamaki-history-split-ft">FT {row.ft}</div>
                 </div>
-              )) : <div style={{ padding: '10px', fontSize: 12, color: '#64748b' }}>No comeback wins found in loaded history.</div>}
+              )) : <div className="lamaki-history-empty">No comeback wins found in loaded history.</div>}
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -178,7 +338,7 @@ function LamakCard({ result, onOpen }) {
   const { fixture, homeScore, awayScore, combinedScore, probability, strength, lamakType, hasTriangle, homePatterns, awayPatterns } = result
   const color = strengthColor(strength)
   const lamakTypeLabel = { home: t('lamaki_home'), away: t('lamaki_away'), both: t('lamaki_both') }[lamakType] || ''
-  const allPatterns = [...homePatterns.map(p => ({ ...p, side: 'home' })), ...awayPatterns.map(p => ({ ...p, side: 'away' }))]
+  const allPatterns = [...homePatterns.map(pattern => ({ ...pattern, side: 'home' })), ...awayPatterns.map(pattern => ({ ...pattern, side: 'away' }))]
 
   return (
     <button type="button" onClick={() => onOpen?.(result)} className="lamaki-card" style={{ background: 'var(--sw-surface-1)', border: `1px solid ${color}40`, borderLeft: `3px solid ${color}`, borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12, width: '100%', cursor: 'pointer', textAlign: 'left' }}>
@@ -219,7 +379,7 @@ function LamakCard({ result, onOpen }) {
 
       {allPatterns.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-          {allPatterns.slice(0, 6).map((p, i) => <PatternTag key={i} label={patternLabel(p, t)} color={p.side === 'home' ? '#d1d5db' : '#a78bfa'} />)}
+          {allPatterns.slice(0, 6).map((pattern, index) => <PatternTag key={index} label={patternLabel(pattern, t)} color={pattern.side === 'home' ? '#d1d5db' : '#a78bfa'} />)}
         </div>
       )}
     </button>
@@ -233,17 +393,17 @@ export default function LamakiPage({ fixtures = [], loading }) {
   const [filter, setFilter] = useState('all')
   const results = useMemo(() => (!fixtures.length ? [] : analyzeDayFixtures(fixtures, getAppToday())), [fixtures])
   const filteredResults = useMemo(() => {
-    if (filter === 'mutual') return results.filter(r => r.lamakType === 'both')
+    if (filter === 'mutual') return results.filter(result => result.lamakType === 'both')
     if (filter === 'sameMonth') {
-      return results.filter(r =>
-        [...(r.homePatterns || []), ...(r.awayPatterns || [])].some(p => p.type === 'calendar_month')
+      return results.filter(result =>
+        [...(result.homePatterns || []), ...(result.awayPatterns || [])].some(pattern => pattern.type === 'calendar_month'),
       )
     }
     return results
   }, [results, filter])
-  const strong = filteredResults.filter(r => r.strength === 'strong')
-  const moderate = filteredResults.filter(r => r.strength === 'moderate')
-  const weak = filteredResults.filter(r => r.strength === 'weak')
+  const strong = filteredResults.filter(result => result.strength === 'strong')
+  const moderate = filteredResults.filter(result => result.strength === 'moderate')
+  const weak = filteredResults.filter(result => result.strength === 'weak')
 
   return (
     <div className="lamaki-page" style={{ padding: '20px' }}>
@@ -259,13 +419,13 @@ export default function LamakiPage({ fixtures = [], loading }) {
               { key: 'all', label: 'All' },
               { key: 'mutual', label: 'Mutual' },
               { key: 'sameMonth', label: 'Same Month' },
-            ].map(btn => {
-              const active = filter === btn.key
+            ].map(button => {
+              const active = filter === button.key
               return (
                 <button
-                  key={btn.key}
+                  key={button.key}
                   type="button"
-                  onClick={() => setFilter(btn.key)}
+                  onClick={() => setFilter(button.key)}
                   style={{
                     padding: '6px 10px',
                     borderRadius: 8,
@@ -277,7 +437,7 @@ export default function LamakiPage({ fixtures = [], loading }) {
                     cursor: 'pointer',
                   }}
                 >
-                  {btn.label}
+                  {button.label}
                 </button>
               )
             })}
@@ -294,7 +454,7 @@ export default function LamakiPage({ fixtures = [], loading }) {
         </div>
       </div>
 
-      {loading && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{[1, 2, 3].map(i => <div key={i} style={{ height: 120, borderRadius: 12, background: 'var(--sw-surface-1)', border: '1px solid var(--sw-border)', opacity: 0.6 }} />)}</div>}
+      {loading && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{[1, 2, 3].map(index => <div key={index} style={{ height: 120, borderRadius: 12, background: 'var(--sw-surface-1)', border: '1px solid var(--sw-border)', opacity: 0.6 }} />)}</div>}
 
       {!loading && filteredResults.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: '#4b5563' }}>
@@ -309,19 +469,19 @@ export default function LamakiPage({ fixtures = [], loading }) {
           {strong.length > 0 && (
             <>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#22c55e', letterSpacing: '0.1em', marginTop: 4, marginBottom: 2 }}>STRONG ({strong.length})</div>
-              {strong.map((r, i) => <LamakCard key={`s-${i}`} result={r} onOpen={setSelected} />)}
+              {strong.map((result, index) => <LamakCard key={`s-${index}`} result={result} onOpen={setSelected} />)}
             </>
           )}
           {moderate.length > 0 && (
             <>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', letterSpacing: '0.1em', marginTop: 8, marginBottom: 2 }}>MODERATE ({moderate.length})</div>
-              {moderate.map((r, i) => <LamakCard key={`m-${i}`} result={r} onOpen={setSelected} />)}
+              {moderate.map((result, index) => <LamakCard key={`m-${index}`} result={result} onOpen={setSelected} />)}
             </>
           )}
           {weak.length > 0 && (
             <>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: '0.1em', marginTop: 8, marginBottom: 2 }}>WEAK ({weak.length})</div>
-              {weak.map((r, i) => <LamakCard key={`w-${i}`} result={r} onOpen={setSelected} />)}
+              {weak.map((result, index) => <LamakCard key={`w-${index}`} result={result} onOpen={setSelected} />)}
             </>
           )}
         </div>
@@ -331,7 +491,7 @@ export default function LamakiPage({ fixtures = [], loading }) {
         <LamakDetailsModal
           result={selected}
           onClose={() => setSelected(null)}
-          onOpenMatch={(item) => {
+          onOpenMatch={item => {
             const fixtureId = item?.fixture?.id
             if (!fixtureId) return
             navigate(`/match/${fixtureId}?stat=comeback`)
@@ -343,5 +503,3 @@ export default function LamakiPage({ fixtures = [], loading }) {
 }
 
 export { strengthColor }
-
-

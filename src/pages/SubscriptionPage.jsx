@@ -215,7 +215,7 @@ export default function SubscriptionPage() {
 
   return (
     <div className="theme-page" style={{ color: 'var(--sw-text)' }}>
-      <header className="theme-header" style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 10 }}>
+      <header className="theme-header subscription-page-header" style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 10 }}>
         <div>
           <button
             type="button"
@@ -246,7 +246,7 @@ export default function SubscriptionPage() {
         <div style={{ justifySelf: 'end' }} />
       </header>
 
-      <div style={{ maxWidth: 1040, margin: '0 auto', padding: 22 }}>
+      <div className="subscription-page-content" style={{ maxWidth: 1040, margin: '0 auto', padding: 22 }}>
         {success && <div style={{ marginBottom: 14, padding: 10, borderRadius: 8, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e' }}>{success}</div>}
         {error && <div style={{ marginBottom: 14, padding: 10, borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5' }}>{error}</div>}
 
@@ -267,7 +267,7 @@ export default function SubscriptionPage() {
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 14, marginBottom: 16 }}>
+        <div className="subscription-plan-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 14, marginBottom: 16 }}>
           {plans.map(plan => (
             <PlanCard
               key={plan.key}
@@ -323,7 +323,7 @@ export default function SubscriptionPage() {
               ))}
             </div>
 
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="subscription-checkout-actions" style={{ display: 'flex', gap: 8 }}>
               <button className="theme-button-ghost" onClick={() => setSelectedPlan(PLAN_KEYS.FREE)} style={{ flex: 1, borderRadius: 8, padding: '10px 12px', cursor: 'pointer' }}>
                 Continue with Free
               </button>

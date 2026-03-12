@@ -685,7 +685,7 @@ function handleViewChange(key) {
               <StatsWiseWordmark color="#f8fafc" />
             </button>
             {!user && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="home-auth-buttons" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button
                   onClick={() => navigate('/login')}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, minWidth: 80, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-2)', cursor: 'pointer', textAlign: 'center' }}
