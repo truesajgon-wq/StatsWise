@@ -49,10 +49,10 @@ function classifySwing(match, isHomePerspective) {
 
   if (ht.my !== null && ht.their !== null) {
     const exactComeback = won && ht.my < ht.their
-    const wfb = lost && ht.my > ht.their
+    const wfb = exactComeback || (lost && ht.my > ht.their)
     return {
       comeback: exactComeback,
-      collapse: wfb,
+      collapse: lost && ht.my > ht.their,
       exactComeback,
       wfb,
       certainty: 'ht',
@@ -60,13 +60,13 @@ function classifySwing(match, isHomePerspective) {
   }
 
   const proxyComeback = won && ft.their >= 1
-  const proxyWfb = lost && ft.my >= 1
+  const proxyWfb = proxyComeback || (lost && ft.my >= 1)
   return {
     // Proxy fallback when halftime split is unavailable.
     comeback: proxyComeback,
-    collapse: proxyWfb,
+    collapse: lost && ft.my >= 1,
     exactComeback: false,
-    wfb: false,
+    wfb: proxyWfb,
     certainty: 'proxy',
   }
 }

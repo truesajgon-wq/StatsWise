@@ -167,30 +167,30 @@ function buildRecommendationReasons(result, t) {
 
   if (lamakType === 'home' || lamakType === 'both') {
     reasons.push(
-      `${result.fixture?.homeTeam?.name} have ${homeMeta.exactComebackCount || homeMeta.comebackCount || 0} ${t('lamaki_one_two_two_one')} matches in ${homeMeta.sampleSize || 0} loaded games (${formatPercent(homeMeta.exactComebackRate || homeMeta.comebackRate)}).`,
+      `${result.fixture?.homeTeam?.name} have ${homeMeta.exactComebackCount || homeMeta.comebackCount || 0} halftime-comeback wins (${t('lamaki_one_two_two_one')}) in ${homeMeta.sampleSize || 0} loaded matches (${formatPercent(homeMeta.exactComebackRate || homeMeta.comebackRate)}).`,
     )
   }
 
   if (lamakType === 'away' || lamakType === 'both') {
     reasons.push(
-      `${result.fixture?.awayTeam?.name} have ${awayMeta.exactComebackCount || awayMeta.comebackCount || 0} ${t('lamaki_one_two_two_one')} matches in ${awayMeta.sampleSize || 0} loaded games (${formatPercent(awayMeta.exactComebackRate || awayMeta.comebackRate)}).`,
+      `${result.fixture?.awayTeam?.name} have ${awayMeta.exactComebackCount || awayMeta.comebackCount || 0} halftime-comeback wins (${t('lamaki_one_two_two_one')}) in ${awayMeta.sampleSize || 0} loaded matches (${formatPercent(awayMeta.exactComebackRate || awayMeta.comebackRate)}).`,
     )
   }
 
   if ((lamakType === 'home' || lamakType === 'both') && (awayMeta.wfbCount || awayMeta.collapseCount)) {
     reasons.push(
-      `${result.fixture?.awayTeam?.name} show ${awayMeta.wfbCount || awayMeta.collapseCount} ${t('lamaki_wfb')} patterns (${formatPercent(awayMeta.wfbRate || awayMeta.collapseRate)}), so they are more vulnerable after scoring first.`,
+      `${result.fixture?.awayTeam?.name} show ${awayMeta.wfbCount || awayMeta.collapseCount} first-to-score collapses (${t('lamaki_wfb')}) (${formatPercent(awayMeta.wfbRate || awayMeta.collapseRate)}), so they are more vulnerable after taking the lead.`,
     )
   }
 
   if ((lamakType === 'away' || lamakType === 'both') && (homeMeta.wfbCount || homeMeta.collapseCount)) {
     reasons.push(
-      `${result.fixture?.homeTeam?.name} show ${homeMeta.wfbCount || homeMeta.collapseCount} ${t('lamaki_wfb')} patterns (${formatPercent(homeMeta.wfbRate || homeMeta.collapseRate)}), so they are more vulnerable after scoring first.`,
+      `${result.fixture?.homeTeam?.name} show ${homeMeta.wfbCount || homeMeta.collapseCount} first-to-score collapses (${t('lamaki_wfb')}) (${formatPercent(homeMeta.wfbRate || homeMeta.collapseRate)}), so they are more vulnerable after taking the lead.`,
     )
   }
 
   if (homeMeta.recentComebacks >= 2 || awayMeta.recentComebacks >= 2) {
-    reasons.push(`Recent form still supports the pattern: at least one side has multiple ${t('lamaki_one_two_two_one')} results in the last 3 loaded matches.`)
+    reasons.push(`Recent form reinforces the angle: at least one side has multiple halftime-comeback wins in the last 3 loaded matches.`)
   }
 
   if (hasTriangle) {
@@ -312,7 +312,7 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
 
           <div className="lamaki-rationale-grid">
             <section className="lamaki-panel-card">
-              <div className="lamaki-section-title">Why this bet is proposed</div>
+              <div className="lamaki-section-title">Why this market stands out</div>
               <div className="lamaki-why-list">
                 {recommendationReasons.map((reason, index) => (
                   <div key={index} className="lamaki-why-item">
@@ -328,15 +328,15 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
               <div className="lamaki-team-signal-grid">
                 <div className="lamaki-team-signal-card">
                   <div className="lamaki-team-signal-name">{fixture?.homeTeam?.name}</div>
-                  <div className="lamaki-team-signal-line">{t('lamaki_one_two_two_one')}: <strong>{homeMeta.exactComebackCount || homeMeta.comebackCount || 0}/{homeMeta.sampleSize || 0}</strong> ({formatPercent(homeMeta.exactComebackRate || homeMeta.comebackRate)})</div>
-                  <div className="lamaki-team-signal-line">{t('lamaki_wfb')}: <strong>{homeMeta.wfbCount || homeMeta.collapseCount || 0}</strong> ({formatPercent(homeMeta.wfbRate || homeMeta.collapseRate)})</div>
-                  <div className="lamaki-team-signal-line">Recent {t('lamaki_one_two_two_one')}: <strong>{homeMeta.recentComebacks || 0}</strong> in last 3</div>
+                  <div className="lamaki-team-signal-line">HT down, FT win ({t('lamaki_one_two_two_one')}): <strong>{homeMeta.exactComebackCount || homeMeta.comebackCount || 0}/{homeMeta.sampleSize || 0}</strong> ({formatPercent(homeMeta.exactComebackRate || homeMeta.comebackRate)})</div>
+                  <div className="lamaki-team-signal-line">First-to-score collapse ({t('lamaki_wfb')}): <strong>{homeMeta.wfbCount || homeMeta.collapseCount || 0}</strong> ({formatPercent(homeMeta.wfbRate || homeMeta.collapseRate)})</div>
+                  <div className="lamaki-team-signal-line">Recent HT-down wins: <strong>{homeMeta.recentComebacks || 0}</strong> in last 3</div>
                 </div>
                 <div className="lamaki-team-signal-card">
                   <div className="lamaki-team-signal-name">{fixture?.awayTeam?.name}</div>
-                  <div className="lamaki-team-signal-line">{t('lamaki_one_two_two_one')}: <strong>{awayMeta.exactComebackCount || awayMeta.comebackCount || 0}/{awayMeta.sampleSize || 0}</strong> ({formatPercent(awayMeta.exactComebackRate || awayMeta.comebackRate)})</div>
-                  <div className="lamaki-team-signal-line">{t('lamaki_wfb')}: <strong>{awayMeta.wfbCount || awayMeta.collapseCount || 0}</strong> ({formatPercent(awayMeta.wfbRate || awayMeta.collapseRate)})</div>
-                  <div className="lamaki-team-signal-line">Recent {t('lamaki_one_two_two_one')}: <strong>{awayMeta.recentComebacks || 0}</strong> in last 3</div>
+                  <div className="lamaki-team-signal-line">HT down, FT win ({t('lamaki_one_two_two_one')}): <strong>{awayMeta.exactComebackCount || awayMeta.comebackCount || 0}/{awayMeta.sampleSize || 0}</strong> ({formatPercent(awayMeta.exactComebackRate || awayMeta.comebackRate)})</div>
+                  <div className="lamaki-team-signal-line">First-to-score collapse ({t('lamaki_wfb')}): <strong>{awayMeta.wfbCount || awayMeta.collapseCount || 0}</strong> ({formatPercent(awayMeta.wfbRate || awayMeta.collapseRate)})</div>
+                  <div className="lamaki-team-signal-line">Recent HT-down wins: <strong>{awayMeta.recentComebacks || 0}</strong> in last 3</div>
                 </div>
               </div>
             </section>
@@ -352,7 +352,7 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
 
           <div className="lamaki-history-grid">
             <div className="lamaki-history-card">
-              <div className="lamaki-history-head">{fixture?.homeTeam?.name} {homeHistoryMode === 'wfb' ? t('lamaki_wfb') : t('lamaki_one_two_two_one')} matches ({homeComebacks.length}/{homeHistory.length}, {homeRate}%)</div>
+              <div className="lamaki-history-head">{fixture?.homeTeam?.name} {homeHistoryMode === 'wfb' ? `first-to-score collapses (${t('lamaki_wfb')})` : `HT down, FT win (${t('lamaki_one_two_two_one')})`} ({homeComebacks.length}/{homeHistory.length}, {homeRate}%)</div>
               {homeComebacks.length ? homeComebacks.map((row, index) => (
                 <div key={`h-${index}`} className="lamaki-history-row">
                   <div className="lamaki-history-date">{formatDate(row.date)}</div>
@@ -360,10 +360,10 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
                   <div className="lamaki-history-split">HT {row.ht}</div>
                   <div className="lamaki-history-split lamaki-history-split-ft">FT {row.ft}</div>
                 </div>
-              )) : <div className="lamaki-history-empty">No {homeHistoryMode === 'wfb' ? t('lamaki_wfb') : t('lamaki_one_two_two_one')} matches found in loaded history.</div>}
+              )) : <div className="lamaki-history-empty">No {homeHistoryMode === 'wfb' ? `first-to-score collapses (${t('lamaki_wfb')})` : `HT down, FT win (${t('lamaki_one_two_two_one')})`} found in loaded history.</div>}
             </div>
             <div className="lamaki-history-card">
-              <div className="lamaki-history-head lamaki-history-head-away">{fixture?.awayTeam?.name} {awayHistoryMode === 'wfb' ? t('lamaki_wfb') : t('lamaki_one_two_two_one')} matches ({awayComebacks.length}/{awayHistory.length}, {awayRate}%)</div>
+              <div className="lamaki-history-head lamaki-history-head-away">{fixture?.awayTeam?.name} {awayHistoryMode === 'wfb' ? `first-to-score collapses (${t('lamaki_wfb')})` : `HT down, FT win (${t('lamaki_one_two_two_one')})`} ({awayComebacks.length}/{awayHistory.length}, {awayRate}%)</div>
               {awayComebacks.length ? awayComebacks.map((row, index) => (
                 <div key={`a-${index}`} className="lamaki-history-row">
                   <div className="lamaki-history-date">{formatDate(row.date)}</div>
@@ -371,7 +371,7 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
                   <div className="lamaki-history-split">HT {row.ht}</div>
                   <div className="lamaki-history-split lamaki-history-split-ft">FT {row.ft}</div>
                 </div>
-              )) : <div className="lamaki-history-empty">No {awayHistoryMode === 'wfb' ? t('lamaki_wfb') : t('lamaki_one_two_two_one')} matches found in loaded history.</div>}
+              )) : <div className="lamaki-history-empty">No {awayHistoryMode === 'wfb' ? `first-to-score collapses (${t('lamaki_wfb')})` : `HT down, FT win (${t('lamaki_one_two_two_one')})`} found in loaded history.</div>}
             </div>
           </div>
         </div>
