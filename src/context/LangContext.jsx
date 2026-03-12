@@ -88,6 +88,8 @@ const EN = {
   lamaki_prob: 'probability',
   lamaki_ht_lead: 'Led at HT, lost FT',
   lamaki_comeback: 'Comeback wins',
+  lamaki_one_two_two_one: '1/2 2/1',
+  lamaki_wfb: 'WFB',
   lamaki_triangle: 'Pattern triangle',
   lamaki_same_day_year: 'Same day, last year',
   lamaki_same_month: 'Same month',

@@ -40,7 +40,7 @@ function perspectiveHalfTimeScores(match, isHomePerspective) {
 function classifySwing(match, isHomePerspective) {
   const ft = perspectiveScores(match, isHomePerspective)
   if (ft.my === null || ft.their === null) {
-    return { comeback: false, collapse: false, certainty: 'none' }
+    return { comeback: false, collapse: false, certainty: 'none', exactComeback: false, wfb: false }
   }
 
   const ht = perspectiveHalfTimeScores(match, isHomePerspective)
@@ -48,17 +48,25 @@ function classifySwing(match, isHomePerspective) {
   const lost = ft.my < ft.their
 
   if (ht.my !== null && ht.their !== null) {
+    const exactComeback = won && ht.my < ht.their
+    const wfb = lost && ht.my > ht.their
     return {
-      comeback: won && ht.my < ht.their,
-      collapse: lost && ht.my > ht.their,
+      comeback: exactComeback,
+      collapse: wfb,
+      exactComeback,
+      wfb,
       certainty: 'ht',
     }
   }
 
+  const proxyComeback = won && ft.their >= 1
+  const proxyWfb = lost && ft.my >= 1
   return {
     // Proxy fallback when halftime split is unavailable.
-    comeback: won && ft.their >= 1,
-    collapse: lost && ft.my >= 1,
+    comeback: proxyComeback,
+    collapse: proxyWfb,
+    exactComeback: false,
+    wfb: false,
     certainty: 'proxy',
   }
 }
@@ -127,8 +135,12 @@ function scoreTeam(history, isHomeInMatch, today) {
         sampleSize: 0,
         comebackCount: 0,
         collapseCount: 0,
+        exactComebackCount: 0,
+        wfbCount: 0,
         comebackRate: 0,
         collapseRate: 0,
+        exactComebackRate: 0,
+        wfbRate: 0,
         recentComebacks: 0,
         recentCollapses: 0,
         datePatterns: { sameDayLastYear: 0, sameMonth: 0, exactDateMinus2: 0 },
@@ -148,26 +160,30 @@ function scoreTeam(history, isHomeInMatch, today) {
         : 'none'
 
   const comebacks = history.filter((match, index) => swingMeta[index].comeback)
+  const exactComebacks = history.filter((match, index) => swingMeta[index].exactComeback)
   const comebackRate = comebacks.length / history.length
+  const exactComebackRate = exactComebacks.length / history.length
   if (comebackRate >= 0.4) {
     score += 35
-    patterns.push({ type: 'comeback', value: comebacks.length, rate: comebackRate })
+    patterns.push({ type: 'one_two_two_one', value: exactComebacks.length || comebacks.length, rate: exactComebackRate || comebackRate, exact: exactComebacks.length > 0 })
   } else if (comebackRate >= 0.25) {
     score += 20
-    patterns.push({ type: 'comeback', value: comebacks.length, rate: comebackRate })
+    patterns.push({ type: 'one_two_two_one', value: exactComebacks.length || comebacks.length, rate: exactComebackRate || comebackRate, exact: exactComebacks.length > 0 })
   } else if (comebackRate >= 0.1) {
     score += 8
-    patterns.push({ type: 'comeback', value: comebacks.length, rate: comebackRate })
+    patterns.push({ type: 'one_two_two_one', value: exactComebacks.length || comebacks.length, rate: exactComebackRate || comebackRate, exact: exactComebacks.length > 0 })
   }
 
   const collapses = history.filter((match, index) => swingMeta[index].collapse)
+  const wfbMatches = history.filter((match, index) => swingMeta[index].wfb)
   const collapseRate = collapses.length / history.length
+  const wfbRate = wfbMatches.length / history.length
   if (collapseRate >= 0.35) {
     score += 25
-    patterns.push({ type: 'collapse', value: collapses.length, rate: collapseRate })
+    patterns.push({ type: 'wfb', value: wfbMatches.length || collapses.length, rate: wfbRate || collapseRate, exact: wfbMatches.length > 0 })
   } else if (collapseRate >= 0.2) {
     score += 12
-    patterns.push({ type: 'collapse', value: collapses.length, rate: collapseRate })
+    patterns.push({ type: 'wfb', value: wfbMatches.length || collapses.length, rate: wfbRate || collapseRate, exact: wfbMatches.length > 0 })
   }
 
   const bttsInComebacks = comebacks.filter(match => match.btts)
@@ -220,8 +236,12 @@ function scoreTeam(history, isHomeInMatch, today) {
       sampleSize: history.length,
       comebackCount: comebacks.length,
       collapseCount: collapses.length,
+      exactComebackCount: exactComebacks.length,
+      wfbCount: wfbMatches.length,
       comebackRate,
       collapseRate,
+      exactComebackRate,
+      wfbRate,
       recentComebacks: last3Comebacks,
       recentCollapses,
       datePatterns,
@@ -285,6 +305,10 @@ export function analyzeDayFixtures(fixtures, today = new Date()) {
 
 export function patternLabel(pattern, t) {
   switch (pattern.type) {
+    case 'one_two_two_one':
+      return `${t('lamaki_one_two_two_one')}: ${pattern.value}x (${Math.round(pattern.rate * 100)}%)`
+    case 'wfb':
+      return `${t('lamaki_wfb')}: ${pattern.value}x (${Math.round(pattern.rate * 100)}%)`
     case 'comeback':
       return `${t('lamaki_comeback')}: ${pattern.value}x (${Math.round(pattern.rate * 100)}%)`
     case 'collapse':
