@@ -116,8 +116,17 @@ function isComebackWin(match, isHomePerspective) {
   return ft.their >= 1
 }
 
-function mapComebackRows(history = [], isHomePerspective, ownTeamName = 'Team') {
-  return history.filter(match => isComebackWin(match, isHomePerspective)).slice(0, 12).map(match => {
+function isWfbMatch(match, isHomePerspective) {
+  const ft = perspectiveScores(match, isHomePerspective)
+  if (ft.my === null || ft.their === null || ft.my >= ft.their) return false
+  const ht = perspectiveHalfScores(match, isHomePerspective)
+  if (ht.my !== null && ht.their !== null) return ht.my > ht.their
+  return ft.my >= 1
+}
+
+function mapSwingRows(history = [], isHomePerspective, ownTeamName = 'Team', mode = 'one_two_two_one') {
+  const matcher = mode === 'wfb' ? isWfbMatch : isComebackWin
+  return history.filter(match => matcher(match, isHomePerspective)).slice(0, 12).map(match => {
     const isHomeMatch = typeof match?.isHome === 'boolean' ? match.isHome : isHomePerspective
     const opponent = match?.opponent || 'Opponent'
     const fixtureName = isHomeMatch ? `${ownTeamName} vs ${opponent}` : `${opponent} vs ${ownTeamName}`
@@ -223,10 +232,18 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
   const color = strengthColor(strength)
   const homeHistory = fixture?.homeHistory || []
   const awayHistory = fixture?.awayHistory || []
-  const homeComebacks = mapComebackRows(homeHistory, true, fixture?.homeTeam?.name || 'Home')
-  const awayComebacks = mapComebackRows(awayHistory, false, fixture?.awayTeam?.name || 'Away')
-  const homeRate = homeHistory.length ? Math.round((homeComebacks.length / homeHistory.length) * 100) : 0
-  const awayRate = awayHistory.length ? Math.round((awayComebacks.length / awayHistory.length) * 100) : 0
+  const homeHistoryMode = (homeMeta.exactComebackCount || homeMeta.comebackCount) > 0 ? 'one_two_two_one' : (homeMeta.wfbCount || homeMeta.collapseCount) > 0 ? 'wfb' : 'one_two_two_one'
+  const awayHistoryMode = (awayMeta.exactComebackCount || awayMeta.comebackCount) > 0 ? 'one_two_two_one' : (awayMeta.wfbCount || awayMeta.collapseCount) > 0 ? 'wfb' : 'one_two_two_one'
+  const homeComebacks = mapSwingRows(homeHistory, true, fixture?.homeTeam?.name || 'Home', homeHistoryMode)
+  const awayComebacks = mapSwingRows(awayHistory, false, fixture?.awayTeam?.name || 'Away', awayHistoryMode)
+  const homeRateBase = homeHistoryMode === 'wfb'
+    ? (homeMeta.wfbRate || homeMeta.collapseRate || 0)
+    : (homeMeta.exactComebackRate || homeMeta.comebackRate || 0)
+  const awayRateBase = awayHistoryMode === 'wfb'
+    ? (awayMeta.wfbRate || awayMeta.collapseRate || 0)
+    : (awayMeta.exactComebackRate || awayMeta.comebackRate || 0)
+  const homeRate = Math.round(homeRateBase * 100)
+  const awayRate = Math.round(awayRateBase * 100)
   const lamakTypeLabel = { home: t('lamaki_home'), away: t('lamaki_away'), both: t('lamaki_both') }[lamakType] || 'Mixed'
   const certainty =
     homeMeta.certainty === 'ht' || awayMeta.certainty === 'ht'
@@ -335,7 +352,7 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
 
           <div className="lamaki-history-grid">
             <div className="lamaki-history-card">
-              <div className="lamaki-history-head">{fixture?.homeTeam?.name} {t('lamaki_one_two_two_one')} matches ({homeComebacks.length}/{homeHistory.length}, {homeRate}%)</div>
+              <div className="lamaki-history-head">{fixture?.homeTeam?.name} {homeHistoryMode === 'wfb' ? t('lamaki_wfb') : t('lamaki_one_two_two_one')} matches ({homeComebacks.length}/{homeHistory.length}, {homeRate}%)</div>
               {homeComebacks.length ? homeComebacks.map((row, index) => (
                 <div key={`h-${index}`} className="lamaki-history-row">
                   <div className="lamaki-history-date">{formatDate(row.date)}</div>
@@ -343,10 +360,10 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
                   <div className="lamaki-history-split">HT {row.ht}</div>
                   <div className="lamaki-history-split lamaki-history-split-ft">FT {row.ft}</div>
                 </div>
-              )) : <div className="lamaki-history-empty">No comeback wins found in loaded history.</div>}
+              )) : <div className="lamaki-history-empty">No {homeHistoryMode === 'wfb' ? t('lamaki_wfb') : t('lamaki_one_two_two_one')} matches found in loaded history.</div>}
             </div>
             <div className="lamaki-history-card">
-              <div className="lamaki-history-head lamaki-history-head-away">{fixture?.awayTeam?.name} {t('lamaki_one_two_two_one')} matches ({awayComebacks.length}/{awayHistory.length}, {awayRate}%)</div>
+              <div className="lamaki-history-head lamaki-history-head-away">{fixture?.awayTeam?.name} {awayHistoryMode === 'wfb' ? t('lamaki_wfb') : t('lamaki_one_two_two_one')} matches ({awayComebacks.length}/{awayHistory.length}, {awayRate}%)</div>
               {awayComebacks.length ? awayComebacks.map((row, index) => (
                 <div key={`a-${index}`} className="lamaki-history-row">
                   <div className="lamaki-history-date">{formatDate(row.date)}</div>
@@ -354,7 +371,7 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
                   <div className="lamaki-history-split">HT {row.ht}</div>
                   <div className="lamaki-history-split lamaki-history-split-ft">FT {row.ft}</div>
                 </div>
-              )) : <div className="lamaki-history-empty">No comeback wins found in loaded history.</div>}
+              )) : <div className="lamaki-history-empty">No {awayHistoryMode === 'wfb' ? t('lamaki_wfb') : t('lamaki_one_two_two_one')} matches found in loaded history.</div>}
             </div>
           </div>
         </div>

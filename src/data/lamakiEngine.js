@@ -163,6 +163,7 @@ function scoreTeam(history, isHomeInMatch, today) {
   const exactComebacks = history.filter((match, index) => swingMeta[index].exactComeback)
   const comebackRate = comebacks.length / history.length
   const exactComebackRate = exactComebacks.length / history.length
+  const directSwingEvidence = exactComebacks.length
   if (comebackRate >= 0.4) {
     score += 35
     patterns.push({ type: 'one_two_two_one', value: exactComebacks.length || comebacks.length, rate: exactComebackRate || comebackRate, exact: exactComebacks.length > 0 })
@@ -178,6 +179,7 @@ function scoreTeam(history, isHomeInMatch, today) {
   const wfbMatches = history.filter((match, index) => swingMeta[index].wfb)
   const collapseRate = collapses.length / history.length
   const wfbRate = wfbMatches.length / history.length
+  const collapseEvidence = wfbMatches.length
   if (collapseRate >= 0.35) {
     score += 25
     patterns.push({ type: 'wfb', value: wfbMatches.length || collapses.length, rate: wfbRate || collapseRate, exact: wfbMatches.length > 0 })
@@ -187,7 +189,7 @@ function scoreTeam(history, isHomeInMatch, today) {
   }
 
   const bttsInComebacks = comebacks.filter(match => match.btts)
-  if (bttsInComebacks.length >= 2) {
+  if (directSwingEvidence > 0 && bttsInComebacks.length >= 2) {
     score += 10
     patterns.push({ type: 'btts_comeback', value: bttsInComebacks.length })
   }
@@ -197,21 +199,21 @@ function scoreTeam(history, isHomeInMatch, today) {
     const theirGoals = isHomeInMatch ? (match.awayGoals ?? 0) : (match.homeGoals ?? 0)
     return myGoals >= 1 && theirGoals >= myGoals + 1
   })
-  if (bigCollapses.length >= 2) {
+  if (collapseEvidence > 0 && bigCollapses.length >= 2) {
     score += 15
     patterns.push({ type: 'big_collapse', value: bigCollapses.length })
   }
 
   const datePatterns = checkDatePatterns(history, today)
-  if (datePatterns.exactDateMinus2 > 0) {
+  if ((directSwingEvidence > 0 || collapseEvidence > 0) && datePatterns.exactDateMinus2 > 0) {
     score += 20
     patterns.push({ type: 'calendar_exact', value: datePatterns.exactDateMinus2 })
   }
-  if (datePatterns.sameDayLastYear > 0) {
+  if ((directSwingEvidence > 0 || collapseEvidence > 0) && datePatterns.sameDayLastYear > 0) {
     score += 12
     patterns.push({ type: 'calendar_day_year', value: datePatterns.sameDayLastYear })
   }
-  if (datePatterns.sameMonth >= 3) {
+  if ((directSwingEvidence > 0 || collapseEvidence > 0) && datePatterns.sameMonth >= 3) {
     score += 6
     patterns.push({ type: 'calendar_month', value: datePatterns.sameMonth })
   }
@@ -242,6 +244,8 @@ function scoreTeam(history, isHomeInMatch, today) {
       collapseRate,
       exactComebackRate,
       wfbRate,
+      directSwingEvidence,
+      collapseEvidence,
       recentComebacks: last3Comebacks,
       recentCollapses,
       datePatterns,
@@ -257,7 +261,14 @@ export function analyzeFixture(fixture, today = new Date()) {
   const homeAnalysis = scoreTeam(homeHistory, true, today)
   const awayAnalysis = scoreTeam(awayHistory, false, today)
   const hasTriangle = hasTrianglePattern(homeHistory, awayHistory)
-  const triangleBonus = hasTriangle ? 15 : 0
+  const homeLaneSupport =
+    (homeAnalysis.meta.exactComebackCount || homeAnalysis.meta.comebackCount || 0) +
+    (awayAnalysis.meta.wfbCount || awayAnalysis.meta.collapseCount || 0)
+  const awayLaneSupport =
+    (awayAnalysis.meta.exactComebackCount || awayAnalysis.meta.comebackCount || 0) +
+    (homeAnalysis.meta.wfbCount || homeAnalysis.meta.collapseCount || 0)
+  const hasAnySwingEvidence = homeLaneSupport > 0 || awayLaneSupport > 0
+  const triangleBonus = hasTriangle && hasAnySwingEvidence ? 15 : 0
 
   const combinedScore = Math.round(
     (homeAnalysis.score * 0.45) +
@@ -265,10 +276,17 @@ export function analyzeFixture(fixture, today = new Date()) {
     triangleBonus,
   )
 
+  const homeLaneScore =
+    homeAnalysis.score +
+    Math.round((awayAnalysis.meta.wfbRate || awayAnalysis.meta.collapseRate || 0) * 100 * 0.35)
+  const awayLaneScore =
+    awayAnalysis.score +
+    Math.round((homeAnalysis.meta.wfbRate || homeAnalysis.meta.collapseRate || 0) * 100 * 0.35)
+
   let lamakType = null
-  if (homeAnalysis.score >= awayAnalysis.score + 20) lamakType = 'home'
-  else if (awayAnalysis.score >= homeAnalysis.score + 20) lamakType = 'away'
-  else if (combinedScore >= 30) lamakType = 'both'
+  if (homeLaneSupport > 0 && homeLaneScore >= awayLaneScore + 12) lamakType = 'home'
+  else if (awayLaneSupport > 0 && awayLaneScore >= homeLaneScore + 12) lamakType = 'away'
+  else if (homeLaneSupport > 0 && awayLaneSupport > 0 && combinedScore >= 30) lamakType = 'both'
 
   let strength = null
   if (combinedScore >= 65) strength = 'strong'
@@ -288,11 +306,15 @@ export function analyzeFixture(fixture, today = new Date()) {
     strength,
     lamakType,
     hasTriangle,
+    homeLaneSupport,
+    awayLaneSupport,
+    homeLaneScore,
+    awayLaneScore,
     homePatterns: homeAnalysis.patterns,
     awayPatterns: awayAnalysis.patterns,
     homeMeta: homeAnalysis.meta,
     awayMeta: awayAnalysis.meta,
-    isLamak: strength !== null,
+    isLamak: strength !== null && lamakType !== null && hasAnySwingEvidence,
   }
 }
 
