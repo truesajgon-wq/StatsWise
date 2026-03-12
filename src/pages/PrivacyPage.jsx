@@ -7,7 +7,7 @@ export default function PrivacyPage() {
 
   return (
     <div className="theme-page" style={{ color: '#e2e8f0' }}>
-      <header className="theme-header" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+      <header className="theme-header legal-page-header" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <button className="theme-button-ghost" onClick={() => navigate('/')} style={{ borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
           Back
         </button>
@@ -15,7 +15,7 @@ export default function PrivacyPage() {
         <div style={{ width: 62 }} />
       </header>
 
-      <main style={{ maxWidth: 920, margin: '0 auto', padding: '18px 16px 28px', lineHeight: 1.7 }}>
+      <main className="legal-page-main" style={{ maxWidth: 920, margin: '0 auto', padding: '18px 16px 28px', lineHeight: 1.7 }}>
         <h1 style={{ margin: '0 0 8px', fontSize: 28, fontWeight: 900, color: '#f8fafc' }}>Privacy Policy</h1>
         <p style={{ margin: '0 0 18px', color: '#94a3b8', fontSize: 13 }}>Last Updated: {updatedDate}</p>
 

@@ -41,24 +41,26 @@ export default function DayBar({ days, selectedIdx, onSelect, onPrev, onNext, ma
 
   if (isMobile) {
     return (
-      <div style={{ background: 'var(--sw-surface-0)', borderBottom: '1px solid var(--sw-border)', display: 'grid', gridTemplateColumns: '36px 1fr 36px', alignItems: 'center', padding: '8px 10px', gap: 8 }}>
+      <div className="day-bar-mobile" style={{ background: 'var(--sw-surface-0)', borderBottom: '1px solid var(--sw-border)', display: 'grid', gridTemplateColumns: '44px 1fr 44px', alignItems: 'center', padding: '8px 10px', gap: 8 }}>
         <button
+          className="day-bar-mobile-button"
           onClick={handlePrev}
           disabled={!canPrev}
-          style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--sw-border)', background: 'transparent', color: canPrev ? '#cbd5e1' : '#4b5563', fontSize: 16, cursor: canPrev ? 'pointer' : 'not-allowed', justifySelf: 'start', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: 44, height: 44, borderRadius: 10, border: '1px solid var(--sw-border)', background: 'transparent', color: canPrev ? '#cbd5e1' : '#4b5563', fontSize: 16, cursor: canPrev ? 'pointer' : 'not-allowed', justifySelf: 'start', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
         >
           {'<'}
         </button>
         <div style={{ minWidth: 0, textAlign: 'center', color: '#f8fafc' }}>
-          <div style={{ fontSize: 16, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedDay ? formatDay(selectedDay) : '-'}</div>
+          <div className="day-bar-mobile-label" style={{ fontSize: 16, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedDay ? formatDay(selectedDay) : '-'}</div>
           <div style={{ fontSize: 11, marginTop: 2, opacity: 0.75, color: '#94a3b8' }}>
             {selectedDay ? selectedDay.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }) : ''}
           </div>
         </div>
         <button
+          className="day-bar-mobile-button"
           onClick={handleNext}
           disabled={!canNext}
-          style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--sw-border)', background: 'transparent', color: canNext ? '#cbd5e1' : '#4b5563', fontSize: 16, cursor: canNext ? 'pointer' : 'not-allowed', justifySelf: 'end', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: 44, height: 44, borderRadius: 10, border: '1px solid var(--sw-border)', background: 'transparent', color: canNext ? '#cbd5e1' : '#4b5563', fontSize: 16, cursor: canNext ? 'pointer' : 'not-allowed', justifySelf: 'end', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
         >
           {'>'}
         </button>
@@ -67,13 +69,14 @@ export default function DayBar({ days, selectedIdx, onSelect, onPrev, onNext, ma
   }
 
   return (
-    <div style={{ background: 'var(--sw-surface-0)', borderBottom: '1px solid var(--sw-border)', display: 'flex', justifyContent: 'center' }}>
+    <div className="day-bar-desktop" style={{ background: 'var(--sw-surface-0)', borderBottom: '1px solid var(--sw-border)', display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth, display: 'grid', gridTemplateColumns: `36px repeat(${days.length}, minmax(0, 1fr)) 36px`, alignItems: 'stretch', transform: centerShiftDesktop ? `translateX(${centerShiftDesktop}px)` : 'none' }}>
         <button
+          className="day-bar-desktop-button"
           onClick={handlePrev}
           disabled={!canPrev}
           aria-label="Previous day"
-          style={{ width: 32, height: '100%', minHeight: 54, borderRadius: 0, border: 'none', borderRight: '1px solid var(--sw-border)', background: 'transparent', color: canPrev ? '#9ca3af' : '#4b5563', fontSize: 16, cursor: canPrev ? 'pointer' : 'not-allowed', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: 36, height: '100%', minHeight: 54, borderRadius: 0, border: 'none', borderRight: '1px solid var(--sw-border)', background: 'transparent', color: canPrev ? '#9ca3af' : '#4b5563', fontSize: 16, cursor: canPrev ? 'pointer' : 'not-allowed', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
         >
           {'<'}
         </button>
@@ -81,7 +84,7 @@ export default function DayBar({ days, selectedIdx, onSelect, onPrev, onNext, ma
           <button
             key={i}
             onClick={() => onSelect(i)}
-            className="flex flex-col items-center transition-all"
+            className="day-bar-desktop-button flex flex-col items-center transition-all"
             style={{
               minWidth: 0,
               padding: '10px 8px',
@@ -101,10 +104,11 @@ export default function DayBar({ days, selectedIdx, onSelect, onPrev, onNext, ma
           </button>
         ))}
         <button
+          className="day-bar-desktop-button"
           onClick={handleNext}
           disabled={!canNext}
           aria-label="Next day"
-          style={{ width: 32, height: '100%', minHeight: 54, borderRadius: 0, border: 'none', borderLeft: '1px solid var(--sw-border)', background: 'transparent', color: canNext ? '#9ca3af' : '#4b5563', fontSize: 16, cursor: canNext ? 'pointer' : 'not-allowed', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: 36, height: '100%', minHeight: 54, borderRadius: 0, border: 'none', borderLeft: '1px solid var(--sw-border)', background: 'transparent', color: canNext ? '#9ca3af' : '#4b5563', fontSize: 16, cursor: canNext ? 'pointer' : 'not-allowed', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
         >
           {'>'}
         </button>

@@ -77,7 +77,7 @@ export default function StatInsightsPanel({ fixtures, statKey, onFixtureClick })
     <div className="stat-insights-panel">
       {/* Header + ALT adjuster */}
       <div style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 4 }}>
+        <div className="stat-insights-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 4 }}>
           <div>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>
               {def.icon} {statLabel}
@@ -89,12 +89,12 @@ export default function StatInsightsPanel({ fixtures, statKey, onFixtureClick })
           </div>
 
           {!isBinary && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="stat-insights-alt-controls" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>ALT Line</span>
               <div style={{ display: 'flex', alignItems: 'center', background: 'var(--sw-surface-1)', border: '1px solid var(--sw-muted)', borderRadius: 8, overflow: 'hidden' }}>
-                <button onClick={() => setAlt(v => normalizeHalfAlt(v - 1))} style={{ width: 32, height: 32, background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 18, fontWeight: 700 }}>-</button>
-                <span style={{ minWidth: 44, textAlign: 'center', fontSize: 15, fontWeight: 900, color: '#f59e0b', borderLeft: '1px solid var(--sw-border)', borderRight: '1px solid var(--sw-border)', lineHeight: '32px' }}>{alt.toFixed(1)}</span>
-                <button onClick={() => setAlt(v => normalizeHalfAlt(v + 1))} style={{ width: 32, height: 32, background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 18, fontWeight: 700 }}>+</button>
+                <button onClick={() => setAlt(v => normalizeHalfAlt(v - 1))} style={{ width: 44, height: 44, background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 18, fontWeight: 700 }}>-</button>
+                <span style={{ minWidth: 52, textAlign: 'center', fontSize: 15, fontWeight: 900, color: '#f59e0b', borderLeft: '1px solid var(--sw-border)', borderRight: '1px solid var(--sw-border)', lineHeight: '44px' }}>{alt.toFixed(1)}</span>
+                <button onClick={() => setAlt(v => normalizeHalfAlt(v + 1))} style={{ width: 44, height: 44, background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 18, fontWeight: 700 }}>+</button>
               </div>
             </div>
           )}
@@ -102,7 +102,7 @@ export default function StatInsightsPanel({ fixtures, statKey, onFixtureClick })
       </div>
 
       {/* Legend */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 16, padding: '10px 14px', background: 'var(--sw-surface-2)', borderRadius: 8, border: '1px solid var(--sw-border)', flexWrap: 'wrap' }}>
+      <div className="stat-insights-legend" style={{ display: 'flex', gap: 16, marginBottom: 16, padding: '10px 14px', background: 'var(--sw-surface-2)', borderRadius: 8, border: '1px solid var(--sw-border)', flexWrap: 'wrap' }}>
         {[{ label: '80-100%', color: '#22c55e' }, { label: '60-79%', color: '#eab308' }].map(l => (
           <span key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9ca3af' }}>
             <span style={{ width: 10, height: 10, borderRadius: 2, background: l.color, display: 'inline-block' }} />
@@ -132,7 +132,7 @@ export default function StatInsightsPanel({ fixtures, statKey, onFixtureClick })
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,115,22,0.07)'; e.currentTarget.style.borderColor = '#f97316' }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'var(--sw-surface-2)'; e.currentTarget.style.borderColor = idx === 0 ? topColor.border : 'var(--sw-border)' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <div className="stat-insights-card-head" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <span style={{ fontSize: 11, color: '#4b5563', fontWeight: 700, minWidth: 20 }}>#{idx + 1}</span>
                   <span style={{ fontSize: 11, color: '#6b7280', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {f.league?.country} / {f.league?.name}
@@ -145,12 +145,12 @@ export default function StatInsightsPanel({ fixtures, statKey, onFixtureClick })
                 <div className="stat-insights-vs-grid" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <div style={{ textAlign: 'right' }}>
                     {f.homeTeam?.logo && <img src={f.homeTeam.logo} alt="" style={{ width: 24, height: 24, objectFit: 'contain', display: 'inline-block', marginBottom: 4 }} />}
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>{f.homeTeam?.name}</div>
+                    <div className="stat-insights-team-name" style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>{f.homeTeam?.name}</div>
                   </div>
                   <div style={{ textAlign: 'center', color: 'var(--sw-muted)', fontWeight: 900, fontSize: 16 }}>vs</div>
                   <div>
                     {f.awayTeam?.logo && <img src={f.awayTeam.logo} alt="" style={{ width: 24, height: 24, objectFit: 'contain', display: 'inline-block', marginBottom: 4 }} />}
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>{f.awayTeam?.name}</div>
+                    <div className="stat-insights-team-name" style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>{f.awayTeam?.name}</div>
                   </div>
                 </div>
 

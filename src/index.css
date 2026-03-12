@@ -1392,3 +1392,387 @@ button {
     grid-column: 1 / -1;
   }
 }
+
+/* Mobile responsiveness hardening */
+:root {
+  --app-safe-left: max(12px, env(safe-area-inset-left, 0px));
+  --app-safe-right: max(12px, env(safe-area-inset-right, 0px));
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-gutter: 20px;
+  --app-card-padding: 16px;
+  --app-stack-gap: 12px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  overflow-wrap: anywhere;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+li,
+span,
+label {
+  overflow-wrap: anywhere;
+}
+
+button,
+a,
+[role="button"] {
+  min-height: 44px !important;
+  touch-action: manipulation;
+}
+
+button[aria-label],
+a[aria-label],
+[role="button"][aria-label] {
+  min-width: 44px;
+}
+
+.home-shell-section,
+.subscription-page-content,
+.login-page,
+.stat-prediction-page,
+.player-stats-page,
+.lamaki-page,
+.cs-root,
+.site-footer {
+  padding-left: max(var(--app-gutter), var(--app-safe-left)) !important;
+  padding-right: max(var(--app-gutter), var(--app-safe-right)) !important;
+}
+
+.home-shell-section,
+.subscription-page-content,
+.player-stats-page,
+.lamaki-page,
+.cs-root {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.site-footer {
+  padding-bottom: calc(18px + var(--app-safe-bottom)) !important;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.footer-separator {
+  color: #64748b;
+}
+
+.home-league-filter {
+  padding-left: max(var(--app-gutter), var(--app-safe-left)) !important;
+  padding-right: max(var(--app-gutter), var(--app-safe-right)) !important;
+}
+
+.home-header,
+.match-details-topbar,
+.match-details-fixture-select,
+.subscription-page-header {
+  padding-left: max(12px, var(--app-safe-left)) !important;
+  padding-right: max(12px, var(--app-safe-right)) !important;
+}
+
+.home-menu-button,
+.sidebar-close-button,
+.day-bar-mobile-button {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+.day-bar-mobile {
+  padding-left: max(8px, var(--app-safe-left)) !important;
+  padding-right: max(8px, var(--app-safe-right)) !important;
+}
+
+.day-bar-mobile-label,
+.day-bar-desktop-button {
+  min-width: 0;
+}
+
+.fixture-row {
+  width: 100%;
+  max-width: 100%;
+}
+
+.fixture-row-time,
+.fixture-row-score,
+.fixture-row-favorite {
+  min-width: 0;
+}
+
+.fixture-row-favorite {
+  justify-self: end;
+}
+
+.stat-insights-head,
+.stat-insights-legend {
+  width: 100%;
+  max-width: 100%;
+}
+
+.stat-insights-alt-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stat-insights-card-head {
+  gap: 8px;
+}
+
+.stat-insights-team-name {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.legal-page-header {
+  padding-left: max(12px, var(--app-safe-left)) !important;
+  padding-right: max(12px, var(--app-safe-right)) !important;
+}
+
+.legal-page-main {
+  padding-left: max(var(--app-gutter), var(--app-safe-left)) !important;
+  padding-right: max(var(--app-gutter), var(--app-safe-right)) !important;
+  width: min(100%, 920px);
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --app-gutter: 16px;
+    --app-card-padding: 14px;
+  }
+
+  .home-header {
+    gap: 8px !important;
+  }
+
+  .home-auth-buttons {
+    width: 100%;
+  }
+
+  .home-auth-buttons > button {
+    flex: 1 1 0;
+    min-width: 0 !important;
+    min-height: 44px !important;
+  }
+
+  .fixture-group-header {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .fixture-group-header > span:last-child {
+    margin-left: 0 !important;
+  }
+
+  .stat-insights-head {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .stat-insights-legend {
+    gap: 10px !important;
+  }
+
+  .stat-insights-legend > span:last-child {
+    margin-left: 0 !important;
+    width: 100%;
+  }
+
+  .stat-insights-card-head {
+    flex-wrap: wrap;
+    align-items: flex-start !important;
+  }
+
+  .stat-insights-card-head > span:nth-child(2) {
+    white-space: normal !important;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --app-gutter: 14px;
+    --app-card-padding: 13px;
+  }
+
+  .footer-links {
+    gap: 6px;
+  }
+
+  .footer-separator {
+    display: none;
+  }
+
+  .home-header {
+    min-height: 60px !important;
+  }
+
+  .home-controls {
+    width: 100%;
+  }
+
+  .home-league-filter {
+    gap: 6px !important;
+  }
+
+  .fixture-row {
+    border-radius: 12px !important;
+  }
+
+  .stat-insights-team-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .cs-detail-card,
+  .cs-score-panel,
+  .cs-note-card,
+  .cs-select-card {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --app-gutter: 12px;
+    --app-card-padding: 12px;
+  }
+
+  .subscription-page-content,
+  .home-shell-section,
+  .player-stats-page,
+  .stat-prediction-page,
+  .lamaki-page,
+  .cs-root,
+  .legal-page-main {
+    padding-left: max(12px, var(--app-safe-left)) !important;
+    padding-right: max(12px, var(--app-safe-right)) !important;
+  }
+
+  .home-auth-buttons {
+    gap: 6px !important;
+  }
+
+  .day-bar-mobile-label {
+    font-size: 15px !important;
+  }
+
+  .match-details-tabs {
+    grid-template-columns: 1fr !important;
+  }
+
+  .stat-prediction-summary-metrics {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    width: 100%;
+  }
+}
+
+@media (max-width: 414px) {
+  :root {
+    --app-gutter: 11px;
+  }
+
+  .fixture-group-header {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  .site-footer {
+    font-size: 11px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  :root {
+    --app-gutter: 10px;
+  }
+
+  .stat-prediction-summary-metrics {
+    grid-template-columns: 1fr !important;
+  }
+
+  .home-header {
+    gap: 6px !important;
+  }
+}
+
+@media (max-width: 375px) {
+  :root {
+    --app-gutter: 10px;
+  }
+
+  .subscription-page-header {
+    grid-template-columns: auto 1fr auto !important;
+  }
+
+  .legal-page-header {
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  :root {
+    --app-gutter: 9px;
+    --app-card-padding: 11px;
+  }
+
+  .home-header {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  .day-bar-mobile {
+    gap: 6px !important;
+  }
+
+  .day-bar-mobile-label {
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 320px) {
+  :root {
+    --app-gutter: 8px;
+    --app-card-padding: 10px;
+  }
+
+  .home-shell-section,
+  .subscription-page-content,
+  .player-stats-page,
+  .stat-prediction-page,
+  .lamaki-page,
+  .cs-root,
+  .legal-page-main {
+    padding-left: max(8px, var(--app-safe-left)) !important;
+    padding-right: max(8px, var(--app-safe-right)) !important;
+  }
+
+  .day-bar-mobile {
+    grid-template-columns: 44px 1fr 44px !important;
+  }
+
+  .site-footer {
+    padding-left: max(8px, var(--app-safe-left)) !important;
+    padding-right: max(8px, var(--app-safe-right)) !important;
+  }
+}

@@ -65,22 +65,25 @@ export default function FixtureRow({ fixture, onClick, even, isFavorite = false,
   const isFT = status === 'FT'
   const showScore = isLive || isFT
   const statusLabel = isLive ? `${fixture.elapsed || ''}'` : isFT ? 'FT' : (time || '--:--')
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768)
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth)
+  const isMobile = viewportWidth <= 768
+  const isCompactPhone = viewportWidth <= 390
+  const rowColumns = isCompactPhone
+    ? '44px minmax(0,1fr) 30px 44px'
+    : isMobile
+      ? '52px minmax(0,1fr) 34px 44px'
+      : '56px minmax(0,1fr) 34px 44px'
 
   useEffect(() => {
-    const media = window.matchMedia('(max-width: 768px)')
-    const apply = () => setIsMobile(media.matches)
-    apply()
-    if (media.addEventListener) {
-      media.addEventListener('change', apply)
-      return () => media.removeEventListener('change', apply)
-    }
-    media.addListener(apply)
-    return () => media.removeListener(apply)
+    const onResize = () => setViewportWidth(window.innerWidth)
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [])
 
   return (
     <div
+      className="fixture-row"
       role="button"
       tabIndex={0}
       onClick={onClick}
@@ -93,10 +96,10 @@ export default function FixtureRow({ fixture, onClick, even, isFavorite = false,
       style={{
         width: '100%',
         display: 'grid',
-        gridTemplateColumns: isMobile ? '48px minmax(0,1fr) 26px 24px' : '56px minmax(0,1fr) 34px 28px',
+        gridTemplateColumns: rowColumns,
         alignItems: 'center',
-        gap: isMobile ? 8 : 10,
-        padding: isMobile ? '10px 10px' : '10px 12px',
+        gap: isCompactPhone ? 6 : isMobile ? 8 : 10,
+        padding: isCompactPhone ? '10px 8px' : isMobile ? '10px 10px' : '10px 12px',
         background: 'var(--sw-surface-0)',
         border: '1px solid var(--sw-border)',
         borderLeft: isLive ? '3px solid #f97316' : '1px solid var(--sw-border)',
@@ -112,11 +115,11 @@ export default function FixtureRow({ fixture, onClick, even, isFavorite = false,
         e.currentTarget.style.background = 'var(--sw-surface-0)'
       }}
     >
-      <div style={{ width: isMobile ? 48 : 56, flexShrink: 0, textAlign: 'center', justifySelf: 'center' }}>
+      <div className="fixture-row-time" style={{ width: isCompactPhone ? 44 : isMobile ? 52 : 56, flexShrink: 0, textAlign: 'center', justifySelf: 'center' }}>
         {isLive ? (
-          <div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 900, color: '#f97316', fontFamily: 'monospace' }}>{statusLabel}</div>
+          <div style={{ fontSize: isCompactPhone ? 12 : isMobile ? 13 : 14, fontWeight: 900, color: '#f97316', fontFamily: 'monospace' }}>{statusLabel}</div>
         ) : (
-          <span style={{ fontSize: isMobile ? 13 : 14, fontWeight: 800, color: isFT ? '#22c55e' : '#94a3b8', fontFamily: 'monospace' }}>
+          <span style={{ fontSize: isCompactPhone ? 12 : isMobile ? 13 : 14, fontWeight: 800, color: isFT ? '#22c55e' : '#94a3b8', fontFamily: 'monospace' }}>
             {statusLabel}
           </span>
         )}
@@ -125,19 +128,19 @@ export default function FixtureRow({ fixture, onClick, even, isFavorite = false,
       <div style={{ minWidth: 0, display: 'grid', gridTemplateRows: '1fr 1fr', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
           <TeamBadge team={homeTeam} size={isMobile ? 16 : 18} />
-          <span style={{ ...nameStyle(isMobile, 'left'), textAlign: 'left' }}>{homeTeam.name}</span>
+          <span style={{ ...nameStyle(isMobile, 'left'), textAlign: 'left', fontSize: isCompactPhone ? 11.5 : isMobile ? 12 : 13 }}>{homeTeam.name}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
           <TeamBadge team={awayTeam} size={isMobile ? 16 : 18} />
-          <span style={{ ...nameStyle(isMobile, 'left'), textAlign: 'left' }}>{awayTeam.name}</span>
+          <span style={{ ...nameStyle(isMobile, 'left'), textAlign: 'left', fontSize: isCompactPhone ? 11.5 : isMobile ? 12 : 13 }}>{awayTeam.name}</span>
         </div>
       </div>
 
-      <div style={{ textAlign: 'center', minWidth: isMobile ? 24 : 34 }}>
+      <div className="fixture-row-score" style={{ textAlign: 'center', minWidth: isCompactPhone ? 30 : isMobile ? 34 : 34 }}>
         {showScore ? (
           <div style={{ display: 'grid', gridTemplateRows: '1fr 1fr', gap: 8 }}>
-            <span style={{ fontSize: isMobile ? 18 : 20, fontWeight: 900, color: '#f8fafc', lineHeight: 1 }}>{homeGoals ?? '-'}</span>
-            <span style={{ fontSize: isMobile ? 18 : 20, fontWeight: 900, color: '#f8fafc', lineHeight: 1 }}>{awayGoals ?? '-'}</span>
+            <span style={{ fontSize: isCompactPhone ? 16 : isMobile ? 18 : 20, fontWeight: 900, color: '#f8fafc', lineHeight: 1 }}>{homeGoals ?? '-'}</span>
+            <span style={{ fontSize: isCompactPhone ? 16 : isMobile ? 18 : 20, fontWeight: 900, color: '#f8fafc', lineHeight: 1 }}>{awayGoals ?? '-'}</span>
           </div>
         ) : (
           <span style={{ fontSize: 14, fontWeight: 700, color: '#4b5563' }}>-</span>
@@ -145,6 +148,7 @@ export default function FixtureRow({ fixture, onClick, even, isFavorite = false,
       </div>
 
       <button
+        className="fixture-row-favorite"
         type="button"
         onClick={(e) => {
           e.stopPropagation()
@@ -152,12 +156,12 @@ export default function FixtureRow({ fixture, onClick, even, isFavorite = false,
         }}
         aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
         style={{
-          width: 28,
-          minWidth: 28,
-          maxWidth: 28,
-          height: 28,
-          minHeight: 28,
-          maxHeight: 28,
+          width: 44,
+          minWidth: 44,
+          maxWidth: 44,
+          height: 44,
+          minHeight: 44,
+          maxHeight: 44,
           borderRadius: 9999,
           border: '1px solid var(--sw-border)',
           background: 'transparent',

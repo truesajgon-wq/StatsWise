@@ -20,11 +20,11 @@ export default function AppFooter() {
         <Link to="/terms" style={{ color: '#e7edf6', textDecoration: 'none' }}>
           Terms &amp; Conditions
         </Link>{' '}
-        |{' '}
+        <span className="footer-separator">|</span>
         <Link to="/privacy" style={{ color: '#e7edf6', textDecoration: 'none' }}>
           Privacy Policy
         </Link>{' '}
-        |{' '}
+        <span className="footer-separator">|</span>
         <Link to="/responsible-gambling" style={{ color: '#e7edf6', textDecoration: 'none' }}>
           Responsible Gambling
         </Link>

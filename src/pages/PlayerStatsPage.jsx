@@ -431,7 +431,15 @@ export default function PlayerStatsPage({ players = null, lineups = null, title 
   const [selected, setSelected] = useState(null)
   const [activeStat, setActiveStat] = useState('goals')
   const [visibleCount, setVisibleCount] = useState(10)
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth)
   const isFixtureMode = Array.isArray(players)
+  const isNarrowRankList = viewportWidth <= 480
+
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   const results = useMemo(() => {
     if (!isFixtureMode) return searchPlayers(search)
@@ -502,7 +510,7 @@ export default function PlayerStatsPage({ players = null, lineups = null, title 
             type="button"
             onClick={() => setActiveStat(opt.key)}
             style={{
-              minHeight: 34,
+              minHeight: 44,
               padding: '0 12px',
               borderRadius: 999,
               border: activeStat === opt.key ? '1px solid rgba(255,74,31,0.5)' : '1px solid var(--sw-border)',
@@ -523,11 +531,25 @@ export default function PlayerStatsPage({ players = null, lineups = null, title 
       </div>
 
       <div style={{ border: '1px solid var(--sw-border)', borderRadius: 12, overflow: 'hidden', background: 'var(--sw-surface-0)', marginBottom: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '52px minmax(0,1fr) 86px 76px', padding: '10px 12px', borderBottom: '1px solid var(--sw-border)', color: '#64748b', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        <div
+          className="player-ranking-header"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: isNarrowRankList ? '44px minmax(0,1fr)' : '52px minmax(0,1fr) 86px 76px',
+            padding: '10px 12px',
+            borderBottom: '1px solid var(--sw-border)',
+            color: '#64748b',
+            fontSize: 11,
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            gap: isNarrowRankList ? 10 : 0,
+          }}
+        >
           <div>#</div>
-          <div>Player</div>
-          <div>Total</div>
-          <div>Per Game</div>
+          <div>{isNarrowRankList ? 'Player / Totals' : 'Player'}</div>
+          {!isNarrowRankList && <div>Total</div>}
+          {!isNarrowRankList && <div>Per Game</div>}
         </div>
         {shown.map((p, idx) => {
           const total = getRankStatValue(p, activeStat)
@@ -538,15 +560,22 @@ export default function PlayerStatsPage({ players = null, lineups = null, title 
               key={p.id}
               type="button"
               onClick={() => setSelected(p)}
-              style={{ width: '100%', display: 'grid', gridTemplateColumns: '52px minmax(0,1fr) 86px 76px', padding: '10px 12px', border: 'none', borderBottom: idx === shown.length - 1 ? 'none' : '1px solid #1d2939', background: selected?.id === p.id ? 'rgba(255,74,31,0.13)' : 'transparent', color: '#dbe7f8', textAlign: 'left', cursor: 'pointer' }}
+              className="player-ranking-row"
+              style={{ width: '100%', display: 'grid', gridTemplateColumns: isNarrowRankList ? '44px minmax(0,1fr)' : '52px minmax(0,1fr) 86px 76px', gap: isNarrowRankList ? 10 : 0, padding: '10px 12px', border: 'none', borderBottom: idx === shown.length - 1 ? 'none' : '1px solid #1d2939', background: selected?.id === p.id ? 'rgba(255,74,31,0.13)' : 'transparent', color: '#dbe7f8', textAlign: 'left', cursor: 'pointer' }}
             >
               <div style={{ fontWeight: 900, color: idx < 3 ? '#f97316' : '#93a4be' }}>#{idx + 1}</div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
                 <div style={{ fontSize: 11, color: '#6b7280' }}>{p.team} - {p.position}</div>
+                {isNarrowRankList && (
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
+                    <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 700 }}>Total: {Number.isInteger(total) ? total : total.toFixed(2)}</span>
+                    <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700 }}>Per Game: {perGame.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
-              <div style={{ fontSize: 13, fontWeight: 900, color: '#f8fafc' }}>{Number.isInteger(total) ? total : total.toFixed(2)}</div>
-              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 700 }}>{perGame.toFixed(2)}</div>
+              {!isNarrowRankList && <div style={{ fontSize: 13, fontWeight: 900, color: '#f8fafc' }}>{Number.isInteger(total) ? total : total.toFixed(2)}</div>}
+              {!isNarrowRankList && <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 700 }}>{perGame.toFixed(2)}</div>}
             </button>
           )
         })}

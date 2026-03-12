@@ -172,12 +172,12 @@ export default function Sidebar({ activeView, onViewChange, activeLeague, onLeag
   return (
     <aside className="app-sidebar" style={{ width: isMobile ? '100vw' : 300, background: 'var(--sw-surface-0)', borderRight: '1px solid var(--sw-border)', minHeight: isMobile ? '100dvh' : '100vh', height: isMobile ? '100dvh' : '100vh', overflow: 'hidden', flexShrink: 0, transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1), transform 0.2s ease', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, zIndex: 60, transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)', paddingBottom: isMobile ? 'env(safe-area-inset-bottom, 0px)' : 0 }}>
       {isMobile && (
-        <button onClick={() => onRequestClose?.()} title="Close navigation" style={{ position: 'absolute', top: 12, left: 12, width: 30, height: 30, background: 'var(--sw-surface-1)', border: '1px solid var(--sw-border)', borderRadius: 7, color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 900, zIndex: 12 }}>
+        <button className="sidebar-close-button" onClick={() => onRequestClose?.()} title="Close navigation" style={{ position: 'absolute', top: 12, left: 12, width: 44, height: 44, background: 'var(--sw-surface-1)', border: '1px solid var(--sw-border)', borderRadius: 10, color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900, zIndex: 12 }}>
           {'\u2715'}
         </button>
       )}
 
-      <div style={{ height: isMobile ? 56 : 46, borderBottom: '1px solid var(--sw-border)', display: 'flex', alignItems: 'center', paddingLeft: isMobile ? 50 : 16, justifyContent: 'flex-start', flexShrink: 0, overflow: 'hidden' }}>
+      <div style={{ height: isMobile ? 64 : 46, borderBottom: '1px solid var(--sw-border)', display: 'flex', alignItems: 'center', paddingLeft: isMobile ? 64 : 16, justifyContent: 'flex-start', flexShrink: 0, overflow: 'hidden' }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--sw-muted)', letterSpacing: '0.1em', whiteSpace: 'nowrap', paddingRight: 40 }}>NAVIGATION</span>
       </div>
 

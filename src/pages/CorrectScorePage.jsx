@@ -48,7 +48,7 @@ function ResultPill({ label, prob, color, bg }) {
   return (
     <div style={{ minWidth: 0, textAlign: 'center', padding: '12px 10px', borderRadius: 12, background: bg, border: `1px solid ${color}30`, minHeight: 88, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ fontSize: 20, fontWeight: 900, color }}>{prob}%</div>
-      <div style={{ fontSize: 11, color: 'var(--sw-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'var(--sw-muted)', marginTop: 2, overflowWrap: 'anywhere', lineHeight: 1.35 }}>{label}</div>
     </div>
   )
 }
@@ -137,8 +137,8 @@ function CorrectScoreDetailsModal({ fixture, prediction, onClose, onOpenMatch })
         <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--sw-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Correct Score Insights</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <button onClick={() => onOpenMatch?.(fixture)} style={{ minHeight: 30, padding: '0 10px', borderRadius: 8, border: '1px solid rgba(209,213,219,0.4)', background: 'rgba(209,213,219,0.12)', color: '#e5e7eb', cursor: 'pointer' }}>Open Match Details</button>
-            <button onClick={onClose} style={{ minHeight: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#94a3b8', cursor: 'pointer' }}>Close</button>
+            <button onClick={() => onOpenMatch?.(fixture)} style={{ minHeight: 44, padding: '0 10px', borderRadius: 8, border: '1px solid rgba(209,213,219,0.4)', background: 'rgba(209,213,219,0.12)', color: '#e5e7eb', cursor: 'pointer' }}>Open Match Details</button>
+            <button onClick={onClose} style={{ minHeight: 44, padding: '0 10px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#94a3b8', cursor: 'pointer' }}>Close</button>
           </div>
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -334,11 +334,11 @@ export default function CorrectScorePage({ fixtures = [], loading }) {
                 <div style={{ minWidth: 0, display: 'grid', gridTemplateRows: '1fr 1fr', gap: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                     <TeamBadge team={selected.homeTeam} size={20} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2, textAlign: 'left' }}>{selected.homeTeam?.name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.2, textAlign: 'left' }}>{selected.homeTeam?.name}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                     <TeamBadge team={selected.awayTeam} size={20} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2, textAlign: 'left' }}>{selected.awayTeam?.name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.2, textAlign: 'left' }}>{selected.awayTeam?.name}</span>
                   </div>
                 </div>
                 <div style={{ textAlign: 'center', minWidth: 58, justifySelf: 'end', display: 'grid', gridTemplateRows: 'auto auto', gap: 8, justifyItems: 'center' }}>
@@ -358,14 +358,14 @@ export default function CorrectScorePage({ fixtures = [], loading }) {
                   <button
                     type="button"
                     onClick={() => setModalFixture(selected)}
-                    style={{ minHeight: 34, padding: '0 12px', borderRadius: 8, border: '1px solid var(--sw-border-strong)', background: 'rgba(255,122,0,0.12)', color: '#f5f5f5', fontWeight: 700, cursor: 'pointer' }}
+                    style={{ minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid var(--sw-border-strong)', background: 'rgba(255,122,0,0.12)', color: '#f5f5f5', fontWeight: 700, cursor: 'pointer' }}
                   >
                     Quick View
                   </button>
                   <button
                     type="button"
                     onClick={() => navigate(`/match/${selected.id}?stat=correctScore`)}
-                    style={{ minHeight: 34, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(209,213,219,0.4)', background: 'rgba(209,213,219,0.12)', color: '#e5e7eb', fontWeight: 700, cursor: 'pointer' }}
+                    style={{ minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(209,213,219,0.4)', background: 'rgba(209,213,219,0.12)', color: '#e5e7eb', fontWeight: 700, cursor: 'pointer' }}
                   >
                     Open Match Details
                   </button>

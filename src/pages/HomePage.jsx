@@ -644,7 +644,7 @@ function handleViewChange(key) {
 
         <main style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minWidth: 0 }}>
         <header className="home-header home-header-centered theme-header" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', flexShrink: 0, minHeight: 52 }}>
-          <button className="mobile-menu-btn" onClick={() => setSidebarOpen(o => !o)} style={{ display: 'none', background: 'var(--sw-surface-1)', border: '1px solid var(--sw-border)', borderRadius: 14, color: '#c8d2e2', cursor: 'pointer', width: 40, height: 40, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <button className="mobile-menu-btn home-menu-button" onClick={() => setSidebarOpen(o => !o)} style={{ display: 'none', background: 'var(--sw-surface-1)', border: '1px solid var(--sw-border)', borderRadius: 14, color: '#c8d2e2', cursor: 'pointer', width: 44, height: 44, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 4 }}>
               <span style={{ width: 14, height: 2, borderRadius: 2, background: '#c8d2e2', display: 'block' }} />
               <span style={{ width: 14, height: 2, borderRadius: 2, background: '#c8d2e2', display: 'block' }} />
@@ -688,13 +688,13 @@ function handleViewChange(key) {
               <div className="home-auth-buttons" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button
                   onClick={() => navigate('/login')}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, minWidth: 80, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-2)', cursor: 'pointer', textAlign: 'center' }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, minWidth: 80, minHeight: 44, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-2)', cursor: 'pointer', textAlign: 'center' }}
                 >
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc', lineHeight: 1, whiteSpace: 'nowrap' }}>{t('login')}</span>
                 </button>
                 <button
                   onClick={() => navigate('/login?mode=register')}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 82, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(249,115,22,0.55)', background: 'rgba(249,115,22,0.14)', cursor: 'pointer', textAlign: 'center' }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 82, minHeight: 44, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(249,115,22,0.55)', background: 'rgba(249,115,22,0.14)', cursor: 'pointer', textAlign: 'center' }}
                 >
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#fdba74', lineHeight: 1, whiteSpace: 'nowrap' }}>Signup</span>
                 </button>
@@ -702,7 +702,7 @@ function handleViewChange(key) {
             )}
 
             {user && !isSubscribed() && (
-              <button className="premium-btn" onClick={() => navigate('/subscription')} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', background: 'linear-gradient(135deg,#f59e0b,#eab308)', color: '#000', fontWeight: 800, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <button className="premium-btn" onClick={() => navigate('/subscription')} style={{ minHeight: 44, padding: '5px 10px', borderRadius: 6, border: 'none', background: 'linear-gradient(135deg,#f59e0b,#eab308)', color: '#000', fontWeight: 800, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 {ui.premium}
               </button>
             )}
@@ -749,7 +749,7 @@ function handleViewChange(key) {
         )}
 
         {isScheduleView && activeLeagueInfo && (
-          <div style={{ padding: '8px 20px', borderBottom: '1px solid var(--sw-border)', background: 'rgba(8,9,11,0.96)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div className="home-league-filter" style={{ padding: '8px 20px', borderBottom: '1px solid var(--sw-border)', background: 'rgba(8,9,11,0.96)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: '#6b7280' }}>{ui.leagueFilter}</span>
             <span style={{ fontSize: 12, color: '#f8fafc', fontWeight: 700, background: 'rgba(255,74,31,0.14)', border: '1px solid rgba(255,74,31,0.35)', borderRadius: 999, padding: '3px 10px' }}>{activeLeagueInfo.name} - {activeLeagueInfo.country}</span>
             <button onClick={() => setActiveLeague(null)} style={{ fontSize: 12, color: '#9ca3af', background: 'none', border: '1px solid var(--sw-muted)', borderRadius: 999, padding: '3px 10px', cursor: 'pointer' }}>{clearFiltersText}</button>
@@ -759,28 +759,28 @@ function handleViewChange(key) {
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <div style={{ flex: 1, overflowY: 'auto', minWidth: 0 }}>
             {isLamakiView && (
-              <div className="home-mobile-shell" style={{ padding: '16px 20px' }}>
+              <div className="home-mobile-shell home-shell-section" style={{ padding: '16px 20px' }}>
                 <div className="desktop-global-center-shift" style={{ maxWidth: CONTENT_MAX_WIDTH, margin: '0 auto' }}>
                   <PremiumGate featureName={t('lamaki_title')}><LamakiPage fixtures={enrichedFixtures} loading={analyticsLoading} /></PremiumGate>
                 </div>
               </div>
             )}
             {isPlayerStatsView && (
-              <div className="home-mobile-shell" style={{ padding: '16px 20px' }}>
+              <div className="home-mobile-shell home-shell-section" style={{ padding: '16px 20px' }}>
                 <div className="desktop-global-center-shift" style={{ maxWidth: CONTENT_MAX_WIDTH, margin: '0 auto' }}>
                   <PlayerStatsPage title="Player Rankings" />
                 </div>
               </div>
             )}
             {isCorrectScore && (
-              <div className="home-mobile-shell" style={{ padding: '16px 20px' }}>
+              <div className="home-mobile-shell home-shell-section" style={{ padding: '16px 20px' }}>
                 <div className="desktop-global-center-shift" style={{ maxWidth: CONTENT_MAX_WIDTH, margin: '0 auto' }}>
                   <PremiumGate featureName={t('correct_score')}><CorrectScorePage fixtures={enrichedFixtures} loading={analyticsLoading} /></PremiumGate>
                 </div>
               </div>
             )}
             {isStatPage && (
-              <div className="home-mobile-shell" style={{ padding: '16px 20px' }}>
+              <div className="home-mobile-shell home-shell-section" style={{ padding: '16px 20px' }}>
                 <div className="desktop-global-center-shift" style={{ maxWidth: CONTENT_MAX_WIDTH, margin: '0 auto' }}>
                   <StatPredictionPage
                     statKey={activeStatKey}
@@ -793,7 +793,7 @@ function handleViewChange(key) {
             )}
 
             {!isSpecialView && (
-              <div style={{ padding: '16px 20px' }}>
+              <div className="home-shell-section" style={{ padding: '16px 20px' }}>
                 <div className="desktop-global-center-shift" style={{ maxWidth: CONTENT_MAX_WIDTH, margin: '0 auto' }}>
                   {error && (
                     <div style={{ padding: '14px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, marginBottom: 16 }}>

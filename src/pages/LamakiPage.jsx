@@ -267,14 +267,14 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
             <button
               onClick={() => onOpenMatch?.(result)}
               className="theme-button-secondary"
-              style={{ minHeight: 38, padding: '0 12px', borderRadius: 10, cursor: 'pointer' }}
+              style={{ minHeight: 44, padding: '0 12px', borderRadius: 10, cursor: 'pointer' }}
             >
               Open Match Details
             </button>
             <button
               onClick={onClose}
               className="theme-button-ghost"
-              style={{ minHeight: 38, minWidth: 38, width: 38, padding: 0, borderRadius: 999, cursor: 'pointer' }}
+              style={{ minHeight: 44, minWidth: 44, width: 44, padding: 0, borderRadius: 999, cursor: 'pointer' }}
               aria-label="Close comeback details"
             >
               X
@@ -396,10 +396,10 @@ function LamakCard({ result, onOpen }) {
           <div style={{ fontSize: 10, color: '#4b5563', fontWeight: 600, letterSpacing: '0.06em', marginBottom: 5 }}>{fixture.league?.name} - {fixture.time}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <TeamBadge team={fixture.homeTeam} size={20} />
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fixture.homeTeam?.name}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{fixture.homeTeam?.name}</span>
             <span style={{ fontSize: 11, color: '#4b5563', flexShrink: 0 }}>vs</span>
             <TeamBadge team={fixture.awayTeam} size={20} />
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fixture.awayTeam?.name}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{fixture.awayTeam?.name}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <PatternTag label={strength === 'strong' ? t('lamaki_strong') : strength === 'moderate' ? t('lamaki_moderate') : t('lamaki_weak')} icon={strength === 'strong' ? 'FIRE' : strength === 'moderate' ? 'HOT' : 'INFO'} color={color} bg={`${color}18`} />
