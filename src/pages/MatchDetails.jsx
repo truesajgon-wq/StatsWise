@@ -62,11 +62,11 @@ function StatBar({ label, home, away }) {
   const a = Number(away) || 0
   const hp = Math.round(h / (h + a || 1) * 100)
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-        <span style={{ fontWeight: 800, color: '#d1d5db', fontSize: 13, minWidth: 30 }}>{home ?? '-'}</span>
-        <span style={{ color: '#6b7280', fontSize: 11, flex: 1, textAlign: 'center' }}>{label}</span>
-        <span style={{ fontWeight: 800, color: '#9ca3af', fontSize: 13, minWidth: 30, textAlign: 'right' }}>{away ?? '-'}</span>
+    <div className="match-stat-bar" style={{ marginBottom: 14 }}>
+      <div className="match-stat-bar-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, gap: 8 }}>
+        <span style={{ fontWeight: 800, color: '#d1d5db', fontSize: 13, minWidth: 'clamp(22px, 9vw, 30px)' }}>{home ?? '-'}</span>
+        <span className="match-stat-bar-label" style={{ color: '#6b7280', fontSize: 11, flex: 1, textAlign: 'center', overflowWrap: 'anywhere', lineHeight: 1.25 }}>{label}</span>
+        <span style={{ fontWeight: 800, color: '#9ca3af', fontSize: 13, minWidth: 'clamp(22px, 9vw, 30px)', textAlign: 'right' }}>{away ?? '-'}</span>
       </div>
       <div style={{ display: 'flex', height: 5, borderRadius: 3, overflow: 'hidden' }}>
         <div style={{ width: `${hp}%`, background: 'linear-gradient(90deg,#4b5563,#f97316)', transition: 'width .4s' }} />
@@ -94,12 +94,12 @@ function StatisticsPanel({ statistics, fixture }) {
   }
   return (
     <div style={{ padding: '16px 16px 20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, fontSize: 12, fontWeight: 800 }}>
-        <span style={{ color: '#d1d5db', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div className="match-stat-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, fontSize: 12, fontWeight: 800, gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ color: '#d1d5db', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflowWrap: 'anywhere' }}>
           {home.teamLogo && <img src={home.teamLogo} alt="" width={16} height={16} style={{ objectFit:'contain' }} />}
           {home.teamName}
         </span>
-        <span style={{ color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflowWrap: 'anywhere' }}>
           {away.teamName}
           {away.teamLogo && <img src={away.teamLogo} alt="" width={16} height={16} style={{ objectFit:'contain' }} />}
         </span>

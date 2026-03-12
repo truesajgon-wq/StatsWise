@@ -414,13 +414,13 @@ function LamakCard({ result, onOpen }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div className="lamaki-score-bars" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#6b7280', marginBottom: 3 }}><span>{fixture.homeTeam?.name?.split(' ')[0]}</span><span>{homeScore}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#6b7280', marginBottom: 3, gap: 8 }}><span style={{ overflowWrap: 'anywhere' }}>{fixture.homeTeam?.name?.split(' ')[0]}</span><span>{homeScore}</span></div>
           <div style={{ height: 4, background: 'var(--sw-border)', borderRadius: 2, overflow: 'hidden' }}><div style={{ width: `${homeScore}%`, height: '100%', background: lamakType === 'home' ? color : 'var(--sw-border)', borderRadius: 2 }} /></div>
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#6b7280', marginBottom: 3 }}><span>{fixture.awayTeam?.name?.split(' ')[0]}</span><span>{awayScore}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#6b7280', marginBottom: 3, gap: 8 }}><span style={{ overflowWrap: 'anywhere' }}>{fixture.awayTeam?.name?.split(' ')[0]}</span><span>{awayScore}</span></div>
           <div style={{ height: 4, background: 'var(--sw-border)', borderRadius: 2, overflow: 'hidden' }}><div style={{ width: `${awayScore}%`, height: '100%', background: lamakType === 'away' ? color : 'var(--sw-border)', borderRadius: 2 }} /></div>
         </div>
       </div>

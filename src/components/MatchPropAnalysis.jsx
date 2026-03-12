@@ -103,7 +103,7 @@ function TeamBadge({ name, logo, align = 'center' }) {
           {(name || '?').slice(0, 2).toUpperCase()}
         </div>
       )}
-      <div style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 800, textAlign: align === 'flex-start' ? 'left' : align === 'flex-end' ? 'right' : 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+      <div style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 800, textAlign: align === 'flex-start' ? 'left' : align === 'flex-end' ? 'right' : 'center', overflowWrap: 'anywhere', lineHeight: 1.3, maxWidth: '100%' }}>
         {name || '-'}
       </div>
     </div>
@@ -148,13 +148,13 @@ function FixtureDetailsModal({ item, onClose }) {
       <div className="fixture-modal-shell" onClick={e => e.stopPropagation()} style={{ width: 'min(920px, 100%)', maxHeight: '92vh', overflowY: 'auto', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', boxShadow: '0 20px 60px rgba(2,6,23,0.7)' }}>
         <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--sw-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{leagueLabel}</div>
-          <button onClick={onClose} style={{ minHeight: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#94a3b8', cursor: 'pointer' }}>Close</button>
+          <button onClick={onClose} style={{ minHeight: 44, padding: '0 10px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#94a3b8', cursor: 'pointer' }}>Close</button>
         </div>
 
         <div style={{ padding: 16 }}>
           <div className="fixture-modal-head-grid" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, marginBottom: 14 }}>
             <TeamBadge name={homeName} logo={homeLogo} align="flex-end" />
-            <div style={{ textAlign: 'center', minWidth: 130 }}>
+            <div style={{ textAlign: 'center', minWidth: 0 }}>
               <div style={{ fontSize: 28, fontWeight: 900, color: '#f8fafc', fontFamily: 'monospace' }}>{score}</div>
               <div style={{ fontSize: 12, fontWeight: 800, color: outcomeColor, marginTop: 2 }}>{outcome}</div>
               <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>{dateLabel} - {timeLabel}</div>
@@ -181,7 +181,7 @@ function FixtureDetailsModal({ item, onClose }) {
         </div>
 
         <div style={{ padding: '10px 14px', borderTop: '1px solid var(--sw-border)', display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ minHeight: 34, padding: '0 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#cbd5e1', fontWeight: 700, cursor: 'pointer' }}>
+          <button onClick={onClose} style={{ minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#cbd5e1', fontWeight: 700, cursor: 'pointer' }}>
             Back to Match Details
           </button>
         </div>
@@ -220,7 +220,7 @@ function TeamHeader({ team, title }) {
           {(team?.name || '?').slice(0, 2).toUpperCase()}
         </div>
       )}
-      <div style={{ color: '#cbd5e1', fontSize: 15, fontWeight: 800, textAlign: 'center' }}>{title}</div>
+      <div style={{ color: '#cbd5e1', fontSize: 15, fontWeight: 800, textAlign: 'center', lineHeight: 1.3, overflowWrap: 'anywhere' }}>{title}</div>
     </div>
   )
 }
@@ -373,12 +373,15 @@ function ChartPanel({
   onSelectRow,
   singlePanel = false,
   rangeLabel = 'L10',
+  viewportWidth = 1024,
 }) {
   const [hovered, setHovered] = useState(null)
   const rows = useMemo(() => [...(dataset || [])], [dataset])
   const tableRows = useMemo(() => [...rows].reverse(), [rows])
   const scale = chartMax(maxScale, altLine)
   const altPct = Math.min(95, (Number(altLine || 0) / scale) * 100)
+  const isCompactMobile = isMobile && viewportWidth <= 480
+  const isTinyMobile = isMobile && viewportWidth <= 360
 
   const summary = useMemo(() => {
     if (isOutcome) {
@@ -401,12 +404,12 @@ function ChartPanel({
     }
   }, [rows, altLine, isOutcome])
 
-  const compactBars = rows.length > 10
-  const veryCompactBars = rows.length > 14
-  const chartGap = veryCompactBars ? 3 : compactBars ? 5 : 8
+  const compactBars = rows.length > (isCompactMobile ? 8 : 10)
+  const veryCompactBars = rows.length > (isCompactMobile ? 12 : 14)
+  const chartGap = isTinyMobile ? 2 : veryCompactBars ? 3 : compactBars ? 4 : isCompactMobile ? 5 : 8
   const isSingleDesktop = Boolean(singlePanel && !isMobile)
-  const plotHeight = isMobile ? 148 : 176
-  const labelHeight = isMobile ? 8 : 24
+  const plotHeight = isTinyMobile ? 118 : isCompactMobile ? 132 : isMobile ? 148 : 176
+  const labelHeight = isMobile ? 0 : 24
   const lineBottomPx = Math.max(0, labelHeight + (altPct / 100) * plotHeight - 1)
   const averageValue = useMemo(() => {
     if (!rows.length) return null
@@ -417,12 +420,11 @@ function ChartPanel({
     const total = rows.reduce((acc, row) => acc + Number(row.value || 0), 0)
     return (total / rows.length).toFixed(1)
   }, [rows, isOutcome])
-  const mobileChartMinWidth = isMobile ? Math.max(rows.length * 40, 280) : null
   const chartContent = (
     <div
       className="match-prop-chart-scroll"
       style={{
-        overflowX: isMobile ? 'auto' : 'hidden',
+        overflowX: 'hidden',
         overflowY: 'hidden',
         paddingBottom: 6,
         scrollbarWidth: 'none',
@@ -432,14 +434,14 @@ function ChartPanel({
       <div
         style={{
           position: 'relative',
-          width: isMobile ? 'max-content' : '100%',
-          minWidth: isMobile ? mobileChartMinWidth : '100%',
+          width: '100%',
+          minWidth: 0,
           display: 'grid',
           gap: chartGap,
           alignItems: 'stretch',
           height: plotHeight + labelHeight,
-          gridTemplateColumns: rows.length ? `repeat(${rows.length}, minmax(${isMobile ? 30 : 40}px, 1fr))` : '1fr',
-          padding: '8px 0 6px',
+          gridTemplateColumns: rows.length ? `repeat(${rows.length}, minmax(0, 1fr))` : '1fr',
+          padding: isMobile ? '6px 4px 4px' : '8px 0 6px',
           borderBottom: '1px solid rgba(148,163,184,0.2)',
           borderLeft: '1px solid rgba(148,163,184,0.15)',
           borderRight: '1px solid rgba(148,163,184,0.15)',
@@ -490,6 +492,7 @@ function ChartPanel({
                 alignItems: 'center',
                 gap: compactBars ? 4 : 6,
                 minHeight: plotHeight + labelHeight,
+                minWidth: 0,
               }}
             >
               <div style={{ height: plotHeight, width: '100%', display: 'flex', alignItems: 'flex-end' }}>
@@ -497,14 +500,14 @@ function ChartPanel({
                   style={{
                     width: '100%',
                     height: `${pct}%`,
-                    borderRadius: 7,
+                    borderRadius: isTinyMobile ? 4 : 7,
                     background: isOutcome
                       ? outcomeColor.grad
                       : over
                         ? 'linear-gradient(180deg,#86efac,#34d399)'
                         : 'linear-gradient(180deg,#fda4af,#f87171)',
                     border: '1px solid rgba(255,255,255,0.05)',
-                    minHeight: 4,
+                    minHeight: isTinyMobile ? 6 : 4,
                     opacity: 0.93,
                     transition: 'all .2s ease',
                   }}
@@ -519,7 +522,20 @@ function ChartPanel({
       </div>
     </div>
   )
-  const tableContent = (
+  const tableContent = isMobile ? (
+    <div style={{ display: 'grid', gap: 8 }}>
+      {tableRows.map((row, idx) => (
+        <MobileFixtureRow
+          key={`${row.fixtureId || idx}-mobile`}
+          row={row}
+          statLabel={statLabel}
+          isOutcome={isOutcome}
+          altLine={altLine}
+          onSelect={() => onSelectRow?.({ row, team, title })}
+        />
+      ))}
+    </div>
+  ) : (
     <div style={{ overflowX: 'auto' }}>
       <table className="match-prop-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: isMobile ? '100%' : 540 }}>
         <thead>
@@ -575,12 +591,12 @@ function ChartPanel({
   )
 
   return (
-    <div style={{ background: 'var(--sw-surface-0)', border: '1px solid var(--sw-border)', borderRadius: 14, padding: 12 }}>
+    <div style={{ background: 'var(--sw-surface-0)', border: '1px solid var(--sw-border)', borderRadius: 14, padding: isTinyMobile ? 8 : isCompactMobile ? 10 : 12, width: '100%', minWidth: 0, overflow: 'hidden' }}>
       <TeamHeader team={team} title={title} />
 
       {!isOutcome && (
         <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}>
-          <div style={{ fontSize: 11, color: '#fbbf24', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 20, padding: '4px 9px', background: 'rgba(245,158,11,0.12)' }}>
+          <div style={{ fontSize: 11, color: '#fbbf24', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 20, padding: '4px 9px', background: 'rgba(245,158,11,0.12)', textAlign: 'center' }}>
             Alt line {Number(altLine || 0).toFixed(1)}
           </div>
         </div>
@@ -748,11 +764,13 @@ export default function MatchPropAnalysis({
 }) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900)
   const [isDockMobile, setIsDockMobile] = useState(() => window.innerWidth <= 768)
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth)
   const [selectedFixture, setSelectedFixture] = useState(null)
   const [statDropdownOpen, setStatDropdownOpen] = useState(false)
 
   useEffect(() => {
     const onResize = () => {
+      setViewportWidth(window.innerWidth)
       setIsMobile(window.innerWidth <= 900)
       setIsDockMobile(window.innerWidth <= 768)
     }
@@ -965,6 +983,7 @@ export default function MatchPropAnalysis({
             onSelectRow={(payload) => setSelectedFixture(payload)}
             singlePanel={singlePanel}
             rangeLabel={range}
+            viewportWidth={viewportWidth}
           />
         </div>
         {!singlePanel && (
@@ -982,6 +1001,7 @@ export default function MatchPropAnalysis({
             isMobile={isMobile}
             onSelectRow={(payload) => setSelectedFixture(payload)}
             rangeLabel={range}
+            viewportWidth={viewportWidth}
           />
           </div>
         )}
