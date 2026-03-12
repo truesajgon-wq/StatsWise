@@ -675,7 +675,9 @@ button {
 
 @media (max-width: 900px) {
   .match-prop-analysis {
-    padding: 10px 8px 20px !important;
+    padding: 8px 6px 18px !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
   }
 
   .match-prop-analysis.mobile-controls-fixed {
@@ -684,6 +686,22 @@ button {
 
   .player-stats-page .match-prop-analysis {
     padding-bottom: 12px !important;
+  }
+
+  .match-prop-top-controls {
+    margin-bottom: 10px !important;
+  }
+
+  .match-prop-range-row {
+    width: 100%;
+  }
+
+  .match-prop-summary-badges {
+    justify-content: center !important;
+  }
+
+  .match-prop-panels-grid {
+    gap: 10px !important;
   }
 
   .match-prop-mobile-controls {
@@ -792,6 +810,24 @@ button {
   .player-stats-page .match-prop-table .mpt-col-ou {
     width: 22% !important;
   }
+
+  .player-stats-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  .player-pitch-selector {
+    margin-bottom: 12px !important;
+  }
+
+  .player-pitch-wrap {
+    max-width: 100% !important;
+  }
+
+  .player-pitch-surface {
+    min-height: 0 !important;
+  }
 }
 
 @supports (-webkit-touch-callout: none) {
@@ -830,6 +866,24 @@ button {
   .mp-mobile-minus { grid-area: minus; }
   .mp-mobile-value { grid-area: value; }
   .mp-mobile-plus { grid-area: plus; }
+
+  .match-prop-analysis {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  .player-stats-page {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  .player-pitch-selector {
+    padding: 8px !important;
+  }
+
+  .player-pitch-wrap {
+    border-radius: 10px !important;
+  }
 }
 
 @media (max-width: 1024px) {

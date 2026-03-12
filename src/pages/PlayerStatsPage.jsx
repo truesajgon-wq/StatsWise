@@ -326,10 +326,10 @@ function FixturePitchSelector({ lineups = [], players = [], selected, onSelect, 
   const sixYardWidth = isCompact ? 10 : 13
 
   return (
-      <div className="player-pitch-selector" style={{ padding: isCompact ? '10px' : '14px', background: 'var(--sw-surface-0)', borderRadius: 14, border: '1px solid var(--sw-border)', marginBottom: 16 }}>
+      <div className="player-pitch-selector" style={{ padding: isCompact ? '8px' : '14px', background: 'var(--sw-surface-0)', borderRadius: 14, border: '1px solid var(--sw-border)', marginBottom: 16 }}>
       <div style={{ fontSize: 12, color: 'var(--sw-muted)', fontWeight: 800, letterSpacing: '0.08em', marginBottom: 10 }}>FORMATION PITCH</div>
       <div className="player-pitch-wrap" style={{ maxWidth: 560, margin: '0 auto' }}>
-      <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: 'linear-gradient(180deg,#256b2e 0%,#2e8c38 25%,#256b2e 50%,#2e8c38 75%,#256b2e 100%)', border: '1px solid rgba(255,255,255,0.35)', aspectRatio: isCompact ? '16 / 11' : '16 / 10', minHeight: pitchMinHeight }}>
+      <div className="player-pitch-surface" style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: 'linear-gradient(180deg,#256b2e 0%,#2e8c38 25%,#256b2e 50%,#2e8c38 75%,#256b2e 100%)', border: '1px solid rgba(255,255,255,0.35)', aspectRatio: isCompact ? '16 / 11' : '16 / 10', minHeight: pitchMinHeight }}>
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: isCompact ? 'repeating-linear-gradient(90deg,transparent,transparent 28px,rgba(0,0,0,0.06) 28px,rgba(0,0,0,0.06) 56px)' : 'repeating-linear-gradient(90deg,transparent,transparent 42px,rgba(0,0,0,0.06) 42px,rgba(0,0,0,0.06) 84px)' }} />
 
         {/* Pitch markings */}
@@ -382,7 +382,7 @@ function FixturePitchSelector({ lineups = [], players = [], selected, onSelect, 
         </div>
       </div>
       </div>
-      <div style={{ marginTop: 8, fontSize: 11, color: 'var(--sw-muted)' }}>Click a player on the pitch to open detailed stats.</div>
+      <div style={{ marginTop: 8, fontSize: 11, color: 'var(--sw-muted)', textAlign: isCompact ? 'center' : 'left' }}>Click a player on the pitch to open detailed stats.</div>
     </div>
   )
 }
@@ -452,7 +452,7 @@ export default function PlayerStatsPage({ players = null, lineups = null, title 
 
   if (isFixtureMode) {
     return (
-      <div className="player-stats-page fixture-mode" style={{ padding: '16px 18px 20px', overflowY: 'auto' }}>
+      <div className="player-stats-page fixture-mode" style={{ padding: '16px 18px 20px', overflowY: 'auto', overflowX: 'hidden' }}>
         <div style={{ marginBottom: 10, fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>{title}</div>
         <div style={{ marginBottom: 12 }}>
           <input
@@ -483,7 +483,7 @@ export default function PlayerStatsPage({ players = null, lineups = null, title 
   const shown = ranked.slice(0, visibleCount)
 
   return (
-    <div className="player-stats-page" style={{ padding: '16px 18px 20px', overflowY: 'auto' }}>
+    <div className="player-stats-page" style={{ padding: '16px 18px 20px', overflowY: 'auto', overflowX: 'hidden' }}>
       <div style={{ marginBottom: 10, fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>{title}</div>
       <div style={{ marginBottom: 12 }}>
         <input

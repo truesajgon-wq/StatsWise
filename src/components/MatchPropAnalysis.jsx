@@ -417,11 +417,12 @@ function ChartPanel({
     const total = rows.reduce((acc, row) => acc + Number(row.value || 0), 0)
     return (total / rows.length).toFixed(1)
   }, [rows, isOutcome])
+  const mobileChartMinWidth = isMobile ? Math.max(rows.length * 40, 280) : null
   const chartContent = (
     <div
       className="match-prop-chart-scroll"
       style={{
-        overflowX: 'hidden',
+        overflowX: isMobile ? 'auto' : 'hidden',
         overflowY: 'hidden',
         paddingBottom: 6,
         scrollbarWidth: 'none',
@@ -431,8 +432,8 @@ function ChartPanel({
       <div
         style={{
           position: 'relative',
-          width: '100%',
-          minWidth: '100%',
+          width: isMobile ? 'max-content' : '100%',
+          minWidth: isMobile ? mobileChartMinWidth : '100%',
           display: 'grid',
           gap: chartGap,
           alignItems: 'stretch',
@@ -585,18 +586,20 @@ function ChartPanel({
         </div>
       )}
 
-      <div style={{ position: 'relative', marginBottom: 10, paddingTop: 44 }}>
+      <div style={{ position: 'relative', marginBottom: 10, paddingTop: isMobile ? 0 : 44 }}>
         <div
+          className="match-prop-summary-badges"
           style={{
-            position: 'absolute',
+            position: isMobile ? 'static' : 'absolute',
             top: 6,
             right: 6,
             zIndex: 8,
             display: 'flex',
             gap: 6,
             flexWrap: isMobile ? 'wrap' : 'nowrap',
-            justifyContent: 'flex-end',
-            maxWidth: isMobile ? 170 : 'none',
+            justifyContent: isMobile ? 'center' : 'flex-end',
+            maxWidth: isMobile ? '100%' : 'none',
+            marginBottom: isMobile ? 10 : 0,
           }}
         >
           {!isOutcome && (
@@ -845,17 +848,17 @@ export default function MatchPropAnalysis({
   )
 
   return (
-    <section className={`match-prop-analysis${useFixedMobileControls ? ' mobile-controls-fixed' : ''}`} style={{ padding: (useStickyMobileControls || useInlineMobileControls) ? '10px 0 12px' : (isDockMobile ? '12px 8px calc(104px + env(safe-area-inset-bottom, 0px))' : isMobile ? '12px 8px 20px' : '14px 12px 80px') }}>
+    <section className={`match-prop-analysis${useFixedMobileControls ? ' mobile-controls-fixed' : ''}`} style={{ padding: (useStickyMobileControls || useInlineMobileControls) ? (isMobile ? '8px 0 12px' : '10px 0 12px') : (isDockMobile ? '10px 6px calc(104px + env(safe-area-inset-bottom, 0px))' : isMobile ? '10px 6px 20px' : '14px 12px 80px') }}>
       <div style={{ textAlign: 'center', marginBottom: 10 }}>
-        <h2 style={{ margin: 0, color: '#f1f5f9', fontSize: 26, fontWeight: 900 }}>{title}</h2>
+        <h2 style={{ margin: 0, color: '#f1f5f9', fontSize: isMobile ? 18 : 26, fontWeight: 900, lineHeight: 1.15 }}>{title}</h2>
       </div>
 
-      {!duplicateInlinePerTeam && <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap', width: 'min(100%, 980px)' }}>
+      {!duplicateInlinePerTeam && <div className="match-prop-top-controls" style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 8 : 10, flexWrap: 'wrap', width: 'min(100%, 980px)' }}>
           <div style={{ width: isMobile ? '100%' : 'auto' }}>
             <StatDropdown statOptions={statOptions} statKey={statKey} onStatChange={onStatChange} mobile={isMobile} onOpenChange={setStatDropdownOpen} />
           </div>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div className="match-prop-range-row" style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
             {RANGE_OPTIONS.map(item => {
               const active = range === item
               return (
@@ -864,13 +867,13 @@ export default function MatchPropAnalysis({
                   type="button"
                   onClick={() => onRangeChange?.(item)}
                   style={{
-                    minHeight: 44,
-                    padding: '0 14px',
+                    minHeight: isMobile ? 40 : 44,
+                    padding: isMobile ? '0 12px' : '0 14px',
                     borderRadius: 999,
                     border: '1px solid var(--sw-border)',
                     background: active ? 'linear-gradient(180deg, rgba(251,191,36,0.22), rgba(245,158,11,0.18))' : 'transparent',
                     color: active ? '#fcd34d' : '#94a3b8',
-                    fontSize: 13,
+                    fontSize: isMobile ? 12 : 13,
                     fontWeight: active ? 800 : 700,
                     cursor: 'pointer',
                     transition: 'all .25s ease',
@@ -946,7 +949,7 @@ export default function MatchPropAnalysis({
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile || singlePanel ? '1fr' : '1fr 1fr', gap: 12, alignItems: 'start' }}>
+      <div className="match-prop-panels-grid" style={{ display: 'grid', gridTemplateColumns: isMobile || singlePanel ? '1fr' : '1fr 1fr', gap: isMobile ? 10 : 12, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {duplicateInlinePerTeam && renderInlineControlsStack('left')}
           <ChartPanel
