@@ -82,6 +82,32 @@ function perspectiveHalfScores(match, isHomePerspective) {
   return { my: null, their: null }
 }
 
+function fixtureOrderedScores(match, isHomeFallback = true) {
+  const homeGoals = asNum(match?.homeGoals)
+  const awayGoals = asNum(match?.awayGoals)
+  if (homeGoals !== null && awayGoals !== null) return { home: homeGoals, away: awayGoals }
+
+  const myGoals = asNum(match?.myGoals)
+  const theirGoals = asNum(match?.theirGoals)
+  if (myGoals === null || theirGoals === null) return { home: null, away: null }
+
+  const isHome = typeof match?.isHome === 'boolean' ? match.isHome : isHomeFallback
+  return isHome ? { home: myGoals, away: theirGoals } : { home: theirGoals, away: myGoals }
+}
+
+function fixtureOrderedHalfScores(match, isHomeFallback = true) {
+  const homeGoalsHt = asNum(match?.homeGoalsHt)
+  const awayGoalsHt = asNum(match?.awayGoalsHt)
+  if (homeGoalsHt !== null && awayGoalsHt !== null) return { home: homeGoalsHt, away: awayGoalsHt }
+
+  const myGoals = asNum(match?.myFirstHalfGoals)
+  const theirGoals = asNum(match?.theirFirstHalfGoals)
+  if (myGoals === null || theirGoals === null) return { home: null, away: null }
+
+  const isHome = typeof match?.isHome === 'boolean' ? match.isHome : isHomeFallback
+  return isHome ? { home: myGoals, away: theirGoals } : { home: theirGoals, away: myGoals }
+}
+
 function isComebackWin(match, isHomePerspective) {
   const ft = perspectiveScores(match, isHomePerspective)
   if (ft.my === null || ft.their === null || ft.my <= ft.their) return false
@@ -90,15 +116,20 @@ function isComebackWin(match, isHomePerspective) {
   return ft.their >= 1
 }
 
-function mapComebackRows(history = [], isHomePerspective) {
+function mapComebackRows(history = [], isHomePerspective, ownTeamName = 'Team') {
   return history.filter(match => isComebackWin(match, isHomePerspective)).slice(0, 12).map(match => {
-    const ft = perspectiveScores(match, isHomePerspective)
-    const ht = perspectiveHalfScores(match, isHomePerspective)
+    const isHomeMatch = typeof match?.isHome === 'boolean' ? match.isHome : isHomePerspective
+    const opponent = match?.opponent || 'Opponent'
+    const fixtureName = isHomeMatch ? `${ownTeamName} vs ${opponent}` : `${opponent} vs ${ownTeamName}`
+    const ft = fixtureOrderedScores(match, isHomePerspective)
+    const ht = fixtureOrderedHalfScores(match, isHomePerspective)
     return {
       date: match?.date,
-      opponent: match?.opponent || 'Opponent',
-      ft: ft.my === null || ft.their === null ? '-' : `${ft.my}:${ft.their}`,
-      ht: ht.my === null || ht.their === null ? '-' : `${ht.my}:${ht.their}`,
+      opponent,
+      fixtureName,
+      isHome: isHomeMatch,
+      ft: ft.home === null || ft.away === null ? '-' : `${ft.home}:${ft.away}`,
+      ht: ht.home === null || ht.away === null ? '-' : `${ht.home}:${ht.away}`,
     }
   })
 }
@@ -192,8 +223,8 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
   const color = strengthColor(strength)
   const homeHistory = fixture?.homeHistory || []
   const awayHistory = fixture?.awayHistory || []
-  const homeComebacks = mapComebackRows(homeHistory, true)
-  const awayComebacks = mapComebackRows(awayHistory, false)
+  const homeComebacks = mapComebackRows(homeHistory, true, fixture?.homeTeam?.name || 'Home')
+  const awayComebacks = mapComebackRows(awayHistory, false, fixture?.awayTeam?.name || 'Away')
   const homeRate = homeHistory.length ? Math.round((homeComebacks.length / homeHistory.length) * 100) : 0
   const awayRate = awayHistory.length ? Math.round((awayComebacks.length / awayHistory.length) * 100) : 0
   const lamakTypeLabel = { home: t('lamaki_home'), away: t('lamaki_away'), both: t('lamaki_both') }[lamakType] || 'Mixed'
@@ -308,7 +339,7 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
               {homeComebacks.length ? homeComebacks.map((row, index) => (
                 <div key={`h-${index}`} className="lamaki-history-row">
                   <div className="lamaki-history-date">{formatDate(row.date)}</div>
-                  <div className="lamaki-history-opponent">{fixture?.homeTeam?.name} vs {row.opponent}</div>
+                  <div className="lamaki-history-opponent">{row.fixtureName}</div>
                   <div className="lamaki-history-split">HT {row.ht}</div>
                   <div className="lamaki-history-split lamaki-history-split-ft">FT {row.ft}</div>
                 </div>
@@ -319,7 +350,7 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
               {awayComebacks.length ? awayComebacks.map((row, index) => (
                 <div key={`a-${index}`} className="lamaki-history-row">
                   <div className="lamaki-history-date">{formatDate(row.date)}</div>
-                  <div className="lamaki-history-opponent">{row.opponent} vs {fixture?.awayTeam?.name}</div>
+                  <div className="lamaki-history-opponent">{row.fixtureName}</div>
                   <div className="lamaki-history-split">HT {row.ht}</div>
                   <div className="lamaki-history-split lamaki-history-split-ft">FT {row.ft}</div>
                 </div>
