@@ -219,14 +219,13 @@ function PredictionCard({ pred, statDef, rank, accentColor, t, onOpen }) {
 function FilterBar({ minRate, setMinRate, activeAlt, setActiveAlt, alts, isBinary, count, t, onAltStep }) {
   return (
     <div className="stat-prediction-filter-bar" style={{ padding:'12px 16px', background:'var(--sw-surface-1)', borderRadius:12, border:'1px solid var(--sw-border)', display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-        <span style={{ fontSize:11, color:'#6b7280', fontWeight:600, whiteSpace:'nowrap' }}>{t('pred_min_confidence')}:</span>
-        <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', flex:'1 1 280px' }}>
+        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
           {[0.5,0.6,0.7,0.8,0.9].map(v => {
             const tier = getTier(v)
             return (
               <button key={v} onClick={() => setMinRate(v)}
-                style={{ padding:'4px 10px', borderRadius:6, border:'1px solid', borderColor: minRate===v ? tier.color : 'var(--sw-muted)', background: minRate===v ? tier.bg : 'none', color: minRate===v ? tier.color : '#6b7280', fontSize:11, fontWeight:700, cursor:'pointer', transition:'all 0.12s' }}>
+                style={{ minHeight:44, minWidth:54, padding:'0 12px', borderRadius:10, border:'1px solid', borderColor: minRate===v ? tier.color : 'var(--sw-muted)', background: minRate===v ? tier.bg : 'none', color: minRate===v ? tier.color : '#6b7280', fontSize:12, fontWeight:700, cursor:'pointer', transition:'all 0.12s' }}>
                 {Math.round(v*100)}%
               </button>
             )
@@ -235,28 +234,24 @@ function FilterBar({ minRate, setMinRate, activeAlt, setActiveAlt, alts, isBinar
       </div>
 
       {!isBinary && alts.length > 1 && (
-        <>
-          <div style={{ width:1, height:20, background:'var(--sw-border)', flexShrink:0 }} />
-          <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-            <span style={{ fontSize:11, color:'#6b7280', fontWeight:600, whiteSpace:'nowrap' }}>{t('alt_line')}:</span>
-            <div style={{ display:'flex', gap:4, flexWrap:'nowrap', overflowX:'auto', scrollbarWidth:'none' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', flex:'999 1 380px' }}>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
               <button onClick={() => setActiveAlt(null)}
-                style={{ padding:'4px 10px', borderRadius:6, border:'1px solid', borderColor: activeAlt===null ? '#d1d5db' : 'var(--sw-muted)', background: activeAlt===null ? 'rgba(209,213,219,0.12)' : 'none', color: activeAlt===null ? '#d1d5db' : '#6b7280', fontSize:11, fontWeight:700, cursor:'pointer' }}>
+                style={{ minHeight:44, minWidth:54, padding:'0 12px', borderRadius:10, border:'1px solid', borderColor: activeAlt===null ? '#d1d5db' : 'var(--sw-muted)', background: activeAlt===null ? 'rgba(209,213,219,0.12)' : 'none', color: activeAlt===null ? '#d1d5db' : '#6b7280', fontSize:12, fontWeight:700, cursor:'pointer' }}>
                 {t('filter_all')}
               </button>
               {alts.map(v => (
                 <button key={v} onClick={() => setActiveAlt(v)}
-                  style={{ padding:'4px 10px', borderRadius:6, border:'1px solid', borderColor: activeAlt===v ? '#f59e0b' : 'var(--sw-muted)', background: activeAlt===v ? 'rgba(245,158,11,0.12)' : 'none', color: activeAlt===v ? '#f59e0b' : '#6b7280', fontSize:11, fontWeight:700, cursor:'pointer', transition:'all 0.12s' }}>
+                  style={{ minHeight:44, minWidth:54, padding:'0 12px', borderRadius:10, border:'1px solid', borderColor: activeAlt===v ? '#f59e0b' : 'var(--sw-muted)', background: activeAlt===v ? 'rgba(245,158,11,0.12)' : 'none', color: activeAlt===v ? '#f59e0b' : '#6b7280', fontSize:12, fontWeight:700, cursor:'pointer', transition:'all 0.12s' }}>
                   {formatAltValue(v)}
                 </button>
               ))}
-              <div style={{ display:'flex', alignItems:'center', gap:4, marginLeft:6, flexShrink:0 }}>
-                <button onClick={() => onAltStep(-1)} style={{ width:24, height:24, borderRadius:6, border:'1px solid var(--sw-muted)', background:'none', color:'#9ca3af', fontSize:14, fontWeight:800, cursor:'pointer' }}>-</button>
-                <button onClick={() => onAltStep(1)} style={{ width:24, height:24, borderRadius:6, border:'1px solid var(--sw-muted)', background:'none', color:'#9ca3af', fontSize:14, fontWeight:800, cursor:'pointer' }}>+</button>
+              <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                <button onClick={() => onAltStep(-1)} style={{ width:44, height:44, borderRadius:10, border:'1px solid var(--sw-muted)', background:'none', color:'#9ca3af', fontSize:18, fontWeight:800, cursor:'pointer' }}>-</button>
+                <button onClick={() => onAltStep(1)} style={{ width:44, height:44, borderRadius:10, border:'1px solid var(--sw-muted)', background:'none', color:'#9ca3af', fontSize:18, fontWeight:800, cursor:'pointer' }}>+</button>
               </div>
             </div>
-          </div>
-        </>
+        </div>
       )}
 
       <span style={{ marginLeft:'auto', fontSize:11, color:'#4b5563', fontWeight:600, whiteSpace:'nowrap' }}>
@@ -300,7 +295,7 @@ function StatSummary({ statDef, predictions, fixtures, accentColor, t }) {
 }
 
 // â”€â”€â”€ Main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-export default function StatPredictionPage({ statKey, fixtures = [], loading, onPredictionClick }) {
+export default function StatPredictionPage({ statKey, fixtures = [], loading, onPredictionClick, searchQuery, onSearchChange }) {
   const { t } = useLang()
   const statDef     = getStatDef(statKey)
   const groupDef    = statDef ? STAT_GROUPS[statDef.group] : null
@@ -309,7 +304,10 @@ export default function StatPredictionPage({ statKey, fixtures = [], loading, on
   const [minRate,   setMinRate]   = useState(0.6)
   const [activeAlt, setActiveAlt] = useState(null)
   const [customAlt, setCustomAlt] = useState(null)
-  const [search, setSearch] = useState('')
+  const [internalSearch, setInternalSearch] = useState('')
+  const useExternalSearch = typeof searchQuery === 'string' && typeof onSearchChange === 'function'
+  const search = useExternalSearch ? searchQuery : internalSearch
+  const setSearchValue = useExternalSearch ? onSearchChange : setInternalSearch
   const statKeysToRun = useMemo(() => {
     if (statKey === 'firstHalfGoals') return ['firstHalfGoals', 'teamFirstHalfGoals']
     if (statKey === 'secondHalfGoals') return ['secondHalfGoals', 'teamSecondHalfGoals']
@@ -422,15 +420,17 @@ export default function StatPredictionPage({ statKey, fixtures = [], loading, on
         onAltStep={handleAltStep}
       />
 
+      {!useExternalSearch && (
       <div style={{ maxWidth: 420 }}>
         <input
           type="text"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => setSearchValue(e.target.value)}
           placeholder="Search team / league / angle..."
           style={{ width: '100%', minHeight: 44, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#f1f5f9', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
         />
       </div>
+      )}
 
       <div className="stat-prediction-note" style={{ padding:'10px 14px', borderRadius:8, background:'rgba(249,115,22,0.05)', border:'1px solid rgba(249,115,22,0.15)', fontSize:11, color:'#6b7280', lineHeight:1.6 }}>
         {t('stat_algo_note_pre')} <strong style={{ color: accentColor }}>{statDef.label}</strong>{t('stat_algo_note_post')}

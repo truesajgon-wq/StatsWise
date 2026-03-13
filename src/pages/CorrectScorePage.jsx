@@ -161,12 +161,15 @@ function CorrectScoreDetailsModal({ fixture, prediction, onClose, onOpenMatch })
   )
 }
 
-export default function CorrectScorePage({ fixtures = [], loading }) {
+export default function CorrectScorePage({ fixtures = [], loading, searchQuery, onSearchChange }) {
   const { t } = useLang()
   const navigate = useNavigate()
   const [selected, setSelected] = useState(null)
   const [modalFixture, setModalFixture] = useState(null)
-  const [search, setSearch] = useState('')
+  const [internalSearch, setInternalSearch] = useState('')
+  const useExternalSearch = typeof searchQuery === 'string' && typeof onSearchChange === 'function'
+  const search = useExternalSearch ? searchQuery : internalSearch
+  const setSearchValue = useExternalSearch ? onSearchChange : setInternalSearch
 
   const tx = {
     search: 'Search team / league...',
@@ -269,10 +272,10 @@ export default function CorrectScorePage({ fixtures = [], loading }) {
       <div className="cs-left cs-panel" style={{ width: 340, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
         <div className="cs-left-header" style={{ padding: '14px', borderBottom: '1px solid var(--sw-border)' }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: '#f1f5f9', marginBottom: 8 }}>{'\u{1F3AF}'} {t('correct_score')}</div>
-          <div style={{ position: 'relative' }}>
+          {!useExternalSearch && <div style={{ position: 'relative' }}>
             <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--sw-muted)' }}>{'\u{1F50D}'}</span>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={tx.search} style={{ width: '100%', padding: '8px 10px 8px 30px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-bg)', color: '#f1f5f9', fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
-          </div>
+            <input value={search} onChange={e => setSearchValue(e.target.value)} placeholder={tx.search} style={{ width: '100%', padding: '8px 10px 8px 30px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-bg)', color: '#f1f5f9', fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+          </div>}
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>

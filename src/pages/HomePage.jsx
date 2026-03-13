@@ -316,6 +316,10 @@ export default function HomePage() {
   }, [sidebarOpen])
 
   useEffect(() => {
+    setSearch('')
+  }, [activeView])
+
+  useEffect(() => {
     localStorage.setItem(FAVORITE_FIXTURES_STORAGE_KEY, JSON.stringify(favoriteFixtureIds))
   }, [favoriteFixtureIds])
 
@@ -495,7 +499,14 @@ function handleViewChange(key) {
     setDayOffset(prev => prev + 1)
   }
 
-  const searchPlaceholder = 'Search team...'
+  const showSharedSearch = isScheduleView || isLamakiView || isCorrectScore || isPlayerStatsView || isStatPage
+  const searchPlaceholder = isPlayerStatsView
+    ? 'Search player / team...'
+    : isLamakiView || isCorrectScore
+      ? 'Search team / league...'
+      : isStatPage
+        ? 'Search team / league / angle...'
+        : 'Search team...'
   const noMatchesText = 'No matches on this day'
   const clearFiltersText = 'Clear filters'
   const ui = {
@@ -554,7 +565,14 @@ function handleViewChange(key) {
             min-height: 56px !important;
             padding: 10px 12px !important;
           }
-          .home-search-wrap { display: none !important; }
+          .home-search-wrap {
+            display: flex !important;
+            grid-column: 1 / -1 !important;
+            width: 100% !important;
+            justify-content: center !important;
+            padding: 0 !important;
+            order: 4 !important;
+          }
           .home-header-spacer { display: none !important; }
           .home-controls { margin-left: 0 !important; gap: 8px !important; justify-content: flex-end !important; grid-column: 3 !important; justify-self: end !important; width: auto !important; min-width: 48px !important; }
           .home-brand-mobile { display: flex !important; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
@@ -668,7 +686,7 @@ function handleViewChange(key) {
             <StatsWiseWordmark compact />
           </button>
 
-          {isScheduleView ? (
+          {showSharedSearch ? (
             <div className="home-search-wrap" style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: 0 }}>
               <div className="home-search-inner" style={{ position: 'relative', width: '100%', maxWidth: CONTENT_MAX_WIDTH }}>
                 <input
@@ -769,21 +787,21 @@ function handleViewChange(key) {
             {isLamakiView && (
               <div className="home-mobile-shell home-shell-section" style={{ padding: '16px 20px' }}>
                 <div className="desktop-global-center-shift" style={{ maxWidth: CONTENT_MAX_WIDTH, margin: '0 auto' }}>
-                  <PremiumGate featureName={t('lamaki_title')}><LamakiPage fixtures={enrichedFixtures} loading={analyticsLoading} /></PremiumGate>
+                  <PremiumGate featureName={t('lamaki_title')}><LamakiPage fixtures={enrichedFixtures} loading={analyticsLoading} searchQuery={search} onSearchChange={setSearch} /></PremiumGate>
                 </div>
               </div>
             )}
             {isPlayerStatsView && (
               <div className="home-mobile-shell home-shell-section" style={{ padding: '16px 20px' }}>
                 <div className="desktop-global-center-shift" style={{ maxWidth: CONTENT_MAX_WIDTH, margin: '0 auto' }}>
-                  <PlayerStatsPage title="Player Rankings" />
+                  <PlayerStatsPage title="Player Rankings" searchQuery={search} onSearchChange={setSearch} />
                 </div>
               </div>
             )}
             {isCorrectScore && (
               <div className="home-mobile-shell home-shell-section" style={{ padding: '16px 20px' }}>
                 <div className="desktop-global-center-shift" style={{ maxWidth: CONTENT_MAX_WIDTH, margin: '0 auto' }}>
-                  <PremiumGate featureName={t('correct_score')}><CorrectScorePage fixtures={enrichedFixtures} loading={analyticsLoading} /></PremiumGate>
+                  <PremiumGate featureName={t('correct_score')}><CorrectScorePage fixtures={enrichedFixtures} loading={analyticsLoading} searchQuery={search} onSearchChange={setSearch} /></PremiumGate>
                 </div>
               </div>
             )}
@@ -795,6 +813,8 @@ function handleViewChange(key) {
                     fixtures={enrichedFixtures}
                     loading={analyticsLoading}
                     onPredictionClick={(pred) => setInsightPred(pred)}
+                    searchQuery={search}
+                    onSearchChange={setSearch}
                   />
                 </div>
               </div>

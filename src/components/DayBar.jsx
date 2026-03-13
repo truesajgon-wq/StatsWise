@@ -7,9 +7,7 @@ function formatDay(d) {
   const target = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
   const diff = Math.round((target - base) / 86400000)
   if (diff === 0) return 'Today'
-  if (diff === 1) return 'Tomorrow'
-  if (diff === -1) return 'Yesterday'
-  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+  return d.toLocaleDateString('en-GB', { weekday: 'long' })
 }
 
 export default function DayBar({ days, selectedIdx, onSelect, onPrev, onNext, maxWidth = 640, centerShiftDesktop = 0 }) {

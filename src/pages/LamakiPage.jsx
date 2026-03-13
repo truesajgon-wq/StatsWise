@@ -439,12 +439,15 @@ function LamakCard({ result, onOpen }) {
   )
 }
 
-export default function LamakiPage({ fixtures = [], loading }) {
+export default function LamakiPage({ fixtures = [], loading, searchQuery, onSearchChange }) {
   const { t } = useLang()
   const navigate = useNavigate()
   const [selected, setSelected] = useState(null)
   const [filter, setFilter] = useState('all')
-  const [search, setSearch] = useState('')
+  const [internalSearch, setInternalSearch] = useState('')
+  const useExternalSearch = typeof searchQuery === 'string' && typeof onSearchChange === 'function'
+  const search = useExternalSearch ? searchQuery : internalSearch
+  const setSearchValue = useExternalSearch ? onSearchChange : setInternalSearch
   const results = useMemo(() => (!fixtures.length ? [] : analyzeDayFixtures(fixtures, getAppToday())), [fixtures])
   const filteredResults = useMemo(() => {
     if (filter === 'mutual') return results.filter(result => result.lamakType === 'both')
@@ -519,15 +522,15 @@ export default function LamakiPage({ fixtures = [], loading }) {
             </div>
           ))}
         </div>
-        <div style={{ marginTop: 12, maxWidth: 420 }}>
+        {!useExternalSearch && <div style={{ marginTop: 12, maxWidth: 420 }}>
           <input
             type="text"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => setSearchValue(e.target.value)}
             placeholder="Search team / league..."
             style={{ width: '100%', minHeight: 44, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#f1f5f9', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
           />
-        </div>
+        </div>}
       </div>
 
       {loading && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{[1, 2, 3].map(index => <div key={index} style={{ height: 120, borderRadius: 12, background: 'var(--sw-surface-1)', border: '1px solid var(--sw-border)', opacity: 0.6 }} />)}</div>}

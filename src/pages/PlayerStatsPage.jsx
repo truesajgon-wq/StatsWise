@@ -465,14 +465,17 @@ function getRankStatValue(player, statKey) {
   return Number(s?.[statKey] || 0)
 }
 
-export default function PlayerStatsPage({ players = null, lineups = null, title = 'Player Statistics' }) {
-  const [search, setSearch] = useState('')
+export default function PlayerStatsPage({ players = null, lineups = null, title = 'Player Statistics', searchQuery, onSearchChange }) {
+  const [internalSearch, setInternalSearch] = useState('')
   const [selected, setSelected] = useState(null)
   const [activeStat, setActiveStat] = useState('goals')
   const [visibleCount, setVisibleCount] = useState(10)
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth)
   const isFixtureMode = Array.isArray(players)
   const isNarrowRankList = viewportWidth <= 480
+  const useExternalSearch = typeof searchQuery === 'string' && typeof onSearchChange === 'function'
+  const search = useExternalSearch ? searchQuery : internalSearch
+  const setSearchValue = useExternalSearch ? onSearchChange : setInternalSearch
 
   useEffect(() => {
     const onResize = () => setViewportWidth(window.innerWidth)
@@ -501,15 +504,15 @@ export default function PlayerStatsPage({ players = null, lineups = null, title 
     return (
       <div className="player-stats-page fixture-mode" style={{ padding: '16px 18px 20px', overflowY: 'auto', overflowX: 'hidden' }}>
         <div style={{ marginBottom: 10, fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>{title}</div>
-        <div style={{ marginBottom: 12 }}>
+        {!useExternalSearch && <div style={{ marginBottom: 12 }}>
           <input
             type="text"
             placeholder="Search fixture player..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => setSearchValue(e.target.value)}
             style={{ width: '100%', maxWidth: 420, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#f1f5f9', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
           />
-        </div>
+        </div>}
 
         <FixturePitchSelector lineups={lineups || []} players={results} selected={selected} onSelect={setSelected} search={search} />
 
@@ -534,15 +537,15 @@ export default function PlayerStatsPage({ players = null, lineups = null, title 
   return (
     <div className="player-stats-page" style={{ padding: '16px 18px 20px', overflowY: 'auto', overflowX: 'hidden' }}>
       <div style={{ marginBottom: 10, fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>{title}</div>
-      <div style={{ marginBottom: 12 }}>
+      {!useExternalSearch && <div style={{ marginBottom: 12 }}>
         <input
           type="text"
           placeholder="Search player..."
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => setSearchValue(e.target.value)}
           style={{ width: '100%', maxWidth: 420, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#f1f5f9', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
         />
-      </div>
+      </div>}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         {STAT_RANK_OPTIONS.map(opt => (

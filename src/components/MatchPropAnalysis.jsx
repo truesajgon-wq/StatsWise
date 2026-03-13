@@ -818,6 +818,7 @@ export default function MatchPropAnalysis({
                   onClick={() => onRangeChange?.(item)}
                   style={{
                     minHeight: 44,
+                    minWidth: 58,
                     padding: '0 14px',
                     borderRadius: 999,
                     border: '1px solid var(--sw-border)',
@@ -847,7 +848,7 @@ export default function MatchPropAnalysis({
       >
         <div style={{ color: '#64748b', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Selected stat</div>
         <div style={{ color: '#dbe5f5', fontSize: 12, fontWeight: 700, marginTop: 2, marginBottom: 8 }}>{selectedStat.label}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 96px 1fr', alignItems: 'center', gap: 8 }}>
+        <div className="match-prop-inline-alt-grid" style={{ display: 'grid', gridTemplateColumns: '44px minmax(76px, 88px) 44px', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
           <button
             type="button"
             onClick={() => stepAlt(-1)}
@@ -888,11 +889,13 @@ export default function MatchPropAnalysis({
               const active = range === item
               return (
                 <button
+                  className="match-prop-range-pill"
                   key={item}
                   type="button"
                   onClick={() => onRangeChange?.(item)}
                   style={{
-                    minHeight: isMobile ? 40 : 44,
+                    minHeight: 44,
+                    minWidth: isMobile ? 56 : 60,
                     padding: isMobile ? '0 12px' : '0 14px',
                     borderRadius: 999,
                     border: '1px solid var(--sw-border)',
