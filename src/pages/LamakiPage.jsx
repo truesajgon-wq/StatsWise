@@ -396,7 +396,6 @@ function LamakCard({ result, onOpen }) {
   return (
     <button type="button" onClick={() => onOpen?.(result)} className="lamaki-card" style={{ background: 'var(--sw-surface-1)', border: `1px solid ${color}40`, borderLeft: `3px solid ${color}`, borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12, width: '100%', cursor: 'pointer', textAlign: 'left' }}>
       <div className="lamaki-card-top" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <ScoreRing score={combinedScore} color={color} size={60} />
         <div className="lamaki-card-meta" style={{ flex: 1, minWidth: 0 }}>
           <div className="lamaki-card-kicker" style={{ fontSize: 10, color: '#4b5563', fontWeight: 600, letterSpacing: '0.06em', marginBottom: 5 }}>{fixture.league?.name} - {fixture.time}</div>
           <div className="lamaki-card-matchup-header" style={{ marginBottom: 6 }}>
@@ -415,9 +414,14 @@ function LamakCard({ result, onOpen }) {
                 </div>
               </div>
             </div>
-            <div className="lamaki-card-probability">
-              <div style={{ fontSize: 22, fontWeight: 900, color, lineHeight: 1 }}>{probability}%</div>
-              <div style={{ fontSize: 9, color: '#4b5563', letterSpacing: '0.06em', marginTop: 2 }}>{t('lamaki_prob').toUpperCase()}</div>
+            <div className="lamaki-card-summary-metrics">
+              <div className="lamaki-card-score-ring">
+                <ScoreRing score={combinedScore} color={color} size={60} />
+              </div>
+              <div className="lamaki-card-probability">
+                <div style={{ fontSize: 22, fontWeight: 900, color, lineHeight: 1 }}>{probability}%</div>
+                <div style={{ fontSize: 9, color: '#4b5563', letterSpacing: '0.06em', marginTop: 2 }}>{t('lamaki_prob').toUpperCase()}</div>
+              </div>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>

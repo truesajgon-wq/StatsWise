@@ -1228,6 +1228,7 @@ button {
 
 .lamaki-card-top {
   align-items: flex-start;
+  width: 100%;
 }
 
 .lamaki-card-meta {
@@ -1297,6 +1298,21 @@ button {
   flex: 0 0 auto;
   min-width: 72px;
   text-align: center;
+}
+
+.lamaki-card-summary-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex: 0 0 auto;
+}
+
+.lamaki-card-score-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
 }
 
 .lamaki-modal-headline {
@@ -1613,34 +1629,51 @@ button {
 }
 
 @media (max-width: 768px) {
+  .lamaki-card-top {
+    align-items: center;
+  }
+
+  .lamaki-card-kicker {
+    text-align: center;
+  }
+
   .lamaki-card-matchup-header {
     grid-template-columns: minmax(0, 1fr);
     justify-items: center;
+    gap: 10px;
   }
 
   .lamaki-card-matchup {
     width: 100%;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 6px;
+  }
+
+  .lamaki-card-team-inner {
+    flex-wrap: nowrap;
+  }
+
+  .lamaki-card-team-name {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    line-height: 1.2;
+  }
+
+  .lamaki-card-summary-metrics {
+    width: auto;
+    margin: 0 auto;
+    gap: 12px;
   }
 
   .lamaki-card-probability {
-    width: 100%;
     min-width: 0;
   }
 }
 
 @media (max-width: 520px) {
-  .lamaki-card-matchup {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    gap: 8px;
-  }
-
   .lamaki-card-vs {
     min-height: 18px;
-  }
-
-  .lamaki-card-team-inner {
-    flex-wrap: wrap;
   }
 }
 
