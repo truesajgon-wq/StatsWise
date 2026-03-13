@@ -397,14 +397,24 @@ function LamakCard({ result, onOpen }) {
     <button type="button" onClick={() => onOpen?.(result)} className="lamaki-card" style={{ background: 'var(--sw-surface-1)', border: `1px solid ${color}40`, borderLeft: `3px solid ${color}`, borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12, width: '100%', cursor: 'pointer', textAlign: 'left' }}>
       <div className="lamaki-card-top" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <ScoreRing score={combinedScore} color={color} size={60} />
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="lamaki-card-meta" style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 10, color: '#4b5563', fontWeight: 600, letterSpacing: '0.06em', marginBottom: 5 }}>{fixture.league?.name} - {fixture.time}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <TeamBadge team={fixture.homeTeam} size={20} />
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{fixture.homeTeam?.name}</span>
-            <span style={{ fontSize: 11, color: '#4b5563', flexShrink: 0 }}>vs</span>
-            <TeamBadge team={fixture.awayTeam} size={20} />
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{fixture.awayTeam?.name}</span>
+          <div className="lamaki-card-matchup-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minWidth: 0, marginBottom: 6 }}>
+            <div className="lamaki-card-matchup" style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '1 1 auto', gap: 8 }}>
+              <div className="lamaki-card-team" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: '1 1 0' }}>
+                <TeamBadge team={fixture.homeTeam} size={20} />
+                <span className="lamaki-card-team-name" style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{fixture.homeTeam?.name}</span>
+              </div>
+              <span className="lamaki-card-vs" style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto', fontSize: 11, color: '#4b5563' }}>vs</span>
+              <div className="lamaki-card-team" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: '1 1 0' }}>
+                <TeamBadge team={fixture.awayTeam} size={20} />
+                <span className="lamaki-card-team-name" style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{fixture.awayTeam?.name}</span>
+              </div>
+            </div>
+            <div className="lamaki-card-probability" style={{ textAlign: 'center', flex: '0 0 auto' }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color, lineHeight: 1 }}>{probability}%</div>
+              <div style={{ fontSize: 9, color: '#4b5563', letterSpacing: '0.06em', marginTop: 2 }}>{t('lamaki_prob').toUpperCase()}</div>
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <PatternTag label={strength === 'strong' ? t('lamaki_strong') : strength === 'moderate' ? t('lamaki_moderate') : t('lamaki_weak')} icon={strength === 'strong' ? 'FIRE' : strength === 'moderate' ? 'HOT' : 'INFO'} color={color} bg={`${color}18`} />
@@ -412,10 +422,6 @@ function LamakCard({ result, onOpen }) {
             {hasTriangle && <PatternTag label={t('lamaki_triangle')} icon="TRI" color="#a78bfa" bg="rgba(167,139,250,0.08)" />}
             <PatternTag label="Click for full breakdown" color="#e5e7eb" bg="rgba(249,115,22,0.08)" />
           </div>
-        </div>
-        <div style={{ textAlign: 'center', flexShrink: 0 }}>
-          <div style={{ fontSize: 22, fontWeight: 900, color, lineHeight: 1 }}>{probability}%</div>
-          <div style={{ fontSize: 9, color: '#4b5563', letterSpacing: '0.06em', marginTop: 2 }}>{t('lamaki_prob').toUpperCase()}</div>
         </div>
       </div>
 

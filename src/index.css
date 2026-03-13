@@ -652,18 +652,58 @@ button {
     padding: 12px !important;
   }
 
-  .lamaki-card {
-    padding: 12px !important;
-  }
+.lamaki-card {
+  padding: 12px !important;
+}
 
-  .lamaki-card-top {
-    flex-wrap: wrap;
-    gap: 8px !important;
-  }
+.lamaki-card-top {
+  flex-wrap: wrap;
+  gap: 8px !important;
+}
 
-  .lamaki-legend {
-    gap: 8px !important;
-  }
+.lamaki-card-meta {
+  min-width: 0;
+}
+
+.lamaki-card-matchup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.lamaki-card-matchup {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.lamaki-card-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.lamaki-card-team-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.lamaki-card-vs {
+  flex: 0 0 auto;
+}
+
+.lamaki-card-probability {
+  flex: 0 0 auto;
+}
+
+.lamaki-legend {
+  gap: 8px !important;
+}
 
   .site-footer {
     padding: 12px !important;
