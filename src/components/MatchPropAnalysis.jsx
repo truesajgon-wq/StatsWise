@@ -795,6 +795,7 @@ export default function MatchPropAnalysis({
   const useInlineMobileControls = Boolean(isMobile && mobileControlsMode === 'inline')
   const useFixedMobileControls = Boolean(isMobile && !useStickyMobileControls && !useInlineMobileControls)
   const duplicateInlinePerTeam = Boolean(useInlineMobileControls && !singlePanel)
+  const compactInlineAlt = Boolean(isMobile && singlePanel)
 
   const stepAlt = (delta) => {
     const next = normalizeAltLine(Number(altLine || 0.5) + delta)
@@ -848,23 +849,76 @@ export default function MatchPropAnalysis({
       >
         <div style={{ color: '#64748b', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Selected stat</div>
         <div style={{ color: '#dbe5f5', fontSize: 12, fontWeight: 700, marginTop: 2, marginBottom: 8 }}>{selectedStat.label}</div>
-        <div className="match-prop-inline-alt-grid" style={{ display: 'grid', gridTemplateColumns: '44px minmax(76px, 88px) 44px', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+        <div
+          className="match-prop-inline-alt-grid"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, auto)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: compactInlineAlt ? 6 : 8,
+            width: 'fit-content',
+            maxWidth: '100%',
+            margin: '0 auto',
+          }}
+        >
           <button
             type="button"
             onClick={() => stepAlt(-1)}
             disabled={isOutcomeStat}
-            style={{ minHeight: 44, borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#e2e8f0', fontSize: 20, cursor: isOutcomeStat ? 'not-allowed' : 'pointer', opacity: isOutcomeStat ? 0.45 : 1 }}
+            style={{
+              width: compactInlineAlt ? 48 : 44,
+              minWidth: compactInlineAlt ? 48 : 44,
+              minHeight: compactInlineAlt ? 42 : 44,
+              borderRadius: 10,
+              border: '1px solid var(--sw-border)',
+              background: 'var(--sw-surface-0)',
+              color: '#e2e8f0',
+              fontSize: compactInlineAlt ? 18 : 20,
+              cursor: isOutcomeStat ? 'not-allowed' : 'pointer',
+              opacity: isOutcomeStat ? 0.45 : 1,
+              padding: 0,
+              justifySelf: 'center',
+            }}
           >
             -
           </button>
-          <div style={{ minHeight: 44, borderRadius: 10, border: '1px solid rgba(245,158,11,0.45)', background: 'rgba(245,158,11,0.11)', color: '#fbbf24', fontWeight: 900, fontSize: 18, display: 'grid', placeItems: 'center' }}>
+          <div
+            style={{
+              width: compactInlineAlt ? 58 : 72,
+              minWidth: compactInlineAlt ? 58 : 72,
+              minHeight: compactInlineAlt ? 42 : 44,
+              borderRadius: 10,
+              border: '1px solid rgba(245,158,11,0.45)',
+              background: 'rgba(245,158,11,0.11)',
+              color: '#fbbf24',
+              fontWeight: 900,
+              fontSize: compactInlineAlt ? 16 : 18,
+              display: 'grid',
+              placeItems: 'center',
+              justifySelf: 'center',
+            }}
+          >
             {isOutcomeStat ? '-' : Number(altLine || 0).toFixed(1)}
           </div>
           <button
             type="button"
             onClick={() => stepAlt(1)}
             disabled={isOutcomeStat}
-            style={{ minHeight: 44, borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#e2e8f0', fontSize: 20, cursor: isOutcomeStat ? 'not-allowed' : 'pointer', opacity: isOutcomeStat ? 0.45 : 1 }}
+            style={{
+              width: compactInlineAlt ? 48 : 44,
+              minWidth: compactInlineAlt ? 48 : 44,
+              minHeight: compactInlineAlt ? 42 : 44,
+              borderRadius: 10,
+              border: '1px solid var(--sw-border)',
+              background: 'var(--sw-surface-0)',
+              color: '#e2e8f0',
+              fontSize: compactInlineAlt ? 18 : 20,
+              cursor: isOutcomeStat ? 'not-allowed' : 'pointer',
+              opacity: isOutcomeStat ? 0.45 : 1,
+              padding: 0,
+              justifySelf: 'center',
+            }}
           >
             +
           </button>
