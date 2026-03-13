@@ -1645,19 +1645,25 @@ button {
 
   .lamaki-card-matchup {
     width: 100%;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     justify-items: center;
-    gap: 6px;
+    gap: 8px;
+  }
+
+  .lamaki-card-team {
+    width: 100%;
   }
 
   .lamaki-card-team-inner {
     flex-wrap: nowrap;
+    gap: 6px;
   }
 
   .lamaki-card-team-name {
     white-space: nowrap;
     overflow-wrap: normal;
     line-height: 1.2;
+    font-size: clamp(11px, 3.6vw, 13px) !important;
   }
 
   .lamaki-card-summary-metrics {
@@ -1673,7 +1679,7 @@ button {
 
 @media (max-width: 520px) {
   .lamaki-card-vs {
-    min-height: 18px;
+    min-height: 0;
   }
 }
 
