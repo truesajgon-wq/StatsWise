@@ -279,9 +279,11 @@ function buildPitchSlots(teamData, reverse = false) {
     const linePlayers = starters.slice(cursor, cursor + count)
     cursor += count
     const ratio = totalLines === 1 ? 0.5 : lineIndex / (totalLines - 1)
-    const x = reverse ? (90 - ratio * 80) : (10 + ratio * 80)
+    const x = reverse ? (86 - ratio * 72) : (14 + ratio * 72)
     return linePlayers.map((player, slotIndex) => {
-      const y = count === 1 ? 50 : (16 + (slotIndex / Math.max(1, count - 1)) * 68)
+      const spread = count === 1 ? 0 : count === 2 ? 24 : count === 3 ? 40 : count === 4 ? 54 : 62
+      const startY = 50 - (spread / 2)
+      const y = count === 1 ? 50 : (startY + (slotIndex / Math.max(1, count - 1)) * spread)
       return { player, x, y }
     })
   })

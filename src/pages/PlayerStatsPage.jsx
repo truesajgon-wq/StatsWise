@@ -198,6 +198,41 @@ function groupByRow(players) {
     .map(([, ps]) => ps.sort((a, b) => parseGrid(a.grid).col - parseGrid(b.grid).col))
 }
 
+function formationLineCounts(formation, players = []) {
+  const parsed = String(formation || '')
+    .split('-')
+    .map(Number)
+    .filter(value => Number.isFinite(value) && value > 0)
+  if (parsed.length && parsed.reduce((sum, value) => sum + value, 1) === players.length) return [1, ...parsed]
+  const grouped = groupByRow(players)
+  if (grouped.length) return grouped.map(row => row.length)
+  return [players.length]
+}
+
+function buildPitchSlots(players = [], formation, reverse = false) {
+  if (!players.length) return []
+  let lineCounts = formationLineCounts(formation, players)
+  if (lineCounts.reduce((sum, value) => sum + value, 0) !== players.length) {
+    lineCounts = groupByRow(players).map(row => row.length)
+  }
+
+  let cursor = 0
+  const totalLines = lineCounts.length
+  return lineCounts.flatMap((count, lineIndex) => {
+    const linePlayers = players.slice(cursor, cursor + count)
+    cursor += count
+    const ratio = totalLines === 1 ? 0.5 : lineIndex / (totalLines - 1)
+    const x = reverse ? (86 - ratio * 72) : (14 + ratio * 72)
+    const spread = count === 1 ? 0 : count === 2 ? 24 : count === 3 ? 40 : count === 4 ? 54 : 62
+    const startY = 50 - (spread / 2)
+    return linePlayers.map((item, slotIndex) => ({
+      item,
+      x,
+      y: count === 1 ? 50 : (startY + (slotIndex / Math.max(1, count - 1)) * spread),
+    }))
+  })
+}
+
 function PlayerNode({ item, active, onClick, compact = false }) {
   const last = String(item.name || '').split(' ').slice(-1)[0]
   return (
@@ -238,21 +273,25 @@ function playerIdentity(item) {
   return `${item.teamId || 't'}-${item.id || 'id'}-${item.number || 'n'}-${item.name || ''}`
 }
 
-function TeamSide({ rows, selectedId, onSelect, side = 'left', compact = false }) {
-  const ordered = side === 'right' ? [...rows].reverse() : rows
+function TeamSide({ slots, selectedId, onSelect, compact = false }) {
   return (
-    <div style={{ display: 'flex', flex: 1, minWidth: 0, padding: compact ? '18px 6px 8px' : '22px 10px 10px', gap: compact ? 3 : 6, justifyContent: 'space-evenly' }}>
-      {ordered.map((row, idx) => (
-        <div key={idx} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-evenly', alignItems: 'center', minWidth: 0, flex: 1, gap: compact ? 3 : 5 }}>
-          {row.map(item => (
-            <PlayerNode
-              key={`${item.teamId}-${item.name}-${item.number || ''}`}
-              item={item}
-              active={selectedId === playerIdentity(item)}
-              onClick={() => onSelect(item)}
-              compact={compact}
-            />
-          ))}
+    <div style={{ position: 'relative', flex: 1, minWidth: 0, minHeight: 0 }}>
+      {slots.map(({ item, x, y }) => (
+        <div
+          key={`${item.teamId}-${item.name}-${item.number || ''}`}
+          style={{
+            position: 'absolute',
+            left: `${x}%`,
+            top: `${y}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <PlayerNode
+            item={item}
+            active={selectedId === playerIdentity(item)}
+            onClick={() => onSelect(item)}
+            compact={compact}
+          />
         </div>
       ))}
     </div>
@@ -307,9 +346,11 @@ function FixturePitchSelector({ lineups = [], players = [], selected, onSelect, 
     }
   })
 
-  const homeRows = useMemo(() => groupByRow(mapStart(home, true)), [home, allByName])
-  const awayRows = useMemo(() => groupByRow(mapStart(away, false)), [away, allByName])
   const filteredBySearch = (item) => !search.trim() || item.name.toLowerCase().includes(search.toLowerCase())
+  const homePlayers = useMemo(() => mapStart(home, true), [home, allByName])
+  const awayPlayers = useMemo(() => mapStart(away, false), [away, allByName])
+  const homeSlots = useMemo(() => buildPitchSlots(homePlayers.filter(filteredBySearch), home?.formation, false), [homePlayers, home?.formation, search])
+  const awaySlots = useMemo(() => buildPitchSlots(awayPlayers.filter(filteredBySearch), away?.formation, true), [awayPlayers, away?.formation, search])
 
   const selectedIdentity = selected ? playerIdentity(selected) : null
 
@@ -318,7 +359,7 @@ function FixturePitchSelector({ lineups = [], players = [], selected, onSelect, 
     onSelect(found || item)
   }
 
-  if (!homeRows.length && !awayRows.length) return null
+  if (!homeSlots.length && !awaySlots.length) return null
 
   const pitchMinHeight = isCompact ? 220 : 320
   const centerCircle = isCompact ? 60 : 82
@@ -366,15 +407,13 @@ function FixturePitchSelector({ lineups = [], players = [], selected, onSelect, 
 
         <div style={{ position: 'relative', minHeight: pitchMinHeight, display: 'flex' }}>
           <TeamSide
-            side="left"
-            rows={homeRows.map(r => r.filter(filteredBySearch))}
+            slots={homeSlots}
             selectedId={selectedIdentity}
             onSelect={onPick}
             compact={isCompact}
           />
           <TeamSide
-            side="right"
-            rows={awayRows.map(r => r.filter(filteredBySearch))}
+            slots={awaySlots}
             selectedId={selectedIdentity}
             onSelect={onPick}
             compact={isCompact}
@@ -382,7 +421,7 @@ function FixturePitchSelector({ lineups = [], players = [], selected, onSelect, 
         </div>
       </div>
       </div>
-      <div style={{ marginTop: 8, fontSize: 11, color: 'var(--sw-muted)', textAlign: isCompact ? 'center' : 'left' }}>Click a player on the pitch to open detailed stats.</div>
+      <div style={{ marginTop: 8, fontSize: 11, color: 'var(--sw-muted)', textAlign: isCompact ? 'center' : 'left' }}>Tap or click a player on the pitch to analyze detailed player statistics.</div>
     </div>
   )
 }
@@ -478,8 +517,10 @@ export default function PlayerStatsPage({ players = null, lineups = null, title 
           <PlayerProfile player={selected} />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#4b5563', padding: '26px 12px' }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--sw-muted)' }}>Select a player to view stats</div>
-            <div style={{ fontSize: 13, marginTop: 6 }}>Click a player on the formation pitch above.</div>
+            <div style={{ width: 'min(100%, 520px)', padding: '18px 20px', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', textAlign: 'center' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>Select a player to analyze</div>
+              <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.6 }}>Choose a player from the pitch above to open player statistics, recent form, and prop analysis.</div>
+            </div>
           </div>
         )}
       </div>

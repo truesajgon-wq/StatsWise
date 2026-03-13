@@ -444,6 +444,7 @@ export default function LamakiPage({ fixtures = [], loading }) {
   const navigate = useNavigate()
   const [selected, setSelected] = useState(null)
   const [filter, setFilter] = useState('all')
+  const [search, setSearch] = useState('')
   const results = useMemo(() => (!fixtures.length ? [] : analyzeDayFixtures(fixtures, getAppToday())), [fixtures])
   const filteredResults = useMemo(() => {
     if (filter === 'mutual') return results.filter(result => result.lamakType === 'both')
@@ -454,9 +455,18 @@ export default function LamakiPage({ fixtures = [], loading }) {
     }
     return results
   }, [results, filter])
-  const strong = filteredResults.filter(result => result.strength === 'strong')
-  const moderate = filteredResults.filter(result => result.strength === 'moderate')
-  const weak = filteredResults.filter(result => result.strength === 'weak')
+  const visibleResults = useMemo(() => {
+    if (!search.trim()) return filteredResults
+    const q = search.toLowerCase()
+    return filteredResults.filter(result =>
+      result.fixture?.homeTeam?.name?.toLowerCase().includes(q) ||
+      result.fixture?.awayTeam?.name?.toLowerCase().includes(q) ||
+      result.fixture?.league?.name?.toLowerCase().includes(q),
+    )
+  }, [filteredResults, search])
+  const strong = visibleResults.filter(result => result.strength === 'strong')
+  const moderate = visibleResults.filter(result => result.strength === 'moderate')
+  const weak = visibleResults.filter(result => result.strength === 'weak')
   const filterButtons = [
     { key: 'all', label: 'All' },
     { key: 'mutual', label: 'Mutual' },
@@ -509,19 +519,28 @@ export default function LamakiPage({ fixtures = [], loading }) {
             </div>
           ))}
         </div>
+        <div style={{ marginTop: 12, maxWidth: 420 }}>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search team / league..."
+            style={{ width: '100%', minHeight: 44, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#f1f5f9', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+          />
+        </div>
       </div>
 
       {loading && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{[1, 2, 3].map(index => <div key={index} style={{ height: 120, borderRadius: 12, background: 'var(--sw-surface-1)', border: '1px solid var(--sw-border)', opacity: 0.6 }} />)}</div>}
 
-      {!loading && filteredResults.length === 0 && (
+      {!loading && visibleResults.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: '#4b5563' }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>↩</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: '#6b7280', marginBottom: 6 }}>{t('lamaki_none')}</div>
-          <div style={{ fontSize: 13 }}>{t('lamaki_none_sub')}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#6b7280', marginBottom: 6 }}>{search ? 'No comeback matches found' : t('lamaki_none')}</div>
+          <div style={{ fontSize: 13 }}>{search ? 'Try another team or league search.' : t('lamaki_none_sub')}</div>
         </div>
       )}
 
-      {!loading && filteredResults.length > 0 && (
+      {!loading && visibleResults.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {strong.length > 0 && (
             <>

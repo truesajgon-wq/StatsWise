@@ -309,6 +309,7 @@ export default function StatPredictionPage({ statKey, fixtures = [], loading, on
   const [minRate,   setMinRate]   = useState(0.6)
   const [activeAlt, setActiveAlt] = useState(null)
   const [customAlt, setCustomAlt] = useState(null)
+  const [search, setSearch] = useState('')
   const statKeysToRun = useMemo(() => {
     if (statKey === 'firstHalfGoals') return ['firstHalfGoals', 'teamFirstHalfGoals']
     if (statKey === 'secondHalfGoals') return ['secondHalfGoals', 'teamSecondHalfGoals']
@@ -376,6 +377,16 @@ export default function StatPredictionPage({ statKey, fixtures = [], loading, on
     () => activeAlt === null ? predictions : predictions.filter(p => p.alt === activeAlt),
     [predictions, activeAlt]
   )
+  const searched = useMemo(() => {
+    if (!search.trim()) return filtered
+    const q = search.toLowerCase()
+    return filtered.filter(pred =>
+      pred.label?.toLowerCase().includes(q) ||
+      pred.fixture?.homeTeam?.name?.toLowerCase().includes(q) ||
+      pred.fixture?.awayTeam?.name?.toLowerCase().includes(q) ||
+      pred.fixture?.league?.name?.toLowerCase().includes(q),
+    )
+  }, [filtered, search])
 
   useEffect(() => {
     const fixturesWithHistory = fixtures.filter(f => f.homeHistory?.length || f.awayHistory?.length).length
@@ -388,7 +399,7 @@ export default function StatPredictionPage({ statKey, fixtures = [], loading, on
     return centeredHalfAltWindow(altAnchor, 5)
   }, [altsToRun, altAnchor, statKeysToRun])
 
-  const displayPreds = filtered.slice(0, 40)
+  const displayPreds = searched.slice(0, 40)
 
   if (!statDef) {
     return (
@@ -410,6 +421,16 @@ export default function StatPredictionPage({ statKey, fixtures = [], loading, on
         count={displayPreds.length} t={t}
         onAltStep={handleAltStep}
       />
+
+      <div style={{ maxWidth: 420 }}>
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search team / league / angle..."
+          style={{ width: '100%', minHeight: 44, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#f1f5f9', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+        />
+      </div>
 
       <div className="stat-prediction-note" style={{ padding:'10px 14px', borderRadius:8, background:'rgba(249,115,22,0.05)', border:'1px solid rgba(249,115,22,0.15)', fontSize:11, color:'#6b7280', lineHeight:1.6 }}>
         {t('stat_algo_note_pre')} <strong style={{ color: accentColor }}>{statDef.label}</strong>{t('stat_algo_note_post')}
@@ -435,12 +456,14 @@ export default function StatPredictionPage({ statKey, fixtures = [], loading, on
       {!loading && fixtures.length > 0 && displayPreds.length === 0 && (
         <div style={{ textAlign:'center', padding:'60px 20px', color:'#4b5563' }}>
           <div style={{ fontSize:48, marginBottom:12 }}>{'\u{1F50D}'}</div>
-          <div style={{ fontSize:15, fontWeight:600, color:'#6b7280' }}>{t('pred_no_results')}</div>
-          <div style={{ fontSize:13, marginTop:6 }}>{t('pred_try_lower')}</div>
-          <button onClick={() => setMinRate(0.5)}
-            style={{ marginTop:16, padding:'8px 20px', borderRadius:8, border:'none', background:'rgba(249,115,22,0.15)', color:'#d1d5db', fontWeight:700, fontSize:13, cursor:'pointer' }}>
-            {t('stat_lower_to_50')}
-          </button>
+          <div style={{ fontSize:15, fontWeight:600, color:'#6b7280' }}>{search ? 'No predictions match this search' : t('pred_no_results')}</div>
+          <div style={{ fontSize:13, marginTop:6 }}>{search ? 'Try another team, league, or market phrase.' : t('pred_try_lower')}</div>
+          {!search && (
+            <button onClick={() => setMinRate(0.5)}
+              style={{ marginTop:16, padding:'8px 20px', borderRadius:8, border:'none', background:'rgba(249,115,22,0.15)', color:'#d1d5db', fontWeight:700, fontSize:13, cursor:'pointer' }}>
+              {t('stat_lower_to_50')}
+            </button>
+          )}
         </div>
       )}
 
