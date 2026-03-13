@@ -410,7 +410,9 @@ function ChartPanel({
   const isSingleDesktop = Boolean(singlePanel && !isMobile)
   const plotHeight = isTinyMobile ? 118 : isCompactMobile ? 132 : isMobile ? 148 : 176
   const labelHeight = isMobile ? 0 : 24
-  const lineBottomPx = Math.max(0, labelHeight + (altPct / 100) * plotHeight - 1)
+  const barItemGap = labelHeight > 0 ? (compactBars ? 4 : 6) : 0
+  const chartContentHeight = plotHeight + labelHeight + barItemGap
+  const lineBottomPx = Math.max(0, labelHeight + barItemGap + (altPct / 100) * plotHeight - 1)
   const averageValue = useMemo(() => {
     if (!rows.length) return null
     if (isOutcome) {
@@ -439,13 +441,14 @@ function ChartPanel({
           display: 'grid',
           gap: chartGap,
           alignItems: 'stretch',
-          height: plotHeight + labelHeight,
+          height: chartContentHeight,
           gridTemplateColumns: rows.length ? `repeat(${rows.length}, minmax(0, 1fr))` : '1fr',
           padding: isMobile ? '6px 4px 4px' : '8px 0 6px',
           borderBottom: '1px solid rgba(148,163,184,0.2)',
           borderLeft: '1px solid rgba(148,163,184,0.15)',
           borderRight: '1px solid rgba(148,163,184,0.15)',
           borderRadius: 8,
+          overflow: 'hidden',
           background: 'linear-gradient(180deg, rgba(51,65,85,0.08), rgba(15,23,42,0.1))',
         }}
       >
@@ -490,17 +493,19 @@ function ChartPanel({
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: compactBars ? 4 : 6,
-                minHeight: plotHeight + labelHeight,
+                justifyContent: 'flex-end',
+                gap: barItemGap,
+                minHeight: chartContentHeight,
                 minWidth: 0,
               }}
             >
-              <div style={{ height: plotHeight, width: '100%', display: 'flex', alignItems: 'flex-end' }}>
+              <div style={{ height: plotHeight, width: '100%', display: 'flex', alignItems: 'flex-end', minHeight: 0, overflow: 'hidden' }}>
                 <div
                   style={{
                     width: '100%',
                     height: `${pct}%`,
                     borderRadius: isTinyMobile ? 4 : 7,
+                    boxSizing: 'border-box',
                     background: isOutcome
                       ? outcomeColor.grad
                       : over
