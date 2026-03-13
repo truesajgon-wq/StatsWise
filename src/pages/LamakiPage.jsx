@@ -398,20 +398,24 @@ function LamakCard({ result, onOpen }) {
       <div className="lamaki-card-top" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <ScoreRing score={combinedScore} color={color} size={60} />
         <div className="lamaki-card-meta" style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10, color: '#4b5563', fontWeight: 600, letterSpacing: '0.06em', marginBottom: 5 }}>{fixture.league?.name} - {fixture.time}</div>
-          <div className="lamaki-card-matchup-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minWidth: 0, marginBottom: 6 }}>
-            <div className="lamaki-card-matchup" style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '1 1 auto', gap: 8 }}>
-              <div className="lamaki-card-team" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: '1 1 0' }}>
-                <TeamBadge team={fixture.homeTeam} size={20} />
-                <span className="lamaki-card-team-name" style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{fixture.homeTeam?.name}</span>
+          <div className="lamaki-card-kicker" style={{ fontSize: 10, color: '#4b5563', fontWeight: 600, letterSpacing: '0.06em', marginBottom: 5 }}>{fixture.league?.name} - {fixture.time}</div>
+          <div className="lamaki-card-matchup-header" style={{ marginBottom: 6 }}>
+            <div className="lamaki-card-matchup">
+              <div className="lamaki-card-team">
+                <div className="lamaki-card-team-inner">
+                  <TeamBadge team={fixture.homeTeam} size={20} />
+                  <span className="lamaki-card-team-name" style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{fixture.homeTeam?.name}</span>
+                </div>
               </div>
-              <span className="lamaki-card-vs" style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto', fontSize: 11, color: '#4b5563' }}>vs</span>
-              <div className="lamaki-card-team" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: '1 1 0' }}>
-                <TeamBadge team={fixture.awayTeam} size={20} />
-                <span className="lamaki-card-team-name" style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{fixture.awayTeam?.name}</span>
+              <span className="lamaki-card-vs" style={{ fontSize: 11, color: '#4b5563' }}>vs</span>
+              <div className="lamaki-card-team">
+                <div className="lamaki-card-team-inner">
+                  <TeamBadge team={fixture.awayTeam} size={20} />
+                  <span className="lamaki-card-team-name" style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{fixture.awayTeam?.name}</span>
+                </div>
               </div>
             </div>
-            <div className="lamaki-card-probability" style={{ textAlign: 'center', flex: '0 0 auto' }}>
+            <div className="lamaki-card-probability">
               <div style={{ fontSize: 22, fontWeight: 900, color, lineHeight: 1 }}>{probability}%</div>
               <div style={{ fontSize: 9, color: '#4b5563', letterSpacing: '0.06em', marginTop: 2 }}>{t('lamaki_prob').toUpperCase()}</div>
             </div>

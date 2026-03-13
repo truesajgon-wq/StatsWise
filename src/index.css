@@ -652,58 +652,18 @@ button {
     padding: 12px !important;
   }
 
-.lamaki-card {
-  padding: 12px !important;
-}
+  .lamaki-card {
+    padding: 12px !important;
+  }
 
-.lamaki-card-top {
-  flex-wrap: wrap;
-  gap: 8px !important;
-}
+  .lamaki-card-top {
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
 
-.lamaki-card-meta {
-  min-width: 0;
-}
-
-.lamaki-card-matchup-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-}
-
-.lamaki-card-matchup {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-.lamaki-card-team {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex-wrap: nowrap;
-}
-
-.lamaki-card-team-name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.lamaki-card-vs {
-  flex: 0 0 auto;
-}
-
-.lamaki-card-probability {
-  flex: 0 0 auto;
-}
-
-.lamaki-legend {
-  gap: 8px !important;
-}
+  .lamaki-legend {
+    gap: 8px !important;
+  }
 
   .site-footer {
     padding: 12px !important;
@@ -1266,6 +1226,79 @@ button {
   min-width: 0;
 }
 
+.lamaki-card-top {
+  align-items: flex-start;
+}
+
+.lamaki-card-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.lamaki-card-matchup-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.lamaki-card-matchup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.lamaki-card-team {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  text-align: center;
+}
+
+.lamaki-card-team-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.lamaki-card-team-name {
+  display: block;
+  min-width: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.lamaki-card-vs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.lamaki-card-probability {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 72px;
+  text-align: center;
+}
+
 .lamaki-modal-headline {
   min-width: 0;
 }
@@ -1497,6 +1530,16 @@ button {
 }
 
 @media (max-width: 900px) {
+  .lamaki-card-matchup-header {
+    gap: 12px;
+  }
+
+  .lamaki-card-matchup {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 900px) {
   .lamaki-modal-overlay {
     padding: 0;
     align-items: flex-end;
@@ -1566,6 +1609,38 @@ button {
 
   .lamaki-history-opponent {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .lamaki-card-matchup-header {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+
+  .lamaki-card-matchup {
+    width: 100%;
+  }
+
+  .lamaki-card-probability {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .lamaki-card-matchup {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 8px;
+  }
+
+  .lamaki-card-vs {
+    min-height: 18px;
+  }
+
+  .lamaki-card-team-inner {
+    flex-wrap: wrap;
   }
 }
 
