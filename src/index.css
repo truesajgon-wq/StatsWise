@@ -725,18 +725,6 @@ button {
     grid-template-columns: 44px minmax(72px, 84px) 44px !important;
   }
 
-  .player-stats-page .match-prop-inline-alt-grid {
-    width: auto !important;
-    margin: 0 auto !important;
-    grid-template-columns: 44px minmax(64px, 76px) 44px !important;
-    gap: 6px !important;
-  }
-
-  .player-stats-page .match-prop-inline-alt-grid > button,
-  .player-stats-page .match-prop-inline-alt-grid > div {
-    min-height: 44px !important;
-  }
-
   .match-prop-summary-badges {
     justify-content: center !important;
   }
@@ -1881,26 +1869,6 @@ a[aria-label],
 
   .match-prop-inline-alt-grid {
     grid-template-columns: 44px minmax(68px, 80px) 44px !important;
-  }
-
-  .player-stats-page .match-prop-inline-alt-grid {
-    grid-template-columns: 42px minmax(60px, 72px) 42px !important;
-  }
-
-  .player-stats-page .match-prop-mobile-controls-grid {
-    grid-template-columns: minmax(0, 1fr) 42px 50px 42px !important;
-  }
-
-  .player-stats-page .mp-mobile-minus,
-  .player-stats-page .mp-mobile-plus,
-  .player-stats-page .mp-mobile-value {
-    min-height: 42px !important;
-    min-width: 42px !important;
-  }
-
-  .player-stats-page .mp-mobile-value {
-    min-width: 50px !important;
-    font-size: 12px !important;
   }
 
   .match-prop-analysis {

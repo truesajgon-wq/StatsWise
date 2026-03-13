@@ -795,7 +795,6 @@ export default function MatchPropAnalysis({
   const useInlineMobileControls = Boolean(isMobile && mobileControlsMode === 'inline')
   const useFixedMobileControls = Boolean(isMobile && !useStickyMobileControls && !useInlineMobileControls)
   const duplicateInlinePerTeam = Boolean(useInlineMobileControls && !singlePanel)
-  const compactInlineAlt = Boolean(isMobile && singlePanel)
 
   const stepAlt = (delta) => {
     const next = normalizeAltLine(Number(altLine || 0.5) + delta)
@@ -853,10 +852,10 @@ export default function MatchPropAnalysis({
           className="match-prop-inline-alt-grid"
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, auto)',
+            gridTemplateColumns: '44px 72px 44px',
             justifyContent: 'center',
             alignItems: 'center',
-            gap: compactInlineAlt ? 6 : 8,
+            gap: 8,
             width: 'fit-content',
             maxWidth: '100%',
             margin: '0 auto',
@@ -867,36 +866,44 @@ export default function MatchPropAnalysis({
             onClick={() => stepAlt(-1)}
             disabled={isOutcomeStat}
             style={{
-              width: compactInlineAlt ? 48 : 44,
-              minWidth: compactInlineAlt ? 48 : 44,
-              minHeight: compactInlineAlt ? 42 : 44,
+              width: 44,
+              minWidth: 44,
+              maxWidth: 44,
+              height: 44,
+              minHeight: 44,
+              maxHeight: 44,
               borderRadius: 10,
               border: '1px solid var(--sw-border)',
               background: 'var(--sw-surface-0)',
               color: '#e2e8f0',
-              fontSize: compactInlineAlt ? 18 : 20,
+              fontSize: 20,
               cursor: isOutcomeStat ? 'not-allowed' : 'pointer',
               opacity: isOutcomeStat ? 0.45 : 1,
               padding: 0,
               justifySelf: 'center',
+              boxSizing: 'border-box',
             }}
           >
             -
           </button>
           <div
             style={{
-              width: compactInlineAlt ? 58 : 72,
-              minWidth: compactInlineAlt ? 58 : 72,
-              minHeight: compactInlineAlt ? 42 : 44,
+              width: 72,
+              minWidth: 72,
+              maxWidth: 72,
+              height: 44,
+              minHeight: 44,
+              maxHeight: 44,
               borderRadius: 10,
               border: '1px solid rgba(245,158,11,0.45)',
               background: 'rgba(245,158,11,0.11)',
               color: '#fbbf24',
               fontWeight: 900,
-              fontSize: compactInlineAlt ? 16 : 18,
+              fontSize: 18,
               display: 'grid',
               placeItems: 'center',
               justifySelf: 'center',
+              boxSizing: 'border-box',
             }}
           >
             {isOutcomeStat ? '-' : Number(altLine || 0).toFixed(1)}
@@ -906,18 +913,22 @@ export default function MatchPropAnalysis({
             onClick={() => stepAlt(1)}
             disabled={isOutcomeStat}
             style={{
-              width: compactInlineAlt ? 48 : 44,
-              minWidth: compactInlineAlt ? 48 : 44,
-              minHeight: compactInlineAlt ? 42 : 44,
+              width: 44,
+              minWidth: 44,
+              maxWidth: 44,
+              height: 44,
+              minHeight: 44,
+              maxHeight: 44,
               borderRadius: 10,
               border: '1px solid var(--sw-border)',
               background: 'var(--sw-surface-0)',
               color: '#e2e8f0',
-              fontSize: compactInlineAlt ? 18 : 20,
+              fontSize: 20,
               cursor: isOutcomeStat ? 'not-allowed' : 'pointer',
               opacity: isOutcomeStat ? 0.45 : 1,
               padding: 0,
               justifySelf: 'center',
+              boxSizing: 'border-box',
             }}
           >
             +
