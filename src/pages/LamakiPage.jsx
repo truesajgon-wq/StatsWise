@@ -399,19 +399,14 @@ function LamakCard({ result, onOpen }) {
         <div className="lamaki-card-meta" style={{ flex: 1, minWidth: 0 }}>
           <div className="lamaki-card-kicker" style={{ fontSize: 10, color: '#4b5563', fontWeight: 600, letterSpacing: '0.06em', marginBottom: 5 }}>{fixture.league?.name} - {fixture.time}</div>
           <div className="lamaki-card-matchup-header" style={{ marginBottom: 6 }}>
-            <div className="lamaki-card-matchup">
-              <div className="lamaki-card-team">
-                <div className="lamaki-card-team-inner">
-                  <TeamBadge team={fixture.homeTeam} size={20} />
-                  <span className="lamaki-card-team-name" style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{fixture.homeTeam?.name}</span>
-                </div>
+            <div className="lamaki-card-team-list">
+              <div className="lamaki-card-team-row">
+                <TeamBadge team={fixture.homeTeam} size={20} />
+                <span className="lamaki-card-team-name" style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{fixture.homeTeam?.name}</span>
               </div>
-              <span className="lamaki-card-vs" style={{ fontSize: 11, color: '#4b5563' }}>vs</span>
-              <div className="lamaki-card-team">
-                <div className="lamaki-card-team-inner">
-                  <TeamBadge team={fixture.awayTeam} size={20} />
-                  <span className="lamaki-card-team-name" style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{fixture.awayTeam?.name}</span>
-                </div>
+              <div className="lamaki-card-team-row">
+                <TeamBadge team={fixture.awayTeam} size={20} />
+                <span className="lamaki-card-team-name" style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{fixture.awayTeam?.name}</span>
               </div>
             </div>
             <div className="lamaki-card-summary-metrics">
