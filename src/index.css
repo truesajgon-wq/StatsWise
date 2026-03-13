@@ -731,10 +731,29 @@ button {
     border-bottom-right-radius: 0 !important;
   }
 
+  .fixture-modal-topbar,
+  .fixture-modal-footer {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .fixture-modal-actions,
+  .fixture-modal-footer > button {
+    width: 100%;
+  }
+
+  .fixture-modal-body {
+    padding: 12px !important;
+  }
+
   .fixture-modal-head-grid {
     grid-template-columns: 1fr !important;
     gap: 10px !important;
     text-align: center;
+  }
+
+  .fixture-modal-score-box {
+    order: -1;
   }
 
   .fixture-modal-stats-head,
@@ -827,6 +846,55 @@ button {
 
   .player-pitch-surface {
     min-height: 0 !important;
+  }
+
+  .lineups-panel-header {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    gap: 8px !important;
+    align-items: start !important;
+  }
+
+  .lineups-panel-team-home {
+    order: 1;
+  }
+
+  .lineups-panel-toggle {
+    order: 2;
+    justify-self: end;
+  }
+
+  .lineups-panel-team-away {
+    order: 3;
+    grid-column: 1 / -1;
+    justify-content: flex-start !important;
+  }
+
+  .lineups-panel-team-away > div {
+    text-align: left !important;
+  }
+
+  .lineups-panel-lists {
+    grid-template-columns: 1fr !important;
+  }
+
+  .lineups-panel-list-card {
+    border-right: none !important;
+    border-bottom: 1px solid var(--sw-border);
+  }
+
+  .lineups-panel-list-card:last-child {
+    border-bottom: none;
+  }
+
+  .lamaki-header {
+    flex-wrap: wrap;
+    align-items: flex-start !important;
+  }
+
+  .lamaki-filter-group {
+    margin-left: 0 !important;
+    width: 100% !important;
   }
 }
 
@@ -937,6 +1005,13 @@ button {
     border-bottom: none !important;
   }
 
+  .user-dashboard-page-shell {
+    min-height: 100dvh !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    border-bottom: none !important;
+  }
+
   .user-dashboard-header {
     padding: 12px !important;
   }
@@ -1023,6 +1098,20 @@ button {
   overscroll-behavior: contain;
 }
 
+.user-dashboard-page {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.user-dashboard-page-shell {
+  width: min(760px, 100%) !important;
+  max-width: 760px !important;
+  max-height: none !important;
+  min-height: 100dvh !important;
+  border-radius: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+
 .user-dashboard-tab {
   min-width: 0;
   overflow: hidden;
@@ -1088,6 +1177,14 @@ button {
   gap: 14px;
   padding: 16px 18px;
   border-bottom: 1px solid var(--sw-border);
+}
+
+.lamaki-filter-group {
+  max-width: 320px;
+}
+
+.lamaki-filter-btn {
+  min-width: 0;
 }
 
 .lamaki-modal-headline {

@@ -230,77 +230,108 @@ function parseGrid(g) {
   return { col: p[0] || 1, row: p[1] || 1 }
 }
 
-function groupByRow(players) {
+function groupByPitchRow(players = []) {
   const rows = {}
-  players.forEach(p => {
-    const { row } = parseGrid(p.grid)
-    ;(rows[row] = rows[row] || []).push(p)
+  players.forEach(player => {
+    const { row } = parseGrid(player?.grid)
+    ;(rows[row] = rows[row] || []).push(player)
   })
   return Object.entries(rows)
-    .sort(([a],[b]) => +a - +b)
-    .map(([, ps]) => ps.sort((a,b) => parseGrid(a.grid).col - parseGrid(b.grid).col))
+    .sort(([a], [b]) => +a - +b)
+    .map(([, rowPlayers]) => rowPlayers.sort((a, b) => parseGrid(a?.grid).col - parseGrid(b?.grid).col))
+}
+
+function formationLineCounts(teamData) {
+  const parsed = String(teamData?.formation || '')
+    .split('-')
+    .map(Number)
+    .filter(value => Number.isFinite(value) && value > 0)
+  if (parsed.length && parsed.reduce((sum, value) => sum + value, 1) === 11) return [1, ...parsed]
+
+  const groupedRows = groupByPitchRow(teamData?.startXI || [])
+  if (groupedRows.length) return groupedRows.map(row => row.length)
+
+  const starters = Array.isArray(teamData?.startXI) ? teamData.startXI : []
+  return starters.length === 11 ? [1, 4, 3, 3] : [Math.max(1, starters.length)]
+}
+
+function orderStarters(teamData) {
+  return [...(teamData?.startXI || [])].sort((a, b) => {
+    const aGrid = parseGrid(a?.grid)
+    const bGrid = parseGrid(b?.grid)
+    if (aGrid.row !== bGrid.row) return aGrid.row - bGrid.row
+    return aGrid.col - bGrid.col
+  })
+}
+
+function buildPitchSlots(teamData, reverse = false) {
+  const starters = orderStarters(teamData).slice(0, 11)
+  if (!starters.length) return []
+
+  let lineCounts = formationLineCounts(teamData)
+  if (lineCounts.reduce((sum, value) => sum + value, 0) !== starters.length) {
+    lineCounts = groupByPitchRow(starters).map(row => row.length)
+  }
+
+  let cursor = 0
+  const totalLines = lineCounts.length
+  return lineCounts.flatMap((count, lineIndex) => {
+    const linePlayers = starters.slice(cursor, cursor + count)
+    cursor += count
+    const ratio = totalLines === 1 ? 0.5 : lineIndex / (totalLines - 1)
+    const x = reverse ? (90 - ratio * 80) : (10 + ratio * 80)
+    return linePlayers.map((player, slotIndex) => {
+      const y = count === 1 ? 50 : (16 + (slotIndex / Math.max(1, count - 1)) * 68)
+      return { player, x, y }
+    })
+  })
 }
 
 function PlayerToken({ player, primary, numColor, compact = false }) {
   const parts = (player.name || '').trim().split(' ')
   const label = parts.length > 1 ? parts[parts.length - 1].slice(0, 10) : (player.name || '').slice(0, 10)
   return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:compact ? 1 : 2, userSelect:'none' }}>
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:compact ? 1 : 2, userSelect:'none', width: compact ? 42 : 54 }}>
       <Shirt primary={primary} numColor={numColor} number={player.number} size={compact ? 24 : 32} />
       <span style={{
         fontSize: compact ? 8 : 9, fontWeight: 700, color: '#f0fdf4', textAlign:'center',
-        maxWidth: compact ? 40 : 52, lineHeight: 1.1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+        maxWidth: '100%', lineHeight: 1.1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
         textShadow: '0 1px 3px rgba(0,0,0,0.8)',
       }}>{label}</span>
     </div>
   )
 }
 
-function PitchHalf({ teamData, defaultPrimary, defaultNumColor, reversed }) {
-  if (!teamData?.startXI?.length) return null
-  const rows = groupByRow(teamData.startXI)
-  const ordered = reversed ? [...rows].reverse() : rows
-  return (
-    <div style={{ display:'flex', flexDirection:'column', flex:1, justifyContent:'space-evenly', padding:'4px 0' }}>
-      {ordered.map((rowPlayers, ri) => (
-        <div key={ri} style={{ display:'flex', justifyContent:'space-evenly', alignItems:'center' }}>
-          {rowPlayers.map((p, pi) => {
-            const isGk = p.pos === 'G'
-            const api = resolveShirtColors(teamData, isGk)
-            return (
-              <PlayerToken key={pi} player={p}
-                primary={api?.primary   || defaultPrimary}
-                numColor={api?.numColor || defaultNumColor} />
-            )
-          })}
-        </div>
-      ))}
-    </div>
-  )
-}
-
 function PitchSide({ teamData, defaultPrimary, defaultNumColor, reverseColumns = false, compact = false }) {
   if (!teamData?.startXI?.length) return null
-  const rows = groupByRow(teamData.startXI)
-  const ordered = reverseColumns ? [...rows].reverse() : rows
+  const slots = buildPitchSlots(teamData, reverseColumns)
   return (
-    <div style={{ display:'flex', flex:1, justifyContent:'space-evenly', alignItems:'stretch', minWidth:0, padding: compact ? '0 6px' : '0 10px' }}>
-      {ordered.map((rowPlayers, ri) => (
-        <div key={ri} style={{ display:'flex', flexDirection:'column', justifyContent:'space-evenly', alignItems:'center', gap:compact ? 4 : 8, minWidth:0 }}>
-          {rowPlayers.map((p, pi) => {
-            const isGk = p.pos === 'G'
-            const api = resolveShirtColors(teamData, isGk)
-            return (
-              <PlayerToken
-                key={pi}
-                player={p}
-                primary={api?.primary || defaultPrimary}
-                numColor={api?.numColor || defaultNumColor}
-                compact={compact} />
-            )
-          })}
-        </div>
-      ))}
+    <div style={{ position: 'relative', flex: 1, minWidth: 0, minHeight: 0 }}>
+      {slots.map(({ player, x, y }, index) => {
+        const isGk = player.pos === 'G'
+        const api = resolveShirtColors(teamData, isGk)
+        return (
+          <div
+            key={`${player.id || player.name || index}-${index}`}
+            style={{
+              position: 'absolute',
+              left: `${x}%`,
+              top: `${y}%`,
+              transform: 'translate(-50%, -50%)',
+              display: 'grid',
+              placeItems: 'center',
+              pointerEvents: 'none',
+            }}
+          >
+            <PlayerToken
+              player={player}
+              primary={api?.primary || defaultPrimary}
+              numColor={api?.numColor || defaultNumColor}
+              compact={compact}
+            />
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -401,18 +432,18 @@ function LineupsPanel({ lineups, fixture }) {
   return (
     <div>
       {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', padding:'8px 12px 6px', gap:8, background:'var(--sw-bg)', borderBottom:'1px solid var(--sw-border)' }}>
-        <div style={{ flex:1, minWidth:0, display:'flex', alignItems:'center', gap:5 }}>
+      <div className="lineups-panel-header" style={{ display:'flex', alignItems:'center', padding:'8px 12px 6px', gap:8, background:'var(--sw-bg)', borderBottom:'1px solid var(--sw-border)' }}>
+        <div className="lineups-panel-team lineups-panel-team-home" style={{ flex:1, minWidth:0, display:'flex', alignItems:'center', gap:5 }}>
           {home?.team?.logo && <img src={home.team.logo} alt="" width={18} height={18} style={{ objectFit:'contain', flexShrink:0 }} />}
-          <div><span style={{ fontSize:11, fontWeight:800, color:'#d1d5db' }}>{home?.team?.name}</span><span style={{ fontSize:10, color:'#374151', marginLeft:5 }}>{home?.formation}</span></div>
+          <div style={{ minWidth: 0 }}><span style={{ fontSize:11, fontWeight:800, color:'#d1d5db', overflowWrap: 'anywhere' }}>{home?.team?.name}</span><span style={{ fontSize:10, color:'#374151', marginLeft:5 }}>{home?.formation}</span></div>
         </div>
-        <div style={{ display:'flex', background:'var(--sw-border)', borderRadius:5, overflow:'hidden', flexShrink:0 }}>
+        <div className="lineups-panel-toggle" style={{ display:'flex', background:'var(--sw-border)', borderRadius:5, overflow:'hidden', flexShrink:0 }}>
           {[['pitch', '\u26BD'], ['list', '\u2630']].map(([v,ic]) => (
-            <button key={v} onClick={() => setView(v)} style={{ padding:'4px 10px', background: view===v ? '#1e3a5f' : 'none', border:'none', color: view===v ? '#d1d5db' : '#4b5563', fontSize:11, cursor:'pointer', fontWeight: view===v ? 700 : 400 }}>{ic}</button>
+            <button key={v} onClick={() => setView(v)} style={{ minHeight: 36, padding:'4px 10px', background: view===v ? '#1e3a5f' : 'none', border:'none', color: view===v ? '#d1d5db' : '#4b5563', fontSize:11, cursor:'pointer', fontWeight: view===v ? 700 : 400 }}>{ic}</button>
           ))}
         </div>
-        <div style={{ flex:1, minWidth:0, display:'flex', alignItems:'center', gap:5, justifyContent:'flex-end' }}>
-          <div style={{ textAlign:'right' }}><span style={{ fontSize:11, fontWeight:800, color:'#9ca3af' }}>{away?.team?.name}</span><span style={{ fontSize:10, color:'#374151', marginLeft:5 }}>{away?.formation}</span></div>
+        <div className="lineups-panel-team lineups-panel-team-away" style={{ flex:1, minWidth:0, display:'flex', alignItems:'center', gap:5, justifyContent:'flex-end' }}>
+          <div style={{ textAlign:'right', minWidth: 0 }}><span style={{ fontSize:11, fontWeight:800, color:'#9ca3af', overflowWrap: 'anywhere' }}>{away?.team?.name}</span><span style={{ fontSize:10, color:'#374151', marginLeft:5 }}>{away?.formation}</span></div>
           {away?.team?.logo && <img src={away.team.logo} alt="" width={18} height={18} style={{ objectFit:'contain', flexShrink:0 }} />}
         </div>
       </div>
@@ -426,14 +457,14 @@ function LineupsPanel({ lineups, fixture }) {
       )}
 
       {/* Substitutes / list */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', borderTop:'1px solid var(--sw-border)' }}>
-        <div style={{ padding:'10px 8px 12px 12px', borderRight:'1px solid var(--sw-border)' }}>
+      <div className="lineups-panel-lists" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', borderTop:'1px solid var(--sw-border)' }}>
+        <div className="lineups-panel-list-card" style={{ padding:'10px 8px 12px 12px', borderRight:'1px solid var(--sw-border)' }}>
           {view === 'list'
             ? <><PlayerList players={home?.startXI} title="STARTING XI" accent="#d1d5db" /><div style={{ marginTop:8 }}><PlayerList players={home?.substitutes} title="BENCH" accent="#4b5563" /></div></>
             : <PlayerList players={home?.substitutes} title="SUBSTITUTES" accent="#d1d5db" />}
           {home?.coach?.name && <div style={{ marginTop:6, fontSize:10, color:'#374151' }}>{'\u{1F9D1}\u200D\u{1F4BC}'} {home.coach.name}</div>}
         </div>
-        <div style={{ padding:'10px 12px 12px 8px' }}>
+        <div className="lineups-panel-list-card" style={{ padding:'10px 12px 12px 8px' }}>
           {view === 'list'
             ? <><PlayerList players={away?.startXI} title="STARTING XI" accent="#9ca3af" /><div style={{ marginTop:8 }}><PlayerList players={away?.substitutes} title="BENCH" accent="#4b5563" /></div></>
             : <PlayerList players={away?.substitutes} title="SUBSTITUTES" accent="#9ca3af" />}
@@ -1006,6 +1037,14 @@ export default function MatchDetails() {
   const [todayFixtures, setTodayFixtures] = useState([])
   const [dashboardOpen, setDashboardOpen] = useState(false)
 
+  function openUserProfile() {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      navigate('/account')
+      return
+    }
+    setDashboardOpen(true)
+  }
+
   const groupedTodayFixtures = useMemo(() => {
     const map = new Map()
     todayFixtures.forEach(f => {
@@ -1264,7 +1303,7 @@ export default function MatchDetails() {
         {user ? (
           <button
             type="button"
-            onClick={() => setDashboardOpen(true)}
+            onClick={openUserProfile}
             aria-label="Open user profile"
             style={{ width: 42, height: 42, borderRadius: '999px', border: 'none', padding: 0, cursor: 'pointer', background: 'transparent', display: 'grid', placeItems: 'center', flexShrink: 0 }}
           >

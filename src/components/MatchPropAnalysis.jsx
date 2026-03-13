@@ -145,19 +145,21 @@ function FixtureDetailsModal({ item, onClose }) {
 
   return (
     <div className="fixture-modal-overlay" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(2,6,23,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div className="fixture-modal-shell" onClick={e => e.stopPropagation()} style={{ width: 'min(920px, 100%)', maxHeight: '92vh', overflowY: 'auto', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', boxShadow: '0 20px 60px rgba(2,6,23,0.7)' }}>
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--sw-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{leagueLabel}</div>
-          <button onClick={onClose} style={{ minHeight: 44, padding: '0 10px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#94a3b8', cursor: 'pointer' }}>Close</button>
+      <div className="fixture-modal-shell" onClick={e => e.stopPropagation()} style={{ width: 'min(920px, 100%)', maxHeight: '92vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', boxShadow: '0 20px 60px rgba(2,6,23,0.7)' }}>
+        <div className="fixture-modal-topbar" style={{ padding: '10px 14px', borderBottom: '1px solid var(--sw-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', minWidth: 0, overflowWrap: 'anywhere' }}>{leagueLabel}</div>
+          <div className="fixture-modal-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button onClick={onClose} style={{ minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#94a3b8', cursor: 'pointer' }}>Close</button>
+          </div>
         </div>
 
-        <div style={{ padding: 16 }}>
+        <div className="fixture-modal-body" style={{ padding: 16 }}>
           <div className="fixture-modal-head-grid" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, marginBottom: 14 }}>
             <TeamBadge name={homeName} logo={homeLogo} align="flex-end" />
-            <div style={{ textAlign: 'center', minWidth: 0 }}>
-              <div style={{ fontSize: 28, fontWeight: 900, color: '#f8fafc', fontFamily: 'monospace' }}>{score}</div>
+            <div className="fixture-modal-score-box" style={{ textAlign: 'center', minWidth: 0 }}>
+              <div style={{ fontSize: 28, fontWeight: 900, color: '#f8fafc', fontFamily: 'monospace', lineHeight: 1.05 }}>{score}</div>
               <div style={{ fontSize: 12, fontWeight: 800, color: outcomeColor, marginTop: 2 }}>{outcome}</div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>{dateLabel} - {timeLabel}</div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, overflowWrap: 'anywhere' }}>{dateLabel} - {timeLabel}</div>
             </div>
             <TeamBadge name={awayName} logo={awayLogo} align="flex-start" />
           </div>
@@ -180,7 +182,7 @@ function FixtureDetailsModal({ item, onClose }) {
           </div>
         </div>
 
-        <div style={{ padding: '10px 14px', borderTop: '1px solid var(--sw-border)', display: 'flex', justifyContent: 'flex-end' }}>
+        <div className="fixture-modal-footer" style={{ padding: '10px 14px', borderTop: '1px solid var(--sw-border)', display: 'flex', justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#cbd5e1', fontWeight: 700, cursor: 'pointer' }}>
             Back to Match Details
           </button>

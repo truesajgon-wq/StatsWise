@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage.jsx'
 import SubscriptionPage from './pages/SubscriptionPage.jsx'
 import HomePage from './pages/HomePage.jsx'
 import MatchDetails from './pages/MatchDetails.jsx'
+import AccountPage from './pages/AccountPage.jsx'
 import TermsPage from './pages/TermsPage.jsx'
 import PrivacyPage from './pages/PrivacyPage.jsx'
 import ResponsibleGamblingPage from './pages/ResponsibleGamblingPage.jsx'
@@ -61,6 +62,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <SubscriptionPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/account"
+              element={
+                <ProtectedRoute>
+                  <AccountPage />
                 </ProtectedRoute>
               }
             />

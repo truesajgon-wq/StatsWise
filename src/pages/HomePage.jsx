@@ -302,6 +302,14 @@ export default function HomePage() {
     navigate('/')
   }
 
+  function openUserProfile() {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      navigate('/account')
+      return
+    }
+    setDashboardOpen(true)
+  }
+
   useEffect(() => {
     document.body.style.overflow = sidebarOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
@@ -708,7 +716,7 @@ function handleViewChange(key) {
             )}
 
             {user && (
-              <button className="mobile-compact-user" onClick={() => setDashboardOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 7 }}>
+              <button className="mobile-compact-user" onClick={openUserProfile} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 7 }}>
                 <div
                   className="avatar-fallback"
                   style={{

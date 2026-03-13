@@ -534,7 +534,7 @@ function ProfilePanel({ user, compact = false }) {
   )
 }
 
-export default function UserDashboard({ onClose, initialTab = 'profile' }) {
+export default function UserDashboard({ onClose, initialTab = 'profile', pageMode = false }) {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const { t } = useLang()
@@ -548,16 +548,16 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
   }, [])
 
   useEffect(() => {
+    if (pageMode) return undefined
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
       document.body.style.overflow = prevOverflow
     }
-  }, [])
+  }, [pageMode])
 
   if (!user) return null
 
-  const displayName = user.nickname || user.name || '?'
   const avatarTheme = avatarPalette(`${user?.name || ''}-${user?.nickname || ''}`)
 
   async function handleLogout() {
@@ -576,6 +576,144 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
     { key: 'haslo', label: t('dash_password') },
   ]
 
+  const shell = (
+    <div
+      className={pageMode ? 'user-dashboard-shell user-dashboard-page-shell' : 'user-dashboard-shell'}
+      style={{
+        background: 'linear-gradient(180deg, rgba(24,25,28,0.98), rgba(12,13,15,0.99))',
+        border: '1px solid var(--sw-border)',
+        borderRadius: pageMode ? 18 : 20,
+        width: 'min(680px, 100%)',
+        maxWidth: pageMode ? 760 : (compact ? 420 : 680),
+        maxHeight: pageMode ? 'none' : (compact ? 'min(92vh, 760px)' : 'min(88vh, 880px)'),
+        minHeight: pageMode ? 'min(100dvh, 720px)' : (compact ? 'min(78vh, 680px)' : 'min(640px, 80vh)'),
+        overflow: 'hidden',
+        boxShadow: pageMode ? '0 18px 50px rgba(0,0,0,0.34)' : '0 30px 70px rgba(0,0,0,0.6)',
+        animation: pageMode ? 'none' : 'dashSlideDown 0.18s ease-out',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        isolation: 'isolate',
+      }}
+      onClick={e => e.stopPropagation()}
+    >
+      {!pageMode && <style>{`@keyframes dashSlideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }`}</style>}
+
+      <div className="user-dashboard-header" style={{ padding: compact ? '14px 14px 12px' : '20px 24px 16px', background: 'rgba(12,13,15,0.98)', borderBottom: '1px solid var(--sw-border)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: compact ? 'flex-start' : 'center', gap: 12 }}>
+          <div
+            style={{
+              width: 46,
+              height: 46,
+              borderRadius: '50%',
+              background: avatarTheme.bg,
+              border: `2px solid ${avatarTheme.border}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 16,
+              fontWeight: 900,
+              color: '#fff',
+              flexShrink: 0,
+              letterSpacing: '0.02em',
+            }}
+          >
+            {initialsFromUser(user)}
+          </div>
+
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontWeight: 800, fontSize: 15, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {user.name}
+            </div>
+            <div style={{ fontSize: 12, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
+              @{user.nickname} - {user.country ? `${FLAG_MAP[user.country] || 'OT'} ${user.country}` : ''}
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            aria-label={pageMode ? 'Go back' : 'Close account panel'}
+            style={{
+              minWidth: pageMode ? 68 : 36,
+              width: pageMode ? 'auto' : 36,
+              height: 36,
+              minHeight: 36,
+              borderRadius: pageMode ? 10 : '50%',
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.10)',
+              color: '#cbd5e1',
+              cursor: 'pointer',
+              fontSize: pageMode ? 12 : 18,
+              fontWeight: 700,
+              lineHeight: 1,
+              padding: pageMode ? '0 12px' : 0,
+              flexShrink: 0,
+              display: 'grid',
+              placeItems: 'center',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+            }}
+          >
+            {pageMode ? 'Back' : '×'}
+          </button>
+        </div>
+      </div>
+
+      <div className="user-dashboard-tabs" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, borderBottom: '1px solid var(--sw-border)', background: 'rgba(12,13,15,0.98)', flexShrink: 0, padding: compact ? '10px 10px 12px' : '12px 16px 14px' }}>
+        {TABS.map(tb => (
+          <Tab key={tb.key} label={tb.label} active={tab === tb.key} onClick={() => setTab(tb.key)} />
+        ))}
+      </div>
+
+      <div className="user-dashboard-content" style={{ padding: compact ? '14px' : '20px 24px', flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', background: 'linear-gradient(180deg, rgba(20,21,24,0.98), rgba(12,13,15,0.98))' }}>
+        {tab === 'plan' && <SubscriptionPanel user={user} onNavigate={handleNavigate} compact={compact} />}
+        {tab === 'profile' && <ProfilePanel user={user} compact={compact} />}
+        {tab === 'haslo' && <ChangePasswordForm compact={compact} />}
+      </div>
+
+      <div className="user-dashboard-footer" style={{ borderTop: '1px solid var(--sw-border)', padding: '8px 0', background: 'linear-gradient(180deg, rgba(14,15,18,0.98), rgba(10,11,13,0.99))', flexShrink: 0 }}>
+        <button
+          onClick={() => {
+            window.location.href = 'mailto:support@obstawiajzglowa.pl'
+          }}
+          style={{ width: '100%', padding: '12px 20px', background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 13, textAlign: 'left', cursor: 'pointer' }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'none'
+          }}
+        >
+          {t('dash_support_email')}
+        </button>
+
+        <div style={{ height: 1, background: 'var(--sw-border)', margin: '4px 0' }} />
+
+        <button
+          onClick={handleLogout}
+          style={{ width: '100%', padding: '12px 20px', background: 'transparent', border: 'none', color: '#ef4444', fontSize: 13, textAlign: 'left', cursor: 'pointer' }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'rgba(239,68,68,0.06)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'none'
+          }}
+        >
+          {t('dash_logout')}
+        </button>
+      </div>
+    </div>
+  )
+
+  if (pageMode) {
+    return (
+      <div className="user-dashboard-page" style={{ minHeight: '100dvh', background: 'var(--sw-bg)', padding: compact ? '0' : '20px' }}>
+        <div style={{ width: 'min(760px, 100%)', margin: '0 auto' }}>
+          {shell}
+        </div>
+      </div>
+    )
+  }
+
   const modal = (
     <div
       className="user-dashboard-overlay"
@@ -592,131 +730,7 @@ export default function UserDashboard({ onClose, initialTab = 'profile' }) {
       }}
       onClick={onClose}
     >
-      <div
-        className="user-dashboard-shell"
-        style={{
-          background: 'linear-gradient(180deg, rgba(24,25,28,0.98), rgba(12,13,15,0.99))',
-          border: '1px solid var(--sw-border)',
-          borderRadius: 20,
-          width: 'min(680px, 100%)',
-          maxWidth: compact ? 420 : 680,
-          maxHeight: compact ? 'min(92vh, 760px)' : 'min(88vh, 880px)',
-          minHeight: compact ? 'min(78vh, 680px)' : 'min(640px, 80vh)',
-          overflow: 'hidden',
-          boxShadow: '0 30px 70px rgba(0,0,0,0.6)',
-          animation: 'dashSlideDown 0.18s ease-out',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-          isolation: 'isolate',
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        <style>{`@keyframes dashSlideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }`}</style>
-
-        <div className="user-dashboard-header" style={{ padding: compact ? '14px 14px 12px' : '20px 24px 16px', background: 'rgba(12,13,15,0.98)', borderBottom: '1px solid var(--sw-border)', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: compact ? 'flex-start' : 'center', gap: 12 }}>
-            <div
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: '50%',
-                background: avatarTheme.bg,
-                border: `2px solid ${avatarTheme.border}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 16,
-                fontWeight: 900,
-                color: '#fff',
-                flexShrink: 0,
-                letterSpacing: '0.02em',
-              }}
-            >
-              {initialsFromUser(user)}
-            </div>
-
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontWeight: 800, fontSize: 15, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {user.name}
-              </div>
-              <div style={{ fontSize: 12, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
-                @{user.nickname} - {user.country ? `${FLAG_MAP[user.country] || 'OT'} ${user.country}` : ''}
-              </div>
-            </div>
-
-            <button
-              onClick={onClose}
-              aria-label="Close account panel"
-              style={{
-                width: 36,
-                height: 36,
-                minWidth: 36,
-                minHeight: 36,
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.10)',
-                color: '#cbd5e1',
-                cursor: 'pointer',
-                fontSize: 18,
-                fontWeight: 700,
-                lineHeight: 1,
-                padding: 0,
-                flexShrink: 0,
-                display: 'grid',
-                placeItems: 'center',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
-              }}
-            >
-              ×
-            </button>
-          </div>
-        </div>
-
-        <div className="user-dashboard-tabs" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, borderBottom: '1px solid var(--sw-border)', background: 'rgba(12,13,15,0.98)', flexShrink: 0, padding: compact ? '10px 10px 12px' : '12px 16px 14px' }}>
-          {TABS.map(tb => (
-            <Tab key={tb.key} label={tb.label} active={tab === tb.key} onClick={() => setTab(tb.key)} />
-          ))}
-        </div>
-
-        <div className="user-dashboard-content" style={{ padding: compact ? '14px' : '20px 24px', flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', background: 'linear-gradient(180deg, rgba(20,21,24,0.98), rgba(12,13,15,0.98))' }}>
-          {tab === 'plan' && <SubscriptionPanel user={user} onNavigate={handleNavigate} compact={compact} />}
-          {tab === 'profile' && <ProfilePanel user={user} compact={compact} />}
-          {tab === 'haslo' && <ChangePasswordForm compact={compact} />}
-        </div>
-
-        <div className="user-dashboard-footer" style={{ borderTop: '1px solid var(--sw-border)', padding: '8px 0', background: 'linear-gradient(180deg, rgba(14,15,18,0.98), rgba(10,11,13,0.99))', flexShrink: 0 }}>
-          <button
-            onClick={() => {
-              window.location.href = 'mailto:support@obstawiajzglowa.pl'
-            }}
-            style={{ width: '100%', padding: '12px 20px', background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 13, textAlign: 'left', cursor: 'pointer' }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'none'
-            }}
-          >
-            {t('dash_support_email')}
-          </button>
-
-          <div style={{ height: 1, background: 'var(--sw-border)', margin: '4px 0' }} />
-
-          <button
-            onClick={handleLogout}
-            style={{ width: '100%', padding: '12px 20px', background: 'transparent', border: 'none', color: '#ef4444', fontSize: 13, textAlign: 'left', cursor: 'pointer' }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(239,68,68,0.06)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'none'
-            }}
-          >
-            {t('dash_logout')}
-          </button>
-        </div>
-      </div>
+      {shell}
     </div>
   )
 

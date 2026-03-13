@@ -207,6 +207,11 @@ function buildRecommendationReasons(result, t) {
     reasons.push(`The engine found ${patternCount} supporting pattern tags across both teams, not just one isolated stat.`)
   }
 
+  const loadedSamples = (homeMeta.sampleSize || 0) + (awayMeta.sampleSize || 0)
+  if (loadedSamples > 0) {
+    reasons.push(`Model probability is built from ${loadedSamples} loaded team matches, weighting comeback wins, lead collapses, recency, and calendar overlap.`)
+  }
+
   return reasons.slice(0, 5)
 }
 
@@ -452,30 +457,33 @@ export default function LamakiPage({ fixtures = [], loading }) {
   const strong = filteredResults.filter(result => result.strength === 'strong')
   const moderate = filteredResults.filter(result => result.strength === 'moderate')
   const weak = filteredResults.filter(result => result.strength === 'weak')
+  const filterButtons = [
+    { key: 'all', label: 'All' },
+    { key: 'mutual', label: 'Mutual' },
+    { key: 'sameMonth', label: 'Same Month' },
+  ]
 
   return (
     <div className="lamaki-page" style={{ padding: '20px' }}>
       <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+        <div className="lamaki-header" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
           <span style={{ fontSize: 28 }}>↩</span>
           <div>
             <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#f1f5f9' }}>{t('lamaki_title')}</h2>
             <p style={{ margin: 0, fontSize: 13, color: '#6b7280', marginTop: 2 }}>{t('lamaki_subtitle')}</p>
           </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {[
-              { key: 'all', label: 'All' },
-              { key: 'mutual', label: 'Mutual' },
-              { key: 'sameMonth', label: 'Same Month' },
-            ].map(button => {
+          <div className="lamaki-filter-group" style={{ marginLeft: 'auto', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, width: 'min(320px, 100%)' }}>
+            {filterButtons.map(button => {
               const active = filter === button.key
               return (
                 <button
                   key={button.key}
+                  className="lamaki-filter-btn"
                   type="button"
                   onClick={() => setFilter(button.key)}
                   style={{
-                    padding: '6px 10px',
+                    minHeight: 44,
+                    padding: '8px 10px',
                     borderRadius: 8,
                     border: `1px solid ${active ? '#d1d5db' : 'var(--sw-border)'}`,
                     background: active ? 'rgba(209,213,219,0.15)' : 'var(--sw-surface-1)',
@@ -483,6 +491,7 @@ export default function LamakiPage({ fixtures = [], loading }) {
                     fontSize: 12,
                     fontWeight: 700,
                     cursor: 'pointer',
+                    textAlign: 'center',
                   }}
                 >
                   {button.label}

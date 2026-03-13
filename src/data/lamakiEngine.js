@@ -173,6 +173,9 @@ function scoreTeam(history, isHomeInMatch, today) {
   } else if (comebackRate >= 0.1) {
     score += 8
     patterns.push({ type: 'one_two_two_one', value: exactComebacks.length || comebacks.length, rate: exactComebackRate || comebackRate, exact: exactComebacks.length > 0 })
+  } else if (comebacks.length > 0) {
+    score += 4
+    patterns.push({ type: 'one_two_two_one', value: exactComebacks.length || comebacks.length, rate: exactComebackRate || comebackRate, exact: exactComebacks.length > 0 })
   }
 
   const collapses = history.filter((match, index) => swingMeta[index].collapse)
@@ -186,7 +189,13 @@ function scoreTeam(history, isHomeInMatch, today) {
   } else if (collapseRate >= 0.2) {
     score += 12
     patterns.push({ type: 'wfb', value: wfbMatches.length || collapses.length, rate: wfbRate || collapseRate, exact: wfbMatches.length > 0 })
+  } else if (wfbMatches.length > 0 || collapses.length > 0) {
+    score += 6
+    patterns.push({ type: 'wfb', value: wfbMatches.length || collapses.length, rate: wfbRate || collapseRate, exact: wfbMatches.length > 0 })
   }
+
+  if (directSwingEvidence > 0) score += Math.min(10, directSwingEvidence * 4)
+  if (collapseEvidence > 0) score += Math.min(8, collapseEvidence * 3)
 
   const bttsInComebacks = comebacks.filter(match => match.btts)
   if (directSwingEvidence > 0 && bttsInComebacks.length >= 2) {
@@ -284,17 +293,23 @@ export function analyzeFixture(fixture, today = new Date()) {
     Math.round((homeAnalysis.meta.wfbRate || homeAnalysis.meta.collapseRate || 0) * 100 * 0.35)
 
   let lamakType = null
-  if (homeLaneSupport > 0 && homeLaneScore >= awayLaneScore + 12) lamakType = 'home'
-  else if (awayLaneSupport > 0 && awayLaneScore >= homeLaneScore + 12) lamakType = 'away'
-  else if (homeLaneSupport > 0 && awayLaneSupport > 0 && combinedScore >= 30) lamakType = 'both'
+  if (homeLaneSupport > 0 && awayLaneSupport > 0 && combinedScore >= 18 && Math.abs(homeLaneScore - awayLaneScore) <= 8) {
+    lamakType = 'both'
+  } else if (homeLaneSupport > 0 && (homeLaneScore >= awayLaneScore + 8 || awayLaneSupport === 0) && homeLaneScore >= 12) {
+    lamakType = 'home'
+  } else if (awayLaneSupport > 0 && (awayLaneScore >= homeLaneScore + 8 || homeLaneSupport === 0) && awayLaneScore >= 12) {
+    lamakType = 'away'
+  } else if (homeLaneSupport > 0 && awayLaneSupport > 0 && combinedScore >= 14) {
+    lamakType = homeLaneScore >= awayLaneScore ? 'home' : 'away'
+  }
 
   let strength = null
-  if (combinedScore >= 65) strength = 'strong'
-  else if (combinedScore >= 40) strength = 'moderate'
-  else if (combinedScore >= 25) strength = 'weak'
+  if (combinedScore >= 55) strength = 'strong'
+  else if (combinedScore >= 32) strength = 'moderate'
+  else if (combinedScore >= 14) strength = 'weak'
 
   const probability = Math.round(
-    100 / (1 + Math.exp(-0.07 * (combinedScore - 45))),
+    100 / (1 + Math.exp(-0.08 * (combinedScore - 28))),
   )
 
   return {
@@ -314,7 +329,7 @@ export function analyzeFixture(fixture, today = new Date()) {
     awayPatterns: awayAnalysis.patterns,
     homeMeta: homeAnalysis.meta,
     awayMeta: awayAnalysis.meta,
-    isLamak: strength !== null && lamakType !== null && hasAnySwingEvidence,
+    isLamak: strength !== null && lamakType !== null && hasAnySwingEvidence && combinedScore >= 14,
   }
 }
 
