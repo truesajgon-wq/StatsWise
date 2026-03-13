@@ -796,10 +796,89 @@ export default function MatchPropAnalysis({
   const useFixedMobileControls = Boolean(isMobile && !useStickyMobileControls && !useInlineMobileControls)
   const duplicateInlinePerTeam = Boolean(useInlineMobileControls && !singlePanel)
 
+  const selectedStatControlsGridStyle = {
+    display: 'grid',
+    gridTemplateColumns: '44px 72px 44px',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    width: 'fit-content',
+    maxWidth: '100%',
+    margin: '0 auto',
+  }
+
+  const selectedStatControlButtonStyle = {
+    width: 44,
+    minWidth: 44,
+    maxWidth: 44,
+    height: 44,
+    minHeight: 44,
+    maxHeight: 44,
+    borderRadius: 10,
+    border: '1px solid var(--sw-border)',
+    background: 'var(--sw-surface-0)',
+    color: '#e2e8f0',
+    fontSize: 20,
+    padding: 0,
+    justifySelf: 'center',
+    boxSizing: 'border-box',
+  }
+
+  const selectedStatValueStyle = {
+    width: 72,
+    minWidth: 72,
+    maxWidth: 72,
+    height: 44,
+    minHeight: 44,
+    maxHeight: 44,
+    borderRadius: 10,
+    border: '1px solid rgba(245,158,11,0.45)',
+    background: 'rgba(245,158,11,0.11)',
+    color: '#fbbf24',
+    fontWeight: 900,
+    fontSize: 18,
+    display: 'grid',
+    placeItems: 'center',
+    justifySelf: 'center',
+    boxSizing: 'border-box',
+  }
+
   const stepAlt = (delta) => {
     const next = normalizeAltLine(Number(altLine || 0.5) + delta)
     onAltChange?.(next)
   }
+
+  const renderSelectedStatControlRow = () => (
+    <div className="match-prop-inline-alt-grid" style={selectedStatControlsGridStyle}>
+      <button
+        type="button"
+        onClick={() => stepAlt(-1)}
+        disabled={isOutcomeStat}
+        style={{
+          ...selectedStatControlButtonStyle,
+          cursor: isOutcomeStat ? 'not-allowed' : 'pointer',
+          opacity: isOutcomeStat ? 0.45 : 1,
+        }}
+      >
+        -
+      </button>
+      <div style={selectedStatValueStyle}>
+        {isOutcomeStat ? '-' : Number(altLine || 0).toFixed(1)}
+      </div>
+      <button
+        type="button"
+        onClick={() => stepAlt(1)}
+        disabled={isOutcomeStat}
+        style={{
+          ...selectedStatControlButtonStyle,
+          cursor: isOutcomeStat ? 'not-allowed' : 'pointer',
+          opacity: isOutcomeStat ? 0.45 : 1,
+        }}
+      >
+        +
+      </button>
+    </div>
+  )
 
   const renderInlineControlsStack = (keyPrefix) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 2 }}>
@@ -848,92 +927,7 @@ export default function MatchPropAnalysis({
       >
         <div style={{ color: '#64748b', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Selected stat</div>
         <div style={{ color: '#dbe5f5', fontSize: 12, fontWeight: 700, marginTop: 2, marginBottom: 8 }}>{selectedStat.label}</div>
-        <div
-          className="match-prop-inline-alt-grid"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '44px 72px 44px',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: 8,
-            width: 'fit-content',
-            maxWidth: '100%',
-            margin: '0 auto',
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => stepAlt(-1)}
-            disabled={isOutcomeStat}
-            style={{
-              width: 44,
-              minWidth: 44,
-              maxWidth: 44,
-              height: 44,
-              minHeight: 44,
-              maxHeight: 44,
-              borderRadius: 10,
-              border: '1px solid var(--sw-border)',
-              background: 'var(--sw-surface-0)',
-              color: '#e2e8f0',
-              fontSize: 20,
-              cursor: isOutcomeStat ? 'not-allowed' : 'pointer',
-              opacity: isOutcomeStat ? 0.45 : 1,
-              padding: 0,
-              justifySelf: 'center',
-              boxSizing: 'border-box',
-            }}
-          >
-            -
-          </button>
-          <div
-            style={{
-              width: 72,
-              minWidth: 72,
-              maxWidth: 72,
-              height: 44,
-              minHeight: 44,
-              maxHeight: 44,
-              borderRadius: 10,
-              border: '1px solid rgba(245,158,11,0.45)',
-              background: 'rgba(245,158,11,0.11)',
-              color: '#fbbf24',
-              fontWeight: 900,
-              fontSize: 18,
-              display: 'grid',
-              placeItems: 'center',
-              justifySelf: 'center',
-              boxSizing: 'border-box',
-            }}
-          >
-            {isOutcomeStat ? '-' : Number(altLine || 0).toFixed(1)}
-          </div>
-          <button
-            type="button"
-            onClick={() => stepAlt(1)}
-            disabled={isOutcomeStat}
-            style={{
-              width: 44,
-              minWidth: 44,
-              maxWidth: 44,
-              height: 44,
-              minHeight: 44,
-              maxHeight: 44,
-              borderRadius: 10,
-              border: '1px solid var(--sw-border)',
-              background: 'var(--sw-surface-0)',
-              color: '#e2e8f0',
-              fontSize: 20,
-              cursor: isOutcomeStat ? 'not-allowed' : 'pointer',
-              opacity: isOutcomeStat ? 0.45 : 1,
-              padding: 0,
-              justifySelf: 'center',
-              boxSizing: 'border-box',
-            }}
-          >
-            +
-          </button>
-        </div>
+        {renderSelectedStatControlRow()}
       </div>
     </div>
   )
@@ -1012,33 +1006,43 @@ export default function MatchPropAnalysis({
             marginTop: useStickyMobileControls ? 8 : 0,
           }}
         >
-          <div className="match-prop-mobile-controls-grid" style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', alignItems: 'center', gap: 8 }}>
-            <div className="mp-mobile-stat" style={{ minWidth: 0 }}>
-              <div style={{ color: '#64748b', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Selected stat</div>
-              <div style={{ color: '#dbe5f5', fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedStat.label}</div>
+          {isDockMobile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <div className="mp-mobile-stat" style={{ width: '100%', textAlign: 'center' }}>
+                <div style={{ color: '#64748b', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Selected stat</div>
+                <div style={{ color: '#dbe5f5', fontSize: 12, fontWeight: 700, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedStat.label}</div>
+              </div>
+              {renderSelectedStatControlRow()}
             </div>
-            <button
-              className="mp-mobile-minus"
-              type="button"
-              onClick={() => stepAlt(-1)}
-              disabled={isOutcomeStat}
-              style={{ minWidth: 44, minHeight: 44, borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#e2e8f0', fontSize: 20, cursor: isOutcomeStat ? 'not-allowed' : 'pointer', opacity: isOutcomeStat ? 0.45 : 1 }}
-            >
-              -
-            </button>
-            <div className="mp-mobile-value" style={{ minWidth: 56, minHeight: 44, borderRadius: 10, border: '1px solid rgba(245,158,11,0.45)', background: 'rgba(245,158,11,0.11)', color: '#fbbf24', fontWeight: 900, fontSize: 14, display: 'grid', placeItems: 'center' }}>
-              {isOutcomeStat ? '-' : Number(altLine || 0).toFixed(1)}
+          ) : (
+            <div className="match-prop-mobile-controls-grid" style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', alignItems: 'center', gap: 8 }}>
+              <div className="mp-mobile-stat" style={{ minWidth: 0 }}>
+                <div style={{ color: '#64748b', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Selected stat</div>
+                <div style={{ color: '#dbe5f5', fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedStat.label}</div>
+              </div>
+              <button
+                className="mp-mobile-minus"
+                type="button"
+                onClick={() => stepAlt(-1)}
+                disabled={isOutcomeStat}
+                style={{ minWidth: 44, minHeight: 44, borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#e2e8f0', fontSize: 20, cursor: isOutcomeStat ? 'not-allowed' : 'pointer', opacity: isOutcomeStat ? 0.45 : 1 }}
+              >
+                -
+              </button>
+              <div className="mp-mobile-value" style={{ minWidth: 56, minHeight: 44, borderRadius: 10, border: '1px solid rgba(245,158,11,0.45)', background: 'rgba(245,158,11,0.11)', color: '#fbbf24', fontWeight: 900, fontSize: 14, display: 'grid', placeItems: 'center' }}>
+                {isOutcomeStat ? '-' : Number(altLine || 0).toFixed(1)}
+              </div>
+              <button
+                className="mp-mobile-plus"
+                type="button"
+                onClick={() => stepAlt(1)}
+                disabled={isOutcomeStat}
+                style={{ minWidth: 44, minHeight: 44, borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#e2e8f0', fontSize: 20, cursor: isOutcomeStat ? 'not-allowed' : 'pointer', opacity: isOutcomeStat ? 0.45 : 1 }}
+              >
+                +
+              </button>
             </div>
-            <button
-              className="mp-mobile-plus"
-              type="button"
-              onClick={() => stepAlt(1)}
-              disabled={isOutcomeStat}
-              style={{ minWidth: 44, minHeight: 44, borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#e2e8f0', fontSize: 20, cursor: isOutcomeStat ? 'not-allowed' : 'pointer', opacity: isOutcomeStat ? 0.45 : 1 }}
-            >
-              +
-            </button>
-          </div>
+          )}
         </div>
       )}
 
