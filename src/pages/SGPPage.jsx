@@ -5,10 +5,12 @@ import { useLang } from '../context/LangContext.jsx'
 import { getAppToday } from '../utils/appDate.js'
 
 const GROUP_META = {
-  goals:       { label: 'Goals',       color: '#22c55e' },
-  corners:     { label: 'Corners',     color: '#f97316' },
-  discipline:  { label: 'Cards/Fouls', color: '#f59e0b' },
-  shots:       { label: 'Shots',       color: '#a78bfa' },
+  goals:       { label: 'Goals',   color: '#22c55e' },
+  corners:     { label: 'Corners', color: '#f97316' },
+  cards:       { label: 'Cards',   color: '#f59e0b' },
+  fouls:       { label: 'Fouls',   color: '#ef4444' },
+  shots:       { label: 'Shots',   color: '#a78bfa' },
+  discipline:  { label: 'Cards/Fouls', color: '#f59e0b' }, // backward compat
 }
 
 const STYLE_META = {
@@ -19,8 +21,8 @@ const STYLE_META = {
 }
 
 function strengthColor(pct) {
-  if (pct >= 55) return '#22c55e'
-  if (pct >= 40) return '#f59e0b'
+  if (pct >= 50) return '#22c55e'
+  if (pct >= 35) return '#f59e0b'
   return '#6b7280'
 }
 
@@ -47,7 +49,7 @@ function GroupBadge({ group }) {
 
 function ProbBar({ prob }) {
   const pct = Math.round(prob * 100)
-  const color = pct >= 80 ? '#22c55e' : pct >= 65 ? '#f59e0b' : '#6b7280'
+  const color = pct >= 70 ? '#22c55e' : pct >= 55 ? '#f59e0b' : '#6b7280'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, width: 80 }}>
       <div style={{ flex: 1, height: 3, borderRadius: 999, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>

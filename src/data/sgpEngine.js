@@ -1,66 +1,75 @@
 // Same Game Parlay Engine
-// Builds the highest-confidence, statistically justified 2–4 leg parlay
-// from a single fixture. Correlated stats (same group) are never combined.
-//
-// Qualification and displayed probability use the ACTUAL last-10-games hit rate
-// (l10 → l15 → smoothedRate), NOT the blended model prediction.
+// Builds 2–5 leg parlays from one fixture, using every available stat dimension.
 //
 // Correlation groups — one leg per group maximum:
-//   goals      → ALL goal-related stats including matchResult
-//                (teamGoals, goals, btts, firstHalfGoals, secondHalfGoals,
-//                 goalsInBothHalves, teamFirstHalfGoals, teamSecondHalfGoals, matchResult)
+//   goals      → goals, btts, teamGoals, matchResult, all halves stats
 //   corners    → corners, teamCorners
-//   discipline → cards, fouls, teamCards, teamFouls
+//   cards      → cards, teamCards              ← separate from fouls
+//   fouls      → fouls, teamFouls              ← separate from cards
 //   shots      → shots, teamShots
 //
-// Every goal-related stat — including home/away team goals and match result —
-// shares ONE group. This ensures a parlay never has two legs that are
-// variations of the same event (e.g. "home scores" + "away scores" + "over 1.5"
-// is essentially BTTS written three ways). A valid SGP must combine genuinely
-// different statistical dimensions: e.g. goals + corners + cards.
+// BTTS safety: btts shares the `goals` group with teamGoals and goals, so a parlay
+// will never combine BTTS with "home team to score" or "over 1.5 total goals".
+// Those outcomes are either implied by or semantically redundant with BTTS.
+// An additional explicit post-selection guard strips any such implied legs.
 
 import { STATS_ORDER, extractStatValue, getHistorySummarySnapshot } from './statsConfig.js'
 import { evaluateFixturePrediction, buildModelBreakdown } from '../utils/predictionModel.js'
 
 // Minimum actual data points required for a leg to qualify
-const MIN_SAMPLE = 3
+const MIN_SAMPLE = 2
 
-// Minimum individual leg hit rate (last-10-games) to qualify
-const LEG_THRESHOLD = 0.55
+// Minimum honest (last-N games) hit rate to qualify as a leg
+const LEG_THRESHOLD = 0.50
 
-// Returns the correlation group key for a candidate.
-// All goal/result stats share one group regardless of side.
+// Minimum combined parlay probability to surface a result
+const COMBINED_MIN = 0.18
+
+// Rising thresholds for each leg position (0-indexed) — top 2 always included
+const LEG_POSITION_THRESHOLDS = [0, 0, 0.58, 0.63, 0.68]
+
+// One corr group per stat — prevents redundant legs in the same parlay
 function getCorrGroup(statKey) {
   if (['goals', 'btts', 'teamGoals', 'firstHalfGoals', 'secondHalfGoals',
-       'goalsInBothHalves', 'teamFirstHalfGoals', 'teamSecondHalfGoals',
-       'matchResult'].includes(statKey)) return 'goals'
+    'goalsInBothHalves', 'teamFirstHalfGoals', 'teamSecondHalfGoals',
+    'matchResult'].includes(statKey)) return 'goals'
   if (['corners', 'teamCorners'].includes(statKey)) return 'corners'
-  if (['cards', 'fouls', 'teamCards', 'teamFouls'].includes(statKey)) return 'discipline'
+  if (['cards', 'teamCards'].includes(statKey)) return 'cards'
+  if (['fouls', 'teamFouls'].includes(statKey)) return 'fouls'
   if (['shots', 'teamShots'].includes(statKey)) return 'shots'
   return statKey
 }
 
 function clamp01(v) { return Math.max(0, Math.min(1, v)) }
 
-// Extract the honest last-N hit rate from a candidate.
-// Prefers l10, falls back to l15, then smoothedRate.
-// Returns null when there is insufficient actual data.
+// Returns the best honest hit rate from actual recent match history.
+// Priority: l10 → l15 → smoothedRate. Returns null if data is insufficient.
 function getHonestRate(candidate) {
   if (candidate.teamScope) {
     const data = candidate.activeTeamData
     if (!data || (data.sample ?? 0) < MIN_SAMPLE) return null
     return data.l10 ?? data.l15 ?? data.smoothedRate ?? null
   }
-  // Match-scoped: average home and away
+  // Match-scoped: average home and away honest rates
   const h = candidate.home
   const a = candidate.away
   if (!h && !a) return null
   const hs = h?.sample ?? 0
   const as_ = a?.sample ?? 0
-  if (hs + as_ < MIN_SAMPLE * 2) return null
-  const hr = h?.l10 ?? h?.l15 ?? h?.smoothedRate ?? null
-  const ar = a?.l10 ?? a?.l15 ?? a?.smoothedRate ?? null
-  if (hr == null && ar == null) return null
+  if (hs + as_ < MIN_SAMPLE) return null
+
+  const hr = hs >= MIN_SAMPLE ? (h?.l10 ?? h?.l15 ?? h?.smoothedRate ?? null) : null
+  const ar = as_ >= MIN_SAMPLE ? (a?.l10 ?? a?.l15 ?? a?.smoothedRate ?? null) : null
+
+  if (hr == null && ar == null) {
+    // Both sides have some data but below individual MIN_SAMPLE; blend smoothed rates
+    const hSmooth = h?.smoothedRate
+    const aSmooth = a?.smoothedRate
+    if (hSmooth == null && aSmooth == null) return null
+    if (hSmooth == null) return aSmooth
+    if (aSmooth == null) return hSmooth
+    return (hSmooth * hs + aSmooth * as_) / (hs + as_)
+  }
   if (hr == null) return ar
   if (ar == null) return hr
   return (hr + ar) / 2
@@ -87,7 +96,7 @@ function styleTag(homeHistory, awayHistory) {
 }
 
 function styleBoostFor(style, statKey) {
-  if (style === 'high-tempo' && ['goals', 'btts', 'shots', 'firstHalfGoals', 'goalsInBothHalves', 'teamGoals', 'teamFirstHalfGoals'].includes(statKey)) return 0.03
+  if (style === 'high-tempo' && ['goals', 'btts', 'shots', 'teamShots', 'firstHalfGoals', 'goalsInBothHalves', 'teamGoals', 'teamFirstHalfGoals'].includes(statKey)) return 0.03
   if (style === 'physical' && ['cards', 'fouls', 'teamCards', 'teamFouls'].includes(statKey)) return 0.03
   if (style === 'wide-play' && ['corners', 'teamCorners'].includes(statKey)) return 0.03
   return 0
@@ -119,7 +128,7 @@ function buildSGP(fixture) {
   const tag = styleTag(fixture.homeHistory, fixture.awayHistory)
 
   // ---- Step 1: collect qualifying candidates ----
-  // For each stat × alt × side: compute honest rate, keep only ≥ LEG_THRESHOLD.
+  // For each stat × alt × side, compute honest rate, keep only ≥ LEG_THRESHOLD.
   // Per (statKey + side), keep only the alt with the highest honest rate.
   const bestPerSide = {}
 
@@ -143,7 +152,7 @@ function buildSGP(fixture) {
   const survivors = Object.values(bestPerSide)
   if (survivors.length < 2) return null
 
-  // ---- Step 2: per correlation group, keep best candidate ----
+  // ---- Step 2: per correlation group, keep the single best candidate ----
   const bestPerGroup = {}
   for (const item of survivors) {
     const corrGroup = getCorrGroup(item.statKey)
@@ -152,39 +161,60 @@ function buildSGP(fixture) {
     }
   }
 
-  // ---- Step 3: greedy leg selection ----
+  // ---- Step 3: greedy leg selection — up to 5 legs, rising threshold per slot ----
   const sorted = Object.values(bestPerGroup).sort((a, b) => b.adjustedScore - a.adjustedScore)
   if (sorted.length < 2) return null
 
   const legs = []
   for (let i = 0; i < sorted.length; i++) {
-    const item = sorted[i]
-    if (i === 0 || i === 1) {
-      legs.push(item)
-    } else if (i === 2 && item.adjustedScore >= 0.62) {
-      legs.push(item)
-    } else if (i === 3 && item.adjustedScore >= 0.68) {
-      legs.push(item)
+    const posIdx = legs.length
+    if (posIdx >= 5) break
+    const minScore = Math.max(LEG_THRESHOLD, LEG_POSITION_THRESHOLDS[posIdx] ?? 0.68)
+    if (sorted[i].adjustedScore >= minScore) {
+      legs.push(sorted[i])
     }
-    if (legs.length >= 4) break
   }
 
   if (legs.length < 2) return null
 
-  // ---- Step 4: combined probability using honest rates ----
+  // ---- Step 4: BTTS explicit exclusion ----
+  // Belt-and-suspenders: the `goals` corr group already prevents this, but we strip
+  // any leg that is semantically implied by BTTS being in the parlay.
+  // BTTS means both teams scored ≥ 1, so:
+  //   • teamGoals over 0.5 (either team) — implied
+  //   • goals over 1.5 (total) — implied (both scored = minimum 2 goals)
+  const hasBTTS = legs.some(l => l.statKey === 'btts')
+  if (hasBTTS) {
+    const filtered = legs.filter(l => {
+      if (l.statKey === 'teamGoals' && (l.alt == null || Number(l.alt) <= 0.5)) return false
+      if (l.statKey === 'goals' && (l.alt == null || Number(l.alt) <= 1.5)) return false
+      return true
+    })
+    if (filtered.length >= 2) {
+      legs.length = 0
+      legs.push(...filtered)
+    }
+  }
+
+  if (legs.length < 2) return null
+
+  // ---- Step 5: combined probability with light correlation discounts ----
   let combinedProbability = 1
   for (let i = 0; i < legs.length; i++) {
-    const discount = i <= 1 ? 1.0 : i === 2 ? 0.97 : 0.95
+    // Slight discount on 3rd+ legs to account for residual cross-stat correlation
+    const discount = i <= 1 ? 1.0 : i === 2 ? 0.97 : i === 3 ? 0.95 : 0.93
     combinedProbability *= legs[i].honestRate * discount
   }
   combinedProbability = clamp01(combinedProbability)
 
-  // ---- Step 5: strength label (informational only — all parlays are shown) ----
+  if (combinedProbability < COMBINED_MIN) return null
+
+  // ---- Step 6: strength label ----
   let strength = 'weak'
   if (combinedProbability >= 0.50) strength = 'strong'
   else if (combinedProbability >= 0.35) strength = 'moderate'
 
-  // ---- Step 6: build leg descriptors ----
+  // ---- Step 7: build leg descriptors ----
   const builtLegs = legs.map(item => {
     const { candidate, statKey, statDef, corrGroup, honestRate } = item
     const alt = candidate.alt
@@ -230,6 +260,7 @@ export function analyzeSGP(fixtures) {
     const sgp = buildSGP(fixture)
     if (sgp) results.push(sgp)
   }
+  // Ranked highest combined probability first
   results.sort((a, b) => b.combinedProbability - a.combinedProbability)
   return results
 }
