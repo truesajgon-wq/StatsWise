@@ -2052,8 +2052,6 @@ app.post('/api/billing/checkout-session', requireAuth, async (req, res) => {
       profileCountry: record.country || req.auth.userMetadata?.country,
       locale: body.locale,
     })
-    const selectedMethod = normalizeUiPaymentMethod(body.paymentMethod)
-    const wantsApplePay = selectedMethod === 'apple_pay'
     const stripePaymentTypes = ['card']
     const currency = countryCurrency(country)
     const successUrl = `${FRONTEND_URL}/subscription?payment=success&session_id={CHECKOUT_SESSION_ID}`
@@ -2109,7 +2107,6 @@ app.post('/api/billing/checkout-session', requireAuth, async (req, res) => {
       cancel_url: cancelUrl,
       ...(email ? { customer_email: email } : {}),
       'payment_method_types[0]': 'card',
-      ...(wantsApplePay ? { 'payment_method_options[card][wallet][apple_pay]': 'auto' } : {}),
       ...Object.entries(metadata).reduce((acc, [k, v]) => {
         acc[`metadata[${k}]`] = String(v || '')
         return acc

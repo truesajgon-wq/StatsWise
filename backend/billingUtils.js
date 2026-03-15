@@ -24,6 +24,7 @@ export function inferCountry({ explicitCountry, profileCountry, locale } = {}) {
 export function paymentMethodsForCountry(country) {
   const isPoland = country === 'Poland' || country === 'Polska' || country === 'PL'
   return ['stripe_card']
+
 }
 
 export function accessPlanFromSubscription(sub, now = Date.now()) {

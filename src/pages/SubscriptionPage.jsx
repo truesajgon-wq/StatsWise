@@ -29,64 +29,6 @@ const COUNTRY_OPTIONS = [
   'Other',
 ]
 
-const SUPPORTED_PAYMENT_METHODS = ['stripe_card', 'apple_pay']
-
-const ICON_CARD = (
-  <svg width="24" height="17" viewBox="0 0 24 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0.5" y="0.5" width="23" height="16" rx="2.5" stroke="#94a3b8" fill="none"/>
-    <rect x="0" y="4" width="24" height="3.5" fill="#94a3b8" opacity="0.5"/>
-    <rect x="2.5" y="10" width="6" height="2" rx="1" fill="#94a3b8"/>
-    <rect x="10.5" y="10" width="4" height="2" rx="1" fill="#94a3b8" opacity="0.5"/>
-  </svg>
-)
-
-const ICON_APPLE = (
-  <svg width="15" height="18" viewBox="0 0 15 18" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12.42 9.54c-.02-1.96 1.6-2.9 1.67-2.94-1.82-2.65-3.16-.3-3.16-.3s-.74 0-1.37-.35c-.63-.35-1.28-1.05-2.6-1.05-1.96 0-3.96 1.61-3.96 4.66 0 1.86.73 3.83 1.62 5.1.77 1.1 1.44 2.01 2.42 1.99.96-.02 1.32-.61 2.48-.61 1.15 0 1.48.61 2.49.59 1.04-.02 1.7-.96 2.46-2.07.47-.67.83-1.42 1.07-2.2-2.83-1.08-2.62-3.82-2.62-3.82zM9.9 3.12C10.54 2.35 10.99 1.3 10.87 0c-.9.04-2 .6-2.65 1.37-.59.68-1.1 1.77-.96 2.81.99.08 2.01-.5 2.64-1.06z"/>
-  </svg>
-)
-
-function PaymentMethodButton({ method, selected, onClick }) {
-  const isApplePay = method === 'apple_pay'
-
-  if (isApplePay) return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '10px 18px', borderRadius: 10, cursor: 'pointer',
-        fontWeight: 700, fontSize: 13, minHeight: 44, minWidth: 130,
-        background: '#000',
-        color: '#fff',
-        border: `2px solid ${selected ? 'var(--sw-accent)' : '#444'}`,
-        outline: 'none',
-      }}
-    >
-      {ICON_APPLE}
-      Apple Pay
-    </button>
-  )
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '10px 18px', borderRadius: 10, cursor: 'pointer',
-        fontWeight: 700, fontSize: 13, minHeight: 44, minWidth: 130,
-        background: selected ? 'rgba(255,122,44,0.1)' : 'rgba(255,255,255,0.05)',
-        color: '#e2e8f0',
-        border: `2px solid ${selected ? 'var(--sw-accent)' : '#334155'}`,
-        outline: 'none',
-      }}
-    >
-      {ICON_CARD}
-      Card
-    </button>
-  )
-}
 
 function planLabel(key) {
   if (key === PLAN_KEYS.MONTHLY) return 'Premium Monthly'
@@ -141,7 +83,7 @@ export default function SubscriptionPage() {
   const [selectedPlan, setSelectedPlan] = useState(PLAN_KEYS.FREE)
   const [billing, setBilling] = useState(null)
   const [countryOverride, setCountryOverride] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('stripe_card')
+  const [paymentMethod] = useState('stripe_card')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -219,7 +161,6 @@ export default function SubscriptionPage() {
   }, [searchParams, setSearchParams])
 
   const currentPlan = billing?.plan || PLAN_KEYS.FREE
-  const paymentMethods = SUPPORTED_PAYMENT_METHODS
   const selectedPlanData = plans.find(p => p.key === selectedPlan)
   const showCheckoutPanel = selectedPlan !== PLAN_KEYS.FREE
 
@@ -343,16 +284,8 @@ export default function SubscriptionPage() {
               Renews automatically unless canceled. Cancel anytime.
             </div>
 
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--sw-muted)', marginBottom: 8 }}>Payment method</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-              {SUPPORTED_PAYMENT_METHODS.map(method => (
-                <PaymentMethodButton
-                  key={method}
-                  method={method}
-                  selected={paymentMethod === method}
-                  onClick={() => setPaymentMethod(method)}
-                />
-              ))}
+            <div style={{ fontSize: 12, color: 'var(--sw-muted)', marginBottom: 12 }}>
+              Payment: <span style={{ color: 'var(--sw-text)' }}>Credit / Debit card</span>
             </div>
 
             <div className="subscription-checkout-actions" style={{ display: 'flex', gap: 8 }}>
