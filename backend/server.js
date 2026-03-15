@@ -2053,7 +2053,8 @@ app.post('/api/billing/checkout-session', requireAuth, async (req, res) => {
       locale: body.locale,
     })
     const selectedMethod = normalizeUiPaymentMethod(body.paymentMethod)
-    const stripePaymentTypes = stripePaymentTypesForCountry(country, selectedMethod)
+    const wantsApplePay = selectedMethod === 'apple_pay'
+    const stripePaymentTypes = ['card']
     const currency = countryCurrency(country)
     const successUrl = `${FRONTEND_URL}/subscription?payment=success&session_id={CHECKOUT_SESSION_ID}`
     const cancelUrl = `${FRONTEND_URL}/subscription?payment=cancel`
@@ -2107,10 +2108,8 @@ app.post('/api/billing/checkout-session', requireAuth, async (req, res) => {
       success_url: successUrl,
       cancel_url: cancelUrl,
       ...(email ? { customer_email: email } : {}),
-      ...stripePaymentTypes.reduce((acc, method, idx) => {
-        acc[`payment_method_types[${idx}]`] = method
-        return acc
-      }, {}),
+      'payment_method_types[0]': 'card',
+      ...(wantsApplePay ? { 'payment_method_options[card][wallet][apple_pay]': 'auto' } : {}),
       ...Object.entries(metadata).reduce((acc, [k, v]) => {
         acc[`metadata[${k}]`] = String(v || '')
         return acc
@@ -2322,16 +2321,8 @@ app.post('/api/payments/checkout', async (req, res) => {
 
     const normalizedPlan = plan === 'yearly' ? 'yearly' : 'monthly'
     const currency = countryCurrency(country)
-    const isPoland = country === 'Poland' || country === 'Polska'
-    const defaultMethod = isPoland ? 'p24' : 'stripe'
-    const selectedMethod = paymentMethod || defaultMethod
-    let stripeMethod = 'card'
-    if (selectedMethod === 'p24') stripeMethod = 'p24'
-    if (selectedMethod === 'blik') stripeMethod = 'blik'
-
-    if ((stripeMethod === 'p24' || stripeMethod === 'blik') && currency !== 'pln') {
-      return res.status(400).json({ success: false, error: `${stripeMethod.toUpperCase()} is available only for PLN payments.` })
-    }
+    const selectedMethod = paymentMethod || 'stripe'
+    const stripeMethod = selectedMethod === 'apple_pay' ? 'card' : 'card'
 
     const amount = getPlanPriceCents(normalizedPlan, currency)
     const successUrl = `${FRONTEND_URL}/subscription?payment=success&plan=${encodeURIComponent(normalizedPlan)}&session_id={CHECKOUT_SESSION_ID}`

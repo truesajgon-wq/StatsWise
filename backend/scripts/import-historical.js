@@ -477,8 +477,23 @@ function printProgress(current, total, label) {
   process.stdout.write(`\r  [${bar}] ${pct}%  ${current}/${total} rows  ${label}          `)
 }
 
+function parseArgs() {
+  const args = process.argv.slice(2)
+  let dataRoot = null
+  let seasonFilter = null
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--season' && args[i + 1]) {
+      seasonFilter = args[++i]
+    } else if (!dataRoot && !args[i].startsWith('--')) {
+      dataRoot = args[i]
+    }
+  }
+  dataRoot = dataRoot || process.env.HISTORICAL_DATA_DIR
+  return { dataRoot, seasonFilter }
+}
+
 async function importHistoricalMatches() {
-  const dataRoot = process.argv[2] || process.env.HISTORICAL_DATA_DIR
+  const { dataRoot, seasonFilter } = parseArgs()
   if (!dataRoot) {
     throw new Error('Provide extracted Historical Matches path as first argument or HISTORICAL_DATA_DIR env var.')
   }
@@ -490,7 +505,14 @@ async function importHistoricalMatches() {
   })
 
   const notesMap = await readNotesMap(absoluteRoot)
-  const seasonFolders = await listSeasonFolders(absoluteRoot)
+  let seasonFolders = await listSeasonFolders(absoluteRoot)
+  if (seasonFilter) {
+    seasonFolders = seasonFolders.filter(f => f === seasonFilter)
+    if (seasonFolders.length === 0) {
+      throw new Error(`No folder matching season "${seasonFilter}" found in ${absoluteRoot}`)
+    }
+    console.log(`Filtering to season: ${seasonFilter}`)
+  }
   const todayUtc = new Date()
   todayUtc.setUTCHours(23, 59, 59, 999)
 
