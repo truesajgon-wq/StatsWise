@@ -205,43 +205,38 @@ function SubscriptionPanel({ user, onNavigate, compact = false }) {
   const [cancelling, setCancelling] = useState(false)
   const [cancelled, setCancelled] = useState(false)
 
+  const onTrial = Boolean(user.trialActive)
+  const onPaidSub = user.tier === TIERS.PAID && !onTrial
   const onPaid = user.tier === TIERS.PAID
   const onFree = user.tier === TIERS.FREE
 
+  // Trial countdown
+  const trialDaysLeft = user.trialDaysLeft ?? 0
+  const trialEndsAt = user.trialEndsAt ? new Date(user.trialEndsAt) : null
+  const trialProgress = Math.min(100, Math.max(0, (trialDaysLeft / 7) * 100))
+
+  // Paid subscription period
   const subscribedAt = user?.subscribedAt ? new Date(user.subscribedAt) : new Date()
-  const paidEndDate = onPaid
+  const paidEndDate = onPaidSub
     ? (user?.subscriptionEnd
       ? new Date(user.subscriptionEnd)
       : addMonths(subscribedAt, user?.plan === 'yearly' ? 12 : 1))
     : null
+  const paidTotalDays = onPaidSub ? Math.max(1, Math.ceil((paidEndDate - subscribedAt) / (1000 * 60 * 60 * 24))) : 0
+  const paidDaysLeft = onPaidSub ? Math.max(0, Math.ceil((paidEndDate - new Date()) / (1000 * 60 * 60 * 24))) : 0
+  const paidProgress = paidTotalDays > 0 ? Math.min(100, Math.max(0, (paidDaysLeft / paidTotalDays) * 100)) : 0
 
-  const paidTotalDays = onPaid
-    ? Math.max(1, Math.ceil((paidEndDate - subscribedAt) / (1000 * 60 * 60 * 24)))
-    : 0
+  const tierLabel = onTrial
+    ? 'Free Trial'
+    : ({
+        [TIERS.FREE]: t('dash_tier_free'),
+        [TIERS.PAID]: user.plan === 'yearly' ? t('dash_tier_paid_yearly') : t('dash_tier_paid_monthly'),
+      }[user.tier] || t('dash_tier_free'))
 
-  const paidDaysLeft = onPaid
-    ? Math.max(0, Math.ceil((paidEndDate - new Date()) / (1000 * 60 * 60 * 24)))
-    : 0
-
-  const paidProgress = paidTotalDays > 0
-    ? Math.min(100, Math.max(0, (paidDaysLeft / paidTotalDays) * 100))
-    : 0
-
-  const tierLabel = {
-    [TIERS.FREE]: t('dash_tier_free'),
-    [TIERS.PAID]: user.plan === 'yearly' ? t('dash_tier_paid_yearly') : t('dash_tier_paid_monthly'),
-  }[user.tier] || t('dash_tier_free')
-
-  const tierColor = {
-    [TIERS.FREE]: '#6b7280',
-    [TIERS.PAID]: '#22c55e',
-  }[user.tier]
+  const tierColor = onTrial ? '#f97316' : ({ [TIERS.FREE]: '#6b7280', [TIERS.PAID]: '#22c55e' }[user.tier])
 
   async function handleCancel() {
-    if (!cancelling) {
-      setCancelling(true)
-      return
-    }
+    if (!cancelling) { setCancelling(true); return }
     await cancelSubscription()
     setCancelled(true)
   }
@@ -253,7 +248,7 @@ function SubscriptionPanel({ user, onNavigate, compact = false }) {
           padding: '14px 16px',
           borderRadius: 10,
           background: 'rgba(255,255,255,0.03)',
-          border: '1px solid var(--sw-border)',
+          border: `1px solid ${onTrial ? 'rgba(249,115,22,0.35)' : 'var(--sw-border)'}`,
           display: 'flex',
           flexDirection: compact ? 'column' : 'row',
           alignItems: compact ? 'stretch' : 'center',
@@ -271,26 +266,49 @@ function SubscriptionPanel({ user, onNavigate, compact = false }) {
           </div>
         </div>
 
+        {/* Show Upgrade only when truly free (no trial, no subscription) */}
         {onFree && (
           <button
             onClick={() => onNavigate('/subscription')}
-            style={{
-              padding: '7px 14px',
-              borderRadius: 7,
-              border: 'none',
-              background: 'linear-gradient(135deg,#f97316,#f97316)',
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: 12,
-              cursor: 'pointer',
-            }}
+            style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: 'linear-gradient(135deg,#f97316,#f97316)', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
           >
             {t('dash_upgrade')}
           </button>
         )}
       </div>
 
-      {onPaid && (
+      {/* Trial countdown bar */}
+      {onTrial && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          {[
+            { l: 'Trial ends', v: trialEndsAt ? trialEndsAt.toLocaleDateString() : '—' },
+            { l: 'Days remaining', v: `${trialDaysLeft}d` },
+          ].map(({ l, v }) => (
+            <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+              <span style={{ color: '#6b7280' }}>{l}</span>
+              <span style={{ color: '#f97316', fontWeight: 600 }}>{v}</span>
+            </div>
+          ))}
+          <div style={{ marginTop: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>
+              <span>Trial period (7 days)</span>
+              <span style={{ color: '#f97316', fontWeight: 700 }}>{trialDaysLeft}/7d</span>
+            </div>
+            <div style={{ height: 6, background: 'var(--sw-border)', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ width: `${trialProgress}%`, height: '100%', background: 'linear-gradient(90deg,#ea580c,#f97316)', borderRadius: 3 }} />
+            </div>
+          </div>
+          <button
+            onClick={() => onNavigate('/subscription')}
+            style={{ marginTop: 4, padding: '8px', borderRadius: 7, border: '1px solid rgba(249,115,22,0.3)', background: 'rgba(249,115,22,0.08)', color: '#f97316', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+          >
+            Subscribe before trial ends
+          </button>
+        </div>
+      )}
+
+      {/* Paid subscription details */}
+      {onPaidSub && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           {[
             { l: t('dash_plan_label'), v: user.plan === 'yearly' ? t('dash_yearly') : t('dash_monthly') },
@@ -302,63 +320,36 @@ function SubscriptionPanel({ user, onNavigate, compact = false }) {
               <span style={{ color: '#9ca3af', fontWeight: 600 }}>{v}</span>
             </div>
           ))}
-
           <div style={{ marginTop: 6 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>
               <span>Billing period</span>
               <span style={{ color: '#22c55e', fontWeight: 700 }}>{paidDaysLeft}/{paidTotalDays}d</span>
             </div>
             <div style={{ height: 6, background: 'var(--sw-border)', borderRadius: 3, overflow: 'hidden' }}>
-              <div
-                style={{
-                  width: `${paidProgress}%`,
-                  height: '100%',
-                  background: 'linear-gradient(90deg,#16a34a,#22c55e)',
-                  borderRadius: 3,
-                }}
-              />
+              <div style={{ width: `${paidProgress}%`, height: '100%', background: 'linear-gradient(90deg,#16a34a,#22c55e)', borderRadius: 3 }} />
             </div>
           </div>
         </div>
       )}
 
+      {/* Free plan info — only for truly free users (no trial, no sub) */}
       {onFree && (
         <div style={{ padding: '12px 14px', borderRadius: 9, background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.2)' }}>
           <div style={{ fontSize: 13, color: '#d1d5db', fontWeight: 700, marginBottom: 5 }}>Free access enabled</div>
           <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.5, marginBottom: 8 }}>The app is currently fully available on the Free plan. Premium monthly and yearly plans remain available for later rollout.</div>
           <button
             onClick={() => onNavigate('/subscription')}
-            style={{
-              width: '100%',
-              padding: '8px',
-              borderRadius: 7,
-              border: 'none',
-              background: 'rgba(249,115,22,0.2)',
-              color: '#d1d5db',
-              fontWeight: 700,
-              fontSize: 12,
-              cursor: 'pointer',
-            }}
+            style={{ width: '100%', padding: '8px', borderRadius: 7, border: 'none', background: 'rgba(249,115,22,0.2)', color: '#d1d5db', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
           >
             View plans
           </button>
         </div>
       )}
 
-      {onPaid && !cancelled && (
+      {onPaidSub && !cancelled && (
         <button
           onClick={handleCancel}
-          style={{
-            width: '100%',
-            padding: '8px',
-            borderRadius: 7,
-            border: `1px solid ${cancelling ? '#ef4444' : 'var(--sw-border)'}`,
-            background: cancelling ? 'rgba(239,68,68,0.1)' : 'none',
-            color: cancelling ? '#ef4444' : '#6b7280',
-            fontSize: 12,
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
+          style={{ width: '100%', padding: '8px', borderRadius: 7, border: `1px solid ${cancelling ? '#ef4444' : 'var(--sw-border)'}`, background: cancelling ? 'rgba(239,68,68,0.1)' : 'none', color: cancelling ? '#ef4444' : '#6b7280', fontSize: 12, cursor: 'pointer', transition: 'all 0.2s' }}
         >
           {cancelling ? t('dash_cancel_confirm_click') : t('sub_cancel')}
         </button>
