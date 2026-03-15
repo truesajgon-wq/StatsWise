@@ -1146,10 +1146,15 @@ async function resolveCanonicalTeamId(teamId, teamName, leagueCountry) {
   const best = [...(rows || [])]
     .map(row => {
       const sameId = Number(row.id) === Number(teamId)
+      const hasHistory = Number(row.fixture_count || 0) > 0
       const baseScore = scoreCanonicalTeamCandidate(row.name, aliases, row.fixture_count, row.country_match)
+      // sameId bonus is large only when the team actually has historical data.
+      // Without this guard, a fixtures.csv team entry (0 history, exact name match)
+      // would outscore the correct historical entry and return empty results.
+      const sameIdBonus = sameId && baseScore > 0 ? (hasHistory ? 500 : 20) : 0
       return {
         ...row,
-        matchScore: sameId && baseScore > 0 ? baseScore + 500 : baseScore,
+        matchScore: baseScore + sameIdBonus,
         sameId,
       }
     })
@@ -1171,6 +1176,57 @@ async function resolveCanonicalTeamId(teamId, teamName, leagueCountry) {
     })
     .find(row => Number(row.matchScore || 0) > 0)
   return Number(best?.id) || teamId
+}
+
+async function lookupTeamName(teamId) {
+  const rows = await dbQueryCached(
+    `db:teamName:${teamId}`,
+    'SELECT name FROM teams WHERE id = $1 LIMIT 1',
+    [teamId],
+    600,
+  )
+  return rows[0]?.name || null
+}
+
+// Resolves each fixture's team IDs to the canonical historical DB entries.
+// This bridges the gap when upcoming fixtures (fixtures.csv) were imported
+// with auto-generated team IDs that differ from the historical import IDs.
+async function normalizeFixtureTeamIds(rows) {
+  if (!rows || rows.length === 0) return rows
+
+  const teamLookups = new Map()
+  for (const row of rows) {
+    const cc = row.league_country || ''
+    const hk = `${row.home_team_id}:${cc}`
+    const ak = `${row.away_team_id}:${cc}`
+    if (!teamLookups.has(hk)) teamLookups.set(hk, { id: row.home_team_id, name: row.home_team_name, country: cc })
+    if (!teamLookups.has(ak)) teamLookups.set(ak, { id: row.away_team_id, name: row.away_team_name, country: cc })
+  }
+
+  const resolved = new Map()
+  await Promise.all([...teamLookups.entries()].map(async ([key, { id, name, country }]) => {
+    const canonicalId = await resolveCanonicalTeamId(id, name, country)
+    if (canonicalId && canonicalId !== id) {
+      const canonicalName = await lookupTeamName(canonicalId)
+      resolved.set(key, { id: canonicalId, name: canonicalName || name })
+    }
+  }))
+
+  if (resolved.size === 0) return rows
+
+  return rows.map(row => {
+    const cc = row.league_country || ''
+    const hRes = resolved.get(`${row.home_team_id}:${cc}`)
+    const aRes = resolved.get(`${row.away_team_id}:${cc}`)
+    if (!hRes && !aRes) return row
+    return {
+      ...row,
+      home_team_id:   hRes?.id   ?? row.home_team_id,
+      home_team_name: hRes?.name ?? row.home_team_name,
+      away_team_id:   aRes?.id   ?? row.away_team_id,
+      away_team_name: aRes?.name ?? row.away_team_name,
+    }
+  })
 }
 
 async function resolveCanonicalFixtureContext(row) {
@@ -1319,7 +1375,11 @@ app.get('/api/matches/:date', async (req, res) => {
         ORDER BY f.kickoff_time ASC NULLS LAST, f.id ASC
       `
       const rows = await dbQueryCached(`db:matches:${date}`, sql, [date], 120)
-      return res.json({ success: true, fromCache: false, data: rows.map(toMappedFixture) })
+      // Remap fixture team IDs/names to their canonical historical DB entries so
+      // that all downstream history lookups use consistent IDs regardless of how
+      // upcoming fixtures were imported (fixtures.csv vs historical CSVs).
+      const normalized = await normalizeFixtureTeamIds(rows)
+      return res.json({ success: true, fromCache: false, data: normalized.map(toMappedFixture) })
     }
 
     const { data, fromCache } = await apiFetch(
