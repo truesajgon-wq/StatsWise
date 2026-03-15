@@ -220,6 +220,19 @@ export function AuthProvider({ children }) {
     return Boolean(user && user.tier === TIERS.PAID)
   }
 
+  async function refreshBilling() {
+    if (!session?.user) return
+    try {
+      const billing = await fetchBillingSubscription({
+        country: session.user.user_metadata?.country,
+        locale: typeof navigator !== 'undefined' ? navigator.language : 'en-US',
+      })
+      setUser(mapSupabaseUser(session.user, billing))
+    } catch {
+      // keep existing user state on error
+    }
+  }
+
   async function register({ name, nickname, email, password }) {
     if (!ensureConfigured()) return { ok: false }
     setLoading(true)
@@ -421,6 +434,7 @@ export function AuthProvider({ children }) {
     initializing,
     error,
     isSubscribed,
+    refreshBilling,
     register,
     loginEmail,
     subscribe,

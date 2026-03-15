@@ -79,7 +79,7 @@ function PlanCard({ plan, selected, currentPlan, onSelect }) {
 export default function SubscriptionPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { user } = useAuth()
+  const { user, refreshBilling } = useAuth()
 
   const [selectedPlan, setSelectedPlan] = useState(PLAN_KEYS.FREE)
   const [billing, setBilling] = useState(null)
@@ -150,6 +150,7 @@ export default function SubscriptionPage() {
         if (!status.paid) throw new Error('Payment not completed yet.')
         setSuccess('Payment confirmed. Subscription state updated.')
         await loadBilling()
+        await refreshBilling()
       } catch (e) {
         setError(e.message || 'Could not verify checkout session')
       } finally {
@@ -205,6 +206,7 @@ export default function SubscriptionPage() {
       await startBillingTrial()
       setSuccess('Your 7-day free trial has started. Enjoy full premium access!')
       await loadBilling()
+      await refreshBilling()
     } catch (e) {
       setError(e.message || 'Could not start trial')
     } finally {
