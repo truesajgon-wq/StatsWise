@@ -83,7 +83,7 @@ export default function SubscriptionPage() {
   const [selectedPlan, setSelectedPlan] = useState(PLAN_KEYS.FREE)
   const [billing, setBilling] = useState(null)
   const [countryOverride, setCountryOverride] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('stripe_card')
+  const [paymentMethod] = useState('stripe_card')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -284,44 +284,13 @@ export default function SubscriptionPage() {
               Renews automatically unless canceled. Cancel anytime.
             </div>
 
-            <div style={{ fontSize: 12, color: 'var(--sw-muted)', marginBottom: 8 }}>Payment method</div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('stripe_card')}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 7,
-                  padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
-                  fontSize: 13, fontWeight: 600,
-                  background: paymentMethod === 'stripe_card' ? 'rgba(255,122,44,0.12)' : 'rgba(255,255,255,0.04)',
-                  border: `2px solid ${paymentMethod === 'stripe_card' ? 'var(--sw-accent)' : '#334155'}`,
-                  color: '#e2e8f0',
-                }}
-              >
-                <svg width="22" height="16" viewBox="0 0 22 16" fill="none">
-                  <rect x="0.5" y="0.5" width="21" height="15" rx="2.5" stroke="#94a3b8"/>
-                  <rect x="0" y="4" width="22" height="3" fill="#94a3b8" opacity="0.4"/>
-                  <rect x="2.5" y="10" width="5" height="2" rx="1" fill="#94a3b8"/>
-                </svg>
-                Card
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('apple_pay')}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 7,
-                  padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
-                  fontSize: 13, fontWeight: 600,
-                  background: paymentMethod === 'apple_pay' ? '#111' : '#000',
-                  border: `2px solid ${paymentMethod === 'apple_pay' ? 'var(--sw-accent)' : '#444'}`,
-                  color: '#fff',
-                }}
-              >
-                <svg width="14" height="17" viewBox="0 0 14 17" fill="white">
-                  <path d="M11.56 8.92c-.02-1.83 1.5-2.71 1.56-2.75-1.7-2.47-2.95-.28-2.95-.28s-.69 0-1.28-.33c-.59-.32-1.2-.98-2.43-.98-1.83 0-3.7 1.5-3.7 4.35 0 1.74.68 3.58 1.51 4.76.72 1.03 1.35 1.88 2.26 1.86.9-.02 1.23-.57 2.32-.57 1.07 0 1.38.57 2.32.55.97-.02 1.59-.9 2.3-1.93.44-.63.77-1.33 1-2.06-2.64-1.01-2.44-3.56-2.44-3.62zM9.22 2.91C9.83 2.19 10.24 1.21 10.13 0c-.84.04-1.87.56-2.48 1.28-.55.63-1.03 1.65-.9 2.62.93.08 1.88-.46 2.47-.99z"/>
-                </svg>
-                Apple Pay
-              </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <svg width="22" height="16" viewBox="0 0 22 16" fill="none">
+                <rect x="0.5" y="0.5" width="21" height="15" rx="2.5" stroke="#94a3b8"/>
+                <rect x="0" y="4" width="22" height="3" fill="#94a3b8" opacity="0.4"/>
+                <rect x="2.5" y="10" width="5" height="2" rx="1" fill="#94a3b8"/>
+              </svg>
+              <span style={{ fontSize: 13, color: 'var(--sw-muted)' }}>Credit / Debit card</span>
             </div>
 
             <div className="subscription-checkout-actions" style={{ display: 'flex', gap: 8 }}>
@@ -329,7 +298,7 @@ export default function SubscriptionPage() {
                 Continue with Free
               </button>
               <button className="theme-button-primary" onClick={handleCheckout} disabled={loading} style={{ flex: 2, borderRadius: 8, padding: '10px 12px', fontWeight: 800, cursor: 'pointer' }}>
-                {paymentMethod === 'apple_pay' ? 'Subscribe with Apple Pay' : 'Subscribe with Card'}
+                Subscribe
               </button>
             </div>
           </div>
