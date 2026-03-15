@@ -119,12 +119,14 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let cancelled = false
 
-    async function bootstrap() {
-      if (!supabase) {
-        setInitializing(false)
-        return
-      }
+    if (!supabase) {
+      setInitializing(false)
+      return undefined
+    }
 
+    async function bootstrap() {
+      // Handle auth redirect (OAuth callback / password reset link) first,
+      // so the new session is stored before the listener is attached.
       try {
         const urlSession = await establishSessionFromUrl()
         if (cancelled) return
@@ -135,21 +137,22 @@ export function AuthProvider({ children }) {
       } catch (sessionUrlError) {
         if (!cancelled) setError(sessionUrlError.message || 'Could not restore password reset session.')
       }
-
-      const { data, error: sessionError } = await supabase.auth.getSession()
-      if (cancelled) return
-      if (sessionError) setError(sessionError.message)
-      setSession(data?.session || null)
-      setRecoverySessionReady(Boolean(data?.session && authRedirectMode() === 'reset'))
-      setInitializing(false)
     }
 
-    bootstrap()
-
-    if (!supabase) return undefined
+    // Set up the auth state change listener FIRST so it is the single source
+    // of session truth. It fires with INITIAL_SESSION on mount (which may
+    // trigger at most one token refresh internally). Calling getSession()
+    // separately in addition would risk a double-refresh which Supabase's
+    // "detect compromised tokens" protection treats as a replay attack and
+    // revokes the session → SIGNED_OUT on every page reload.
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (cancelled) return
       setSession(nextSession || null)
+      if (event === 'INITIAL_SESSION') {
+        setInitializing(false)
+        setRecoverySessionReady(Boolean(nextSession && authRedirectMode() === 'reset'))
+        return
+      }
       if (event === 'PASSWORD_RECOVERY') {
         setRecoverySessionReady(Boolean(nextSession))
         return
@@ -160,6 +163,8 @@ export function AuthProvider({ children }) {
       }
       setRecoverySessionReady(authRedirectMode() === 'reset')
     })
+
+    bootstrap()
 
     return () => {
       cancelled = true

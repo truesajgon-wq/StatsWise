@@ -429,6 +429,21 @@ function countryCurrency(country = 'Poland') {
   return map[country] || 'eur'
 }
 
+function stripeLocaleForCountry(country = '') {
+  const map = {
+    Poland: 'pl',
+    Polska: 'pl',
+    'United Kingdom': 'en',
+    'United States': 'en',
+    Germany: 'de',
+    France: 'fr',
+    Spain: 'es',
+    Italy: 'it',
+    Netherlands: 'nl',
+  }
+  return map[country] || 'auto'
+}
+
 const FREE_PLAN_FALLBACK_SEASONS = [2024, 2023, 2022]
 
 function isSeasonAccessError(err) {
@@ -2105,6 +2120,7 @@ app.post('/api/billing/checkout-session', requireAuth, async (req, res) => {
       mode: 'subscription',
       success_url: successUrl,
       cancel_url: cancelUrl,
+      locale: stripeLocaleForCountry(country),
       ...(email ? { customer_email: email } : {}),
       'payment_method_types[0]': 'card',
       ...Object.entries(metadata).reduce((acc, [k, v]) => {
