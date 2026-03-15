@@ -850,7 +850,7 @@ function FinishedOverviewPanel({ fixture, statistics, events, lineups }) {
   )
 }
 
-function LiveCenterPanel({ fixture, statistics, events, homeHistory, awayHistory, h2h, initialStatKey }) {
+function LiveCenterPanel({ fixture, statistics, events, homeHistory, awayHistory, h2h, initialStatKey, initialAlt }) {
   return (
     <div style={{ paddingBottom: 14 }}>
       <SectionCard title="Live Statistics">
@@ -866,6 +866,7 @@ function LiveCenterPanel({ fixture, statistics, events, homeHistory, awayHistory
           h2h={h2h}
           fixture={fixture}
           initialStatKey={initialStatKey}
+          initialAlt={initialAlt}
         />
       </SectionCard>
     </div>
@@ -1263,6 +1264,7 @@ export default function MatchDetails() {
   const awayHistory = data?.awayHistory || []
   const h2h = data?.h2h || []
   const statFromQuery = searchParams.get('stat') || undefined
+  const altFromQuery = searchParams.get('alt') != null ? Number(searchParams.get('alt')) : undefined
   const returnDate = searchParams.get('date') || String(fixture?.date || '').slice(0, 10)
   const homeHref = returnDate ? `/?date=${returnDate}` : '/'
   const matchTabLabel = 'Match Stats'
@@ -1432,6 +1434,7 @@ export default function MatchDetails() {
               awayHistory={awayHistory}
               h2h={h2h}
               initialStatKey={statFromQuery}
+              initialAlt={altFromQuery}
             />
             <SectionCard title="Head To Head And Team Form">
               <H2HPanel h2h={h2h} homeHistory={homeHistory} awayHistory={awayHistory} fixture={fixture} />
@@ -1452,6 +1455,7 @@ export default function MatchDetails() {
               h2h={h2h}
               fixture={fixture}
               initialStatKey={statFromQuery}
+              initialAlt={altFromQuery}
             />
             <SectionCard title="Head To Head And Team Form">
               <H2HPanel h2h={h2h} homeHistory={homeHistory} awayHistory={awayHistory} fixture={fixture} />

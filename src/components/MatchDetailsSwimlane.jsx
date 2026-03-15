@@ -89,6 +89,7 @@ export default function MatchDetailsSwimlane({
   awayHistory = [],
   h2h = [],
   initialStatKey,
+  initialAlt,
 }) {
   const [range, setRange] = useState('L10')
   const [venueFilter, setVenueFilter] = useState('all')
@@ -96,7 +97,12 @@ export default function MatchDetailsSwimlane({
   const [statKey, setStatKey] = useState(
     resolvedInitialStatKey || MATCH_PROP_STAT_OPTIONS[0].key
   )
-  const [userAdjustedAltByStat, setUserAdjustedAltByStat] = useState({})
+  const [userAdjustedAltByStat, setUserAdjustedAltByStat] = useState(() => {
+    if (resolvedInitialStatKey && initialAlt != null && Number.isFinite(Number(initialAlt))) {
+      return { [resolvedInitialStatKey]: true }
+    }
+    return {}
+  })
 
   useEffect(() => {
     if (!resolvedInitialStatKey) return
@@ -138,7 +144,12 @@ export default function MatchDetailsSwimlane({
     range,
   })
 
-  const [altByStat, setAltByStat] = useState({})
+  const [altByStat, setAltByStat] = useState(() => {
+    if (resolvedInitialStatKey && initialAlt != null && Number.isFinite(Number(initialAlt))) {
+      return { [resolvedInitialStatKey]: normalizeAlt(Number(initialAlt)) }
+    }
+    return {}
+  })
   const computedAlt = useMemo(() => {
     if (statDef?.isBoolean) return 0.5
     const all = [...left, ...right].map(r => Number(r.value || 0)).filter(n => Number.isFinite(n))

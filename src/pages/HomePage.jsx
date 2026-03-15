@@ -509,6 +509,7 @@ function handleViewChange(key) {
     const fixtureDate = String(tip?.fixture?.date || '').slice(0, 10) || selectedDateStr
     const query = new URLSearchParams()
     if (tip?.statKey) query.set('stat', tip.statKey)
+    if (tip?.alt != null) query.set('alt', String(tip.alt))
     if (fixtureDate) query.set('date', fixtureDate)
     navigate(`/match/${fixtureId}${query.toString() ? `?${query.toString()}` : ''}`)
     setSelectedTip(null)
@@ -1135,7 +1136,11 @@ function handleViewChange(key) {
                   onClick={() => {
                     const fixtureId = insightPred?.fixture?.id
                     if (!fixtureId) return
-                    navigate(`/match/${fixtureId}?stat=${encodeURIComponent(insightPred?.statKey || activeStatKey || '')}`)
+                    const q = new URLSearchParams()
+                    const sk = insightPred?.statKey || activeStatKey || ''
+                    if (sk) q.set('stat', sk)
+                    if (insightPred?.alt != null) q.set('alt', String(insightPred.alt))
+                    navigate(`/match/${fixtureId}${q.toString() ? `?${q.toString()}` : ''}`)
                   }}
                   style={{ minHeight: 34, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(209,213,219,0.4)', background: 'rgba(209,213,219,0.12)', color: '#e5e7eb', fontWeight: 700, cursor: 'pointer' }}
                 >
