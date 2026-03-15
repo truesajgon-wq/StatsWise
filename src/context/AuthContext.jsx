@@ -37,7 +37,9 @@ function mapSupabaseUser(rawUser, billing = null) {
 
   const meta = rawUser.user_metadata || {}
   const status = billing?.subscription?.status
-  const isPaid = status === 'active' || status === 'canceled'
+  const isPaidSub = status === 'active' || status === 'canceled'
+  const trialActive = Boolean(billing?.trial?.active)
+  const isPaid = isPaidSub || trialActive
 
   return {
     id: rawUser.id,
@@ -52,6 +54,10 @@ function mapSupabaseUser(rawUser, billing = null) {
     plan: billing?.plan === 'premium_yearly' ? 'yearly' : billing?.plan === 'premium_monthly' ? 'monthly' : null,
     subscriptionEnd: billing?.subscription?.current_period_end || null,
     billingStatus: status || 'inactive',
+    trialActive,
+    trialDaysLeft: billing?.trial?.daysLeft ?? 0,
+    trialUsed: Boolean(billing?.trial?.used),
+    trialEndsAt: billing?.trial?.endsAt || null,
   }
 }
 

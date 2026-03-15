@@ -267,6 +267,10 @@ export async function cancelBillingSubscription() {
   return apiPost('/api/billing/cancel')
 }
 
+export async function startBillingTrial() {
+  return apiPost('/api/billing/start-trial')
+}
+
 export async function fetchBillingCheckoutStatus(sessionId) {
   return apiFetch(`/api/billing/checkout-status/${encodeURIComponent(sessionId)}`)
 }

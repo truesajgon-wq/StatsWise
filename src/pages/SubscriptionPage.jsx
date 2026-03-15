@@ -7,6 +7,7 @@ import {
   createBillingCheckoutSession,
   cancelBillingSubscription,
   fetchBillingCheckoutStatus,
+  startBillingTrial,
 } from '../data/api.js'
 import { formatAppDate } from '../utils/dateFormat.js'
 import StatsWiseWordmark from '../components/StatsWiseWordmark.jsx'
@@ -197,6 +198,20 @@ export default function SubscriptionPage() {
     }
   }
 
+  async function handleStartTrial() {
+    setError('')
+    setLoading(true)
+    try {
+      await startBillingTrial()
+      setSuccess('Your 7-day free trial has started. Enjoy full premium access!')
+      await loadBilling()
+    } catch (e) {
+      setError(e.message || 'Could not start trial')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="theme-page" style={{ color: 'var(--sw-text)' }}>
       <header className="theme-header subscription-page-header" style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 10 }}>
@@ -240,6 +255,37 @@ export default function SubscriptionPage() {
             {COUNTRY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
+
+        {/* Trial banner */}
+        {billing?.trial?.active && (
+          <div style={{ marginBottom: 14, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,122,44,0.08)', border: '1px solid rgba(255,122,44,0.35)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--sw-accent)' }}>Free trial active</div>
+              <div style={{ fontSize: 12, color: '#cbd5e1', marginTop: 2 }}>
+                {billing.trial.daysLeft === 1 ? '1 day' : `${billing.trial.daysLeft} days`} remaining
+                {billing.trial.endsAt ? ` — ends ${formatAppDate(billing.trial.endsAt)}` : ''}
+              </div>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--sw-accent)', lineHeight: 1 }}>
+              {billing.trial.daysLeft}d
+            </div>
+          </div>
+        )}
+
+        {/* Start trial CTA — shown only if no trial used and no active subscription */}
+        {!billing?.trial?.used && currentPlan === PLAN_KEYS.FREE && (
+          <div style={{ marginBottom: 14, padding: '14px 16px', borderRadius: 10, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.3)' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#22c55e', marginBottom: 4 }}>Start your 7-day free trial</div>
+            <div style={{ fontSize: 12, color: '#cbd5e1', marginBottom: 10 }}>Get full premium access for 7 days, no payment required. One trial per account.</div>
+            <button
+              onClick={handleStartTrial}
+              disabled={loading}
+              style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: '#22c55e', color: '#0f172a', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}
+            >
+              Start free trial
+            </button>
+          </div>
+        )}
 
         <div style={{ marginBottom: 10, fontSize: 12, color: 'var(--sw-muted)' }}>
           Current: <span style={{ color: 'var(--sw-text)', fontWeight: 700 }}>{planLabel(currentPlan)}</span>

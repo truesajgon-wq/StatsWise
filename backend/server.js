@@ -26,6 +26,8 @@ import {
   inferCountry,
   paymentMethodsForCountry,
   accessPlanFromSubscription,
+  accessPlanFromRecord,
+  trialStatus,
   applyCancelAtPeriodEnd,
 } from './billingUtils.js'
 
@@ -2008,11 +2010,18 @@ app.get('/api/billing/subscription', requireAuth, async (req, res) => {
       locale,
     })
     const subscription = record.subscription || null
-    const accessPlan = accessPlanFromSubscription(subscription) || BILLING_PLANS.FREE
+    const trial = trialStatus(record.trial)
+    const accessPlan = accessPlanFromRecord(record) || BILLING_PLANS.FREE
     const payload = {
       plan: accessPlan,
       country: effectiveCountry,
       payment_methods: paymentMethodsForCountry(effectiveCountry),
+      trial: {
+        used: trial.used,
+        active: trial.active,
+        daysLeft: trial.daysLeft,
+        endsAt: trial.endsAt,
+      },
       subscription: subscription
         ? {
             provider: subscription.provider || 'stripe',
@@ -2034,6 +2043,54 @@ app.get('/api/billing/subscription', requireAuth, async (req, res) => {
     return res.json({ success: true, data: payload })
   } catch (err) {
     console.error('[/api/billing/subscription]', err.message)
+    return res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+app.post('/api/billing/start-trial', requireAuth, async (req, res) => {
+  try {
+    const userId = req.auth.userId
+    const email = req.auth.email
+    const key = billingUserKey({ userId, email })
+    if (!key) return res.status(400).json({ success: false, error: 'Missing authenticated user.' })
+
+    const store = await loadBillingStore()
+    const record = store.users[key] || {
+      user_id: userId || null,
+      email: email || null,
+      country: null,
+      plan: BILLING_PLANS.FREE,
+      subscription: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    if (record.trial?.used) {
+      return res.status(400).json({ success: false, error: 'Free trial has already been used on this account.' })
+    }
+
+    const subPlan = accessPlanFromSubscription(record.subscription)
+    if (subPlan !== BILLING_PLANS.FREE) {
+      return res.status(400).json({ success: false, error: 'You already have an active subscription.' })
+    }
+
+    const now = new Date()
+    const endsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+    store.users[key] = {
+      ...record,
+      trial: {
+        started_at: now.toISOString(),
+        ends_at: endsAt.toISOString(),
+        used: true,
+      },
+      updated_at: now.toISOString(),
+    }
+    await saveBillingStore(store)
+
+    const trial = trialStatus(store.users[key].trial)
+    return res.json({ success: true, data: { trial } })
+  } catch (err) {
+    console.error('[/api/billing/start-trial]', err.message)
     return res.status(500).json({ success: false, error: err.message })
   }
 })
