@@ -2112,7 +2112,9 @@ app.post('/api/billing/checkout-session', requireAuth, async (req, res) => {
         return acc
       }, {}),
     }
-    const priceId = plan === BILLING_PLANS.PREMIUM_YEARLY ? STRIPE_PRICE_PREMIUM_YEARLY : STRIPE_PRICE_PREMIUM_MONTHLY
+    const priceId = currency === 'pln'
+      ? (plan === BILLING_PLANS.PREMIUM_YEARLY ? STRIPE_PRICE_PREMIUM_YEARLY : STRIPE_PRICE_PREMIUM_MONTHLY)
+      : null
     if (priceId) {
       payload['line_items[0][price]'] = priceId
       payload['line_items[0][quantity]'] = '1'
