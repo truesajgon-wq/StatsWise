@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { searchPlayers } from '../data/mockPlayerData.js'
 import MatchPropAnalysis from '../components/MatchPropAnalysis.jsx'
+import { buildFormationPitchSlots } from '../utils/pitchLayout.js'
 
 function RatingRing({ rating }) {
   const r = 28
@@ -122,10 +123,10 @@ function generateGameHistory(stats, n = 20) {
     g.isHome = i % 2 === 0
     const playerGoals = Number(g.goals || 0)
     const playerShotsOnTarget = Number(g.shotsOnTarget || 0)
-    const teamBase = Math.max(playerGoals, Math.round(playerShotsOnTarget / 2))
+    const teamBase = Math.max(Math.ceil(playerGoals), Math.round(playerShotsOnTarget / 2))
     const opponentBase = Math.max(0, Math.round(Math.random() * 3))
-    g.playerTeamGoals = Math.min(6, teamBase + Math.round(Math.random() * 2))
-    g.opponentGoals = Math.min(5, opponentBase)
+    g.playerTeamGoals = Math.max(0, Math.min(6, Math.round(teamBase + Math.round(Math.random() * 2))))
+    g.opponentGoals = Math.max(0, Math.min(5, Math.round(opponentBase)))
     games.push(g)
   }
   return games
@@ -182,57 +183,6 @@ function PlayerProfile({ player }) {
   )
 }
 
-function parseGrid(g) {
-  const p = String(g || '1:1').split(':').map(Number)
-  return { col: p[0] || 1, row: p[1] || 1 }
-}
-
-function groupByRow(players) {
-  const rows = {}
-  players.forEach(p => {
-    const { row } = parseGrid(p.grid)
-    ;(rows[row] = rows[row] || []).push(p)
-  })
-  return Object.entries(rows)
-    .sort(([a], [b]) => Number(a) - Number(b))
-    .map(([, ps]) => ps.sort((a, b) => parseGrid(a.grid).col - parseGrid(b.grid).col))
-}
-
-function formationLineCounts(formation, players = []) {
-  const parsed = String(formation || '')
-    .split('-')
-    .map(Number)
-    .filter(value => Number.isFinite(value) && value > 0)
-  if (parsed.length && parsed.reduce((sum, value) => sum + value, 1) === players.length) return [1, ...parsed]
-  const grouped = groupByRow(players)
-  if (grouped.length) return grouped.map(row => row.length)
-  return [players.length]
-}
-
-function buildPitchSlots(players = [], formation, reverse = false) {
-  if (!players.length) return []
-  let lineCounts = formationLineCounts(formation, players)
-  if (lineCounts.reduce((sum, value) => sum + value, 0) !== players.length) {
-    lineCounts = groupByRow(players).map(row => row.length)
-  }
-
-  let cursor = 0
-  const totalLines = lineCounts.length
-  return lineCounts.flatMap((count, lineIndex) => {
-    const linePlayers = players.slice(cursor, cursor + count)
-    cursor += count
-    const ratio = totalLines === 1 ? 0.5 : lineIndex / (totalLines - 1)
-    const x = reverse ? (86 - ratio * 72) : (14 + ratio * 72)
-    const spread = count === 1 ? 0 : count === 2 ? 24 : count === 3 ? 40 : count === 4 ? 54 : 62
-    const startY = 50 - (spread / 2)
-    return linePlayers.map((item, slotIndex) => ({
-      item,
-      x,
-      y: count === 1 ? 50 : (startY + (slotIndex / Math.max(1, count - 1)) * spread),
-    }))
-  })
-}
-
 function PlayerNode({ item, active, onClick, compact = false }) {
   const last = String(item.name || '').split(' ').slice(-1)[0]
   return (
@@ -243,12 +193,12 @@ function PlayerNode({ item, active, onClick, compact = false }) {
         background: 'transparent',
         color: '#f8fafc',
         padding: '0',
-        minWidth: compact ? 36 : 52,
+        width: compact ? 36 : 52,
+        height: compact ? 28 : 36,
         cursor: 'pointer',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: compact ? 1 : 2,
+        position: 'relative',
+        display: 'block',
+        overflow: 'visible',
       }}
     >
       <svg
@@ -256,7 +206,11 @@ function PlayerNode({ item, active, onClick, compact = false }) {
         height={compact ? '28' : '36'}
         viewBox="0 0 40 46"
         fill="none"
-        style={{ filter: active ? 'drop-shadow(0 0 4px rgba(209,213,219,0.9))' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}
+        style={{
+          display: 'block',
+          margin: '0 auto',
+          filter: active ? 'drop-shadow(0 0 4px rgba(209,213,219,0.9))' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))',
+        }}
       >
         <path d="M13 5 L1 14 L7 18 L7 44 L33 44 L33 18 L39 14 L27 5 C24 9 16 9 13 5Z" fill={active ? '#f97316' : 'var(--sw-surface-0)'} stroke={active ? '#e5e7eb' : 'rgba(255,255,255,0.55)'} strokeWidth="1.3" />
         <path d="M13 5 C16 10 24 10 27 5 C24 2 16 2 13 5Z" fill="rgba(0,0,0,0.18)" />
@@ -264,7 +218,22 @@ function PlayerNode({ item, active, onClick, compact = false }) {
           {item.number || '-'}
         </text>
       </svg>
-      <div style={{ fontSize: compact ? 8 : 9.5, fontWeight: 700, lineHeight: 1.1, maxWidth: compact ? 44 : 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>{last}</div>
+      <div style={{
+        position: 'absolute',
+        top: '100%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        marginTop: compact ? 1 : 2,
+        fontSize: compact ? 8 : 9.5,
+        fontWeight: 700,
+        lineHeight: 1.1,
+        width: compact ? 44 : 64,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        textAlign: 'center',
+        pointerEvents: 'none',
+      }}>{last}</div>
     </button>
   )
 }
@@ -273,9 +242,9 @@ function playerIdentity(item) {
   return `${item.teamId || 't'}-${item.id || 'id'}-${item.number || 'n'}-${item.name || ''}`
 }
 
-function TeamSide({ slots, selectedId, onSelect, compact = false }) {
+function PitchLayer({ slots, selectedId, onSelect, compact = false }) {
   return (
-    <div style={{ position: 'relative', flex: 1, minWidth: 0, minHeight: 0 }}>
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
       {slots.map(({ item, x, y }) => (
         <div
           key={`${item.teamId}-${item.name}-${item.number || ''}`}
@@ -284,6 +253,7 @@ function TeamSide({ slots, selectedId, onSelect, compact = false }) {
             left: `${x}%`,
             top: `${y}%`,
             transform: 'translate(-50%, -50%)',
+            pointerEvents: 'auto',
           }}
         >
           <PlayerNode
@@ -321,7 +291,8 @@ function FixturePitchSelector({ lineups = [], players = [], selected, onSelect, 
   const mapStart = (teamBlock, isHome) => (teamBlock?.startXI || []).map(p => {
     const byId = allByName.get(String(p.id))
     const byName = allByName.get(`${teamBlock?.team?.id || 0}-${p.name}`.toLowerCase())
-    return byId || byName || {
+    const linked = byId || byName
+    const fallback = {
       id: Number(p.id) || `${teamBlock?.team?.id || 0}-${p.name}`,
       teamId: teamBlock?.team?.id || 0,
       team: teamBlock?.team?.name || '',
@@ -344,13 +315,27 @@ function FixturePitchSelector({ lineups = [], players = [], selected, onSelect, 
       },
       isHome,
     }
+    return linked
+      ? {
+          ...fallback,
+          ...linked,
+          id: linked.id ?? fallback.id,
+          teamId: linked.teamId ?? fallback.teamId,
+          team: linked.team || fallback.team,
+          name: linked.name || fallback.name,
+          number: linked.number ?? fallback.number,
+          position: linked.position || linked.pos || fallback.position,
+          grid: linked.grid || fallback.grid,
+          isHome,
+        }
+      : fallback
   })
 
   const filteredBySearch = (item) => !search.trim() || item.name.toLowerCase().includes(search.toLowerCase())
   const homePlayers = useMemo(() => mapStart(home, true), [home, allByName])
   const awayPlayers = useMemo(() => mapStart(away, false), [away, allByName])
-  const homeSlots = useMemo(() => buildPitchSlots(homePlayers.filter(filteredBySearch), home?.formation, false), [homePlayers, home?.formation, search])
-  const awaySlots = useMemo(() => buildPitchSlots(awayPlayers.filter(filteredBySearch), away?.formation, true), [awayPlayers, away?.formation, search])
+  const homeSlots = useMemo(() => buildFormationPitchSlots(homePlayers, { formation: home?.formation, side: 'home' }).filter(({ item }) => filteredBySearch(item)), [homePlayers, home?.formation, search])
+  const awaySlots = useMemo(() => buildFormationPitchSlots(awayPlayers, { formation: away?.formation, side: 'away' }).filter(({ item }) => filteredBySearch(item)), [awayPlayers, away?.formation, search])
 
   const selectedIdentity = selected ? playerIdentity(selected) : null
 
@@ -361,7 +346,7 @@ function FixturePitchSelector({ lineups = [], players = [], selected, onSelect, 
 
   if (!homeSlots.length && !awaySlots.length) return null
 
-  const pitchMinHeight = isCompact ? 220 : 320
+  const pitchMinHeight = isCompact ? 244 : 336
   const centerCircle = isCompact ? 60 : 82
   const boxWidth = isCompact ? 24 : 34
   const sixYardWidth = isCompact ? 10 : 13
@@ -405,14 +390,14 @@ function FixturePitchSelector({ lineups = [], players = [], selected, onSelect, 
           {away?.team?.name || 'Away'} {away?.formation ? `(${away.formation})` : ''}
         </div>
 
-        <div style={{ position: 'relative', minHeight: pitchMinHeight, display: 'flex' }}>
-          <TeamSide
+        <div style={{ position: 'relative', minHeight: pitchMinHeight }}>
+          <PitchLayer
             slots={homeSlots}
             selectedId={selectedIdentity}
             onSelect={onPick}
             compact={isCompact}
           />
-          <TeamSide
+          <PitchLayer
             slots={awaySlots}
             selectedId={selectedIdentity}
             onSelect={onPick}

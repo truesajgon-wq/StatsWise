@@ -1,4 +1,4 @@
-import { extractStatValue, getStatDef } from '../data/statsConfig.js'
+import { extractStatValue, getHistorySummarySnapshot, getStatDef } from '../data/statsConfig.js'
 
 function toNum(value) {
   const n = Number(value)
@@ -197,6 +197,72 @@ function summarizeTrend(values, alt, binary) {
   }
 }
 
+function summarizeFallbackSnapshot(snapshot) {
+  const sample = Number(snapshot?.total || 0) || 0
+  const hits = Number(snapshot?.hits ?? Math.round(sample * Number(snapshot?.rate || 0))) || 0
+  const rate = clamp01(Number(snapshot?.rate || 0))
+
+  return {
+    values: [],
+    sample,
+    hits,
+    total: sample,
+    rate,
+    l5: rate,
+    l10: rate,
+    l15: rate,
+    rawRate: rate,
+    weightedRate: rate,
+    smoothedRate: rate,
+    streak: false,
+    coldRun: false,
+    averageValue: null,
+    volatility: 0.45,
+    consistency: 0.58,
+    sampleStrength: clamp01(sample / 10),
+  }
+}
+
+function summarizeHistoryForStat(history, statKey, alt, def, isHome, perspective = 'for', team = null) {
+  const values = collectHistoryValues(history, statKey, isHome, perspective, team)
+  if (values.length) return summarizeTrend(values, alt, def.binary)
+
+  const summary = getHistorySummarySnapshot(history, statKey, alt, isHome, { perspective })
+  if (summary) return summarizeFallbackSnapshot(summary)
+
+  return summarizeTrend([], alt, def.binary)
+}
+
+function mergeTrendSummaries(trends = []) {
+  const valid = trends.filter(trend => (trend?.sample || 0) > 0)
+  if (!valid.length) return summarizeTrend([], 0, false)
+
+  const totalSample = valid.reduce((sum, trend) => sum + (trend.sample || 0), 0)
+  const totalHits = valid.reduce((sum, trend) => sum + (trend.hits || 0), 0)
+  const weightedRate = totalSample ? valid.reduce((sum, trend) => sum + ((trend.smoothedRate || 0) * (trend.sample || 0)), 0) / totalSample : 0
+  const weightedConsistency = totalSample ? valid.reduce((sum, trend) => sum + ((trend.consistency || 0) * (trend.sample || 0)), 0) / totalSample : 0.5
+
+  return {
+    values: [],
+    sample: totalSample,
+    hits: totalHits,
+    total: totalSample,
+    rate: weightedRate,
+    l5: weightedRate,
+    l10: weightedRate,
+    l15: weightedRate,
+    rawRate: weightedRate,
+    weightedRate,
+    smoothedRate: weightedRate,
+    streak: false,
+    coldRun: false,
+    averageValue: null,
+    volatility: 0.45,
+    consistency: weightedConsistency,
+    sampleStrength: clamp01(totalSample / 10),
+  }
+}
+
 function combineEvidence(components) {
   let weighted = 0
   let totalWeight = 0
@@ -224,23 +290,14 @@ export function evaluateFixturePrediction(fixture, statKey, alt, options = {}) {
     const ownHistory = isHome == null ? null : (isHome ? fixture?.homeHistory : fixture?.awayHistory)
     const opponentHistory = isHome == null ? null : (isHome ? fixture?.awayHistory : fixture?.homeHistory)
 
-    const form = summarizeTrend(
-      def.scope === 'team'
-        ? collectHistoryValues(ownHistory, statKey, Boolean(isHome), 'for')
-        : [
-            ...collectHistoryValues(fixture?.homeHistory, statKey, true, 'for'),
-            ...collectHistoryValues(fixture?.awayHistory, statKey, false, 'for'),
-          ].slice(0, 15),
-      normalizedAlt,
-      def.binary,
-    )
+    const homeTrend = summarizeHistoryForStat(fixture?.homeHistory, statKey, normalizedAlt, def, true, 'for')
+    const awayTrend = summarizeHistoryForStat(fixture?.awayHistory, statKey, normalizedAlt, def, false, 'for')
+    const form = def.scope === 'team'
+      ? summarizeHistoryForStat(ownHistory, statKey, normalizedAlt, def, Boolean(isHome), 'for')
+      : mergeTrendSummaries([homeTrend, awayTrend])
 
     const allowance = def.scope === 'team'
-      ? summarizeTrend(
-          collectHistoryValues(opponentHistory, statKey, !Boolean(isHome), 'against'),
-          normalizedAlt,
-          def.binary,
-        )
+      ? summarizeHistoryForStat(opponentHistory, statKey, normalizedAlt, def, !Boolean(isHome), 'against')
       : null
 
     const h2hValues = def.scope === 'team'
@@ -282,12 +339,8 @@ export function evaluateFixturePrediction(fixture, statKey, alt, options = {}) {
       team,
       opponent,
       label: null,
-      home: def.scope === 'team'
-        ? (isHome ? form : allowance)
-        : summarizeTrend(collectHistoryValues(fixture?.homeHistory, statKey, true, 'for'), normalizedAlt, def.binary),
-      away: def.scope === 'team'
-        ? (isHome ? allowance : form)
-        : summarizeTrend(collectHistoryValues(fixture?.awayHistory, statKey, false, 'for'), normalizedAlt, def.binary),
+      home: def.scope === 'team' ? (isHome ? form : allowance) : homeTrend,
+      away: def.scope === 'team' ? (isHome ? allowance : form) : awayTrend,
       activeTeamData: form,
       opponentData: allowance,
       h2hData: h2h,

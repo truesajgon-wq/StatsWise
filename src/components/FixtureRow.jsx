@@ -1,62 +1,38 @@
 import { useEffect, useState } from 'react'
 
-function TeamBadge({ team, size = 30 }) {
+function TeamLogo({ team, size = 22 }) {
   const [imgFailed, setImgFailed] = useState(false)
   const name = team?.name || '?'
-  const color = team?.color || '#f97316'
   const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
   const logo = team?.logo
 
   if (!logo || imgFailed) {
     return (
-      <div
-        style={{
-          width: size,
-          height: size,
-          borderRadius: '50%',
-          background: `${color}28`,
-          border: `2px solid ${color}60`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: Math.round(size * 0.34),
-          fontWeight: 900,
-          color,
-          flexShrink: 0,
-          letterSpacing: -0.5,
-          userSelect: 'none',
-        }}
-      >
+      <div style={{
+        width: size, height: size, borderRadius: 3,
+        background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.25)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: Math.round(size * 0.38), fontWeight: 800, color: '#f97316',
+        flexShrink: 0, letterSpacing: -0.5, userSelect: 'none',
+      }}>
         {initials}
       </div>
     )
   }
 
   return (
-    <img
-      src={logo}
-      alt={name}
-      width={size}
-      height={size}
+    <img src={logo} alt={name} width={size} height={size}
       style={{ objectFit: 'contain', flexShrink: 0, display: 'block' }}
       onError={() => setImgFailed(true)}
     />
   )
 }
 
-function nameStyle(isMobile, align) {
-  return {
-    fontSize: isMobile ? 12 : 13,
-    fontWeight: isMobile ? 700 : 600,
-    color: '#e5e7eb',
-    textAlign: isMobile ? 'center' : align,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    lineHeight: 1.15,
-    display: 'block',
-    maxWidth: '100%',
-  }
+/* Pulsing live dot */
+function LiveDot() {
+  return (
+    <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#22c55e', flexShrink: 0, boxShadow: '0 0 0 0 rgba(34,197,94,0.4)', animation: 'livePulse 1.6s ease-in-out infinite' }} />
+  )
 }
 
 export default function FixtureRow({ fixture, onClick, even, isFavorite = false, onToggleFavorite }) {
@@ -65,21 +41,32 @@ export default function FixtureRow({ fixture, onClick, even, isFavorite = false,
   const isFT = status === 'FT'
   const showScore = isLive || isFT
   const statusLabel = isLive ? `${fixture.elapsed || ''}'` : isFT ? 'FT' : (time || '--:--')
+
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth)
   const isMobile = viewportWidth <= 768
-  const isCompactPhone = viewportWidth <= 390
-  const rowColumns = isCompactPhone
-    ? '44px minmax(0,1fr) 30px 44px'
-    : isMobile
-      ? '52px minmax(0,1fr) 34px 44px'
-      : '56px minmax(0,1fr) 34px 44px'
+  const isCompact = viewportWidth <= 440
 
   useEffect(() => {
     const onResize = () => setViewportWidth(window.innerWidth)
-    onResize()
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
+
+  /* ── Column layout: [status] [home →] [score] [← away] [star] ── */
+  const statusW = isCompact ? 40 : 52
+  const scoreW = isCompact ? 48 : 56
+  const starW = 36
+  const gridCols = `${statusW}px 1fr ${scoreW}px 1fr ${starW}px`
+
+  const teamNameStyle = {
+    fontSize: isCompact ? 11 : isMobile ? 12 : 13,
+    fontWeight: 600,
+    color: '#dae3ef',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    lineHeight: 1.2,
+  }
 
   return (
     <div
@@ -87,97 +74,82 @@ export default function FixtureRow({ fixture, onClick, even, isFavorite = false,
       role="button"
       tabIndex={0}
       onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onClick?.(e)
-        }
-      }}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(e) } }}
       style={{
         width: '100%',
         display: 'grid',
-        gridTemplateColumns: rowColumns,
+        gridTemplateColumns: gridCols,
         alignItems: 'center',
-        gap: isCompactPhone ? 6 : isMobile ? 8 : 10,
-        padding: isCompactPhone ? '10px 8px' : isMobile ? '10px 10px' : '10px 12px',
-        background: 'var(--sw-surface-0)',
-        border: '1px solid var(--sw-border)',
-        borderLeft: isLive ? '3px solid #f97316' : '1px solid var(--sw-border)',
-        borderRadius: 10,
+        gap: isCompact ? 4 : 8,
+        padding: isCompact ? '9px 8px' : isMobile ? '10px 10px' : '10px 12px',
+        background: isLive ? 'rgba(249,115,22,0.04)' : 'transparent',
+        borderBottom: 'var(--row-separator)',
+        borderLeft: isLive ? '2px solid #f97316' : '2px solid transparent',
         cursor: 'pointer',
-        textAlign: 'left',
-        transition: 'background 0.12s',
+        transition: 'background 0.14s ease',
       }}
-      onMouseEnter={e => {
-        e.currentTarget.style.background = 'var(--sw-surface-1)'
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.background = 'var(--sw-surface-0)'
-      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = isLive ? 'rgba(249,115,22,0.04)' : 'transparent' }}
     >
-      <div className="fixture-row-time" style={{ width: isCompactPhone ? 44 : isMobile ? 52 : 56, flexShrink: 0, textAlign: 'center', justifySelf: 'center' }}>
+
+      {/* Status / Time column */}
+      <div style={{ textAlign: 'center', flexShrink: 0 }}>
         {isLive ? (
-          <div style={{ fontSize: isCompactPhone ? 12 : isMobile ? 13 : 14, fontWeight: 900, color: '#f97316', fontFamily: 'monospace' }}>{statusLabel}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+            <LiveDot />
+            <span style={{ fontSize: isCompact ? 10 : 11, fontWeight: 800, color: '#22c55e', fontFamily: 'monospace', lineHeight: 1 }}>{statusLabel}</span>
+          </div>
         ) : (
-          <span style={{ fontSize: isCompactPhone ? 12 : isMobile ? 13 : 14, fontWeight: 800, color: isFT ? '#22c55e' : '#94a3b8', fontFamily: 'monospace' }}>
+          <span style={{ fontSize: isCompact ? 10.5 : 11.5, fontWeight: isFT ? 700 : 600, color: isFT ? '#22c55e' : '#8fa3bc', fontFamily: 'monospace' }}>
             {statusLabel}
           </span>
         )}
       </div>
 
-      <div style={{ minWidth: 0, display: 'grid', gridTemplateRows: '1fr 1fr', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-          <TeamBadge team={homeTeam} size={isMobile ? 16 : 18} />
-          <span style={{ ...nameStyle(isMobile, 'left'), textAlign: 'left', fontSize: isCompactPhone ? 11.5 : isMobile ? 12 : 13 }}>{homeTeam.name}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-          <TeamBadge team={awayTeam} size={isMobile ? 16 : 18} />
-          <span style={{ ...nameStyle(isMobile, 'left'), textAlign: 'left', fontSize: isCompactPhone ? 11.5 : isMobile ? 12 : 13 }}>{awayTeam.name}</span>
-        </div>
+      {/* Home team — right-aligned (logo right of name) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: isCompact ? 5 : 7, minWidth: 0, overflow: 'hidden' }}>
+        <span style={{ ...teamNameStyle, textAlign: 'right' }}>{homeTeam.name}</span>
+        <TeamLogo team={homeTeam} size={isCompact ? 18 : isMobile ? 20 : 22} />
       </div>
 
-      <div className="fixture-row-score" style={{ textAlign: 'center', minWidth: isCompactPhone ? 30 : isMobile ? 34 : 34 }}>
+      {/* Score */}
+      <div style={{ textAlign: 'center', flexShrink: 0 }}>
         {showScore ? (
-          <div style={{ display: 'grid', gridTemplateRows: '1fr 1fr', gap: 8 }}>
-            <span style={{ fontSize: isCompactPhone ? 16 : isMobile ? 18 : 20, fontWeight: 900, color: '#f8fafc', lineHeight: 1 }}>{homeGoals ?? '-'}</span>
-            <span style={{ fontSize: isCompactPhone ? 16 : isMobile ? 18 : 20, fontWeight: 900, color: '#f8fafc', lineHeight: 1 }}>{awayGoals ?? '-'}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+            <span style={{ fontSize: isCompact ? 14 : isMobile ? 15 : 16, fontWeight: 800, color: '#f0f4f8', minWidth: isCompact ? 14 : 16, textAlign: 'right', lineHeight: 1 }}>{homeGoals ?? '-'}</span>
+            <span style={{ fontSize: isCompact ? 11 : 12, color: '#4d6080', fontWeight: 700, lineHeight: 1 }}>:</span>
+            <span style={{ fontSize: isCompact ? 14 : isMobile ? 15 : 16, fontWeight: 800, color: '#f0f4f8', minWidth: isCompact ? 14 : 16, textAlign: 'left', lineHeight: 1 }}>{awayGoals ?? '-'}</span>
           </div>
         ) : (
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#4b5563' }}>-</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#3d526e' }}>vs</span>
         )}
       </div>
 
+      {/* Away team — left-aligned (logo left of name) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: isCompact ? 5 : 7, minWidth: 0, overflow: 'hidden' }}>
+        <TeamLogo team={awayTeam} size={isCompact ? 18 : isMobile ? 20 : 22} />
+        <span style={{ ...teamNameStyle, textAlign: 'left' }}>{awayTeam.name}</span>
+      </div>
+
+      {/* Favourite star */}
       <button
         className="fixture-row-favorite"
         type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          onToggleFavorite?.(fixture)
-        }}
+        onClick={e => { e.stopPropagation(); onToggleFavorite?.(fixture) }}
         aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
         style={{
-          width: 44,
-          minWidth: 44,
-          maxWidth: 44,
-          height: 44,
-          minHeight: 44,
-          maxHeight: 44,
-          borderRadius: 9999,
-          border: '1px solid var(--sw-border)',
+          width: starW, height: 36, borderRadius: 6,
+          border: '1px solid transparent',
           background: 'transparent',
-          color: isFavorite ? '#f59e0b' : '#64748b',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          fontSize: 16,
-          lineHeight: 1,
-          padding: 0,
-          appearance: 'none',
-          WebkitAppearance: 'none',
+          color: isFavorite ? '#f59e0b' : '#3d526e',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0,
+          transition: 'color 0.15s ease, border-color 0.15s ease',
         }}
+        onMouseEnter={e => { if (!isFavorite) e.currentTarget.style.color = '#94a3b8' }}
+        onMouseLeave={e => { if (!isFavorite) e.currentTarget.style.color = '#3d526e' }}
       >
-        {isFavorite ? '\u2605' : '\u2606'}
+        {isFavorite ? '★' : '☆'}
       </button>
     </div>
   )

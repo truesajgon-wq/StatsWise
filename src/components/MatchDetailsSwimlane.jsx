@@ -91,6 +91,7 @@ export default function MatchDetailsSwimlane({
   initialStatKey,
 }) {
   const [range, setRange] = useState('L10')
+  const [venueFilter, setVenueFilter] = useState('all')
   const resolvedInitialStatKey = resolveInitialStatKey(initialStatKey)
   const [statKey, setStatKey] = useState(
     resolvedInitialStatKey || MATCH_PROP_STAT_OPTIONS[0].key
@@ -102,25 +103,35 @@ export default function MatchDetailsSwimlane({
     setStatKey(resolvedInitialStatKey)
   }, [resolvedInitialStatKey])
 
+  const filteredHomeHistory = useMemo(() => {
+    if (venueFilter === 'venue') return homeHistory.filter(match => match?.isHome)
+    return homeHistory
+  }, [homeHistory, venueFilter])
+
+  const filteredAwayHistory = useMemo(() => {
+    if (venueFilter === 'venue') return awayHistory.filter(match => !match?.isHome)
+    return awayHistory
+  }, [awayHistory, venueFilter])
+
   const homeTeamId = Number(fixture?.homeTeam?.id || fixture?.homeTeamId || 0)
   const awayTeamId = Number(fixture?.awayTeam?.id || fixture?.awayTeamId || 0)
 
   const homeH2H = useMemo(
-    () => (h2h?.length ? h2h : homeHistory.filter(m => Number(m?.opponentId) === awayTeamId)).slice(0, 15),
-    [h2h, homeHistory, awayTeamId]
+    () => (h2h?.length ? h2h : filteredHomeHistory.filter(m => Number(m?.opponentId) === awayTeamId)).slice(0, 15),
+    [h2h, filteredHomeHistory, awayTeamId]
   )
   const awayH2H = useMemo(
     () => (
       h2h?.length
         ? h2h.map(m => flipPerspective(m, fixture?.homeTeam))
-        : awayHistory.filter(m => Number(m?.opponentId) === homeTeamId)
+        : filteredAwayHistory.filter(m => Number(m?.opponentId) === homeTeamId)
     ).slice(0, 15),
-    [h2h, awayHistory, homeTeamId, fixture?.homeTeam]
+    [h2h, filteredAwayHistory, homeTeamId, fixture?.homeTeam]
   )
 
   const { left, right, maxScale, statDef } = useMatchPropAnalysisData({
-    leftHistory: homeHistory,
-    rightHistory: awayHistory,
+    leftHistory: filteredHomeHistory,
+    rightHistory: filteredAwayHistory,
     leftH2H: homeH2H,
     rightH2H: awayH2H,
     statKey,
@@ -170,39 +181,66 @@ export default function MatchDetailsSwimlane({
   const leftRows = decorate(left, fixture?.homeTeam?.name || 'Home')
   const rightRows = decorate(right, fixture?.awayTeam?.name || 'Away')
 
-  if (!homeHistory?.length && !awayHistory?.length) {
+  if (!filteredHomeHistory?.length && !filteredAwayHistory?.length) {
     return (
       <div style={{ padding: '24px 16px', color: '#7284aa', textAlign: 'center' }}>
-        Historical fixtures are still loading.
+        No historical fixtures available for this filter yet.
       </div>
     )
   }
 
   return (
-    <MatchPropAnalysis
-      title="Match Prop Analysis"
-      statOptions={MATCH_PROP_STAT_OPTIONS}
-      statKey={statKey}
-      onStatChange={(key) => setStatKey(key)}
-      range={range}
-      onRangeChange={(next) => {
-        setRange(next)
-      }}
-      altLine={currentAlt}
-      onAltChange={(next) => {
-        setAltByStat(prev => ({ ...prev, [statKey]: normalizeAlt(next) }))
-        setUserAdjustedAltByStat(prev => ({ ...prev, [statKey]: true }))
-      }}
-      hitRate={hitRate}
-      leftTeam={fixture?.homeTeam}
-      rightTeam={fixture?.awayTeam}
-      leftTitle={`${fixture?.homeTeam?.name || 'Home'} Prop Analysis`}
-      rightTitle={`${fixture?.awayTeam?.name || 'Away'} Prop Analysis`}
-      leftDataset={leftRows}
-      rightDataset={rightRows}
-      maxScale={Math.max(maxScale, currentAlt + 1)}
-      upcomingLabel={fixture?.date ? new Date(fixture.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }) : 'Upcoming'}
-      mobileControlsMode="inline"
-    />
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '10px 12px 0', flexWrap: 'wrap' }}>
+        {[
+          { key: 'all', label: 'All' },
+          { key: 'venue', label: 'Home / Away' },
+        ].map(option => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => setVenueFilter(option.key)}
+            style={{
+              minHeight: 34,
+              padding: '0 12px',
+              borderRadius: 999,
+              border: `1px solid ${venueFilter === option.key ? 'rgba(249,115,22,0.45)' : 'rgba(255,255,255,0.08)'}`,
+              background: venueFilter === option.key ? 'rgba(249,115,22,0.12)' : 'rgba(255,255,255,0.02)',
+              color: venueFilter === option.key ? '#ffb36b' : '#94a3b8',
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <MatchPropAnalysis
+        title="Match Prop Analysis"
+        statOptions={MATCH_PROP_STAT_OPTIONS}
+        statKey={statKey}
+        onStatChange={(key) => setStatKey(key)}
+        range={range}
+        onRangeChange={(next) => {
+          setRange(next)
+        }}
+        altLine={currentAlt}
+        onAltChange={(next) => {
+          setAltByStat(prev => ({ ...prev, [statKey]: normalizeAlt(next) }))
+          setUserAdjustedAltByStat(prev => ({ ...prev, [statKey]: true }))
+        }}
+        hitRate={hitRate}
+        leftTeam={fixture?.homeTeam}
+        rightTeam={fixture?.awayTeam}
+        leftTitle={`${fixture?.homeTeam?.name || 'Home'} Prop Analysis`}
+        rightTitle={`${fixture?.awayTeam?.name || 'Away'} Prop Analysis`}
+        leftDataset={leftRows}
+        rightDataset={rightRows}
+        maxScale={Math.max(maxScale, currentAlt + 1)}
+        upcomingLabel={fixture?.date ? new Date(fixture.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }) : 'Upcoming'}
+        mobileControlsMode="inline"
+      />
+    </div>
   )
 }

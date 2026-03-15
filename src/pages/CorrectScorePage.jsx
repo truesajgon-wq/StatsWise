@@ -1,186 +1,60 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLang } from '../context/LangContext.jsx'
 import { predictScores } from '../data/correctScoreEngine.js'
+import { getAppToday } from '../utils/appDate.js'
+
+const RC = { H: '#d1d5db', D: '#f59e0b', A: '#a78bfa' }
+const RL = { H: 'Home Win', D: 'Draw', A: 'Away Win' }
 
 function TeamBadge({ team, size = 18 }) {
   const name = team?.name || '?'
-  const color = team?.color || '#f97316'
   const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-
-  if (!team?.logo) {
+  if (team?.logo) {
     return (
-      <div
-        style={{
-          width: size,
-          height: size,
-          borderRadius: '50%',
-          background: `${color}28`,
-          border: `2px solid ${color}60`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: Math.round(size * 0.34),
-          fontWeight: 900,
-          color,
-          flexShrink: 0,
-          letterSpacing: -0.5,
-          userSelect: 'none',
-        }}
-      >
-        {initials}
-      </div>
+      <img
+        src={team.logo} alt={name} width={size} height={size}
+        style={{ objectFit: 'contain', flexShrink: 0, display: 'block' }}
+        onError={e => { e.target.style.display = 'none' }}
+      />
     )
   }
-
   return (
-    <img
-      src={team.logo}
-      alt={name}
-      width={size}
-      height={size}
-      style={{ objectFit: 'contain', flexShrink: 0, display: 'block' }}
-    />
-  )
-}
-
-function ResultPill({ label, prob, color, bg }) {
-  return (
-    <div style={{ minWidth: 0, textAlign: 'center', padding: '12px 10px', borderRadius: 12, background: bg, border: `1px solid ${color}30`, minHeight: 88, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ fontSize: 20, fontWeight: 900, color }}>{prob}%</div>
-      <div style={{ fontSize: 11, color: 'var(--sw-muted)', marginTop: 2, overflowWrap: 'anywhere', lineHeight: 1.35 }}>{label}</div>
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.28)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: Math.round(size * 0.36), fontWeight: 900, color: '#f97316',
+      flexShrink: 0, letterSpacing: -0.5, userSelect: 'none',
+    }}>
+      {initials}
     </div>
   )
 }
 
-function ScoreGrid({ scores }) {
-  const top3 = scores.slice(0, 3)
-  const rest = scores.slice(3)
-  const colors = { H: '#d1d5db', D: '#f59e0b', A: '#a78bfa' }
-  const scoreFontSize = 18
-  const probFontSize = 12
-
+function SkeletonPill({ width }) {
   return (
-    <div>
-      <div className="cs-score-grid-top" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, marginBottom: 12 }}>
-        {top3.map((s, i) => {
-          const color = colors[s.result]
-          return (
-            <div key={s.score} style={{ minHeight: 124, padding: '14px 12px', borderRadius: 12, background: i === 0 ? `${color}18` : 'var(--sw-surface-0)', border: `${i === 0 ? 2 : 1}px solid ${i === 0 ? color : 'var(--sw-border)'}`, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-              {i === 0 ? (
-                <div style={{ position: 'absolute', top: 14, left: 0, right: 0, fontSize: 10, color, fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center' }}>
-                  Favorite
-                </div>
-              ) : null}
-              <div style={{ fontSize: scoreFontSize, fontWeight: 900, color: i === 0 ? color : '#9ca3af', fontFamily: 'monospace', lineHeight: 1, textAlign: 'center' }}>{s.score}</div>
-              <div style={{ fontSize: probFontSize, fontWeight: 800, color: i === 0 ? color : 'var(--sw-muted)', marginTop: 10, lineHeight: 1, textAlign: 'center' }}>{s.probability.toFixed(1)}%</div>
-            </div>
-          )
-        })}
-      </div>
-
-      {rest.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(108px, 1fr))', gap: 10 }}>
-          {rest.map(s => (
-            <div key={s.score} style={{ minHeight: 96, padding: '10px 8px', borderRadius: 10, background: 'var(--sw-surface-0)', border: '1px solid var(--sw-border)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ fontSize: scoreFontSize, fontWeight: 900, color: '#9ca3af', fontFamily: 'monospace', lineHeight: 1, textAlign: 'center' }}>{s.score}</div>
-              <div style={{ fontSize: probFontSize, fontWeight: 800, color: colors[s.result], marginTop: 10, lineHeight: 1, textAlign: 'center' }}>{s.probability.toFixed(1)}%</div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function FixtureCard({ fixture, onClick, selected, topProb }) {
-  const { homeTeam, awayTeam, league, time, isLive, elapsed, homeGoals, awayGoals, status } = fixture
-  const statusLabel = isLive ? `${elapsed || ''}'` : status === 'FT' ? 'FT' : (time || 'NS')
-  const statusTone = isLive
-    ? { color: '#f97316', background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.32)' }
-    : status === 'FT'
-      ? { color: '#22c55e', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.32)' }
-      : { color: '#94a3b8', background: 'rgba(148,163,184,0.10)', border: '1px solid rgba(148,163,184,0.22)' }
-  return (
-    <button onClick={() => onClick(fixture)} style={{ width: '100%', padding: '12px 14px', background: selected ? 'rgba(255,122,0,0.12)' : 'var(--sw-surface-0)', border: `1px solid ${selected ? 'var(--sw-accent)' : 'var(--sw-border)'}`, borderRadius: 14, cursor: 'pointer', textAlign: 'left' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10, gap: 8 }}>
-        <span style={{ fontSize: 10, color: 'var(--sw-muted)', fontWeight: 700, lineHeight: 1.3 }}>
-          {league?.name}{time ? ` • ${time}` : ''}
-        </span>
-        <span style={{ fontSize: 10, fontWeight: 800, color: '#22c55e', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 999, padding: '2px 6px', flexShrink: 0 }}>
-          Top {topProb.toFixed(1)}%
-        </span>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25 }}>{homeTeam?.name}</span>
-        <div style={{ display: 'grid', gridTemplateRows: 'auto auto', gap: 5, justifyItems: 'center', minWidth: 58 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 22, fontSize: 10, fontWeight: 800, borderRadius: 999, padding: '2px 8px', ...statusTone }}>
-            {statusLabel}
-          </span>
-          {(isLive || status === 'FT') ? (
-            <span style={{ fontSize: 13, fontWeight: 900, color: isLive ? '#ef4444' : '#22c55e', fontFamily: 'monospace', flexShrink: 0 }}>{homeGoals}-{awayGoals}</span>
-          ) : (
-            <span style={{ fontSize: 11, color: '#64748b', flexShrink: 0, minWidth: 18, textAlign: 'center' }}>vs</span>
-          )}
-        </div>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, textAlign: 'right' }}>{awayTeam?.name}</span>
-      </div>
-    </button>
-  )
-}
-
-function CorrectScoreDetailsModal({ fixture, prediction, onClose, onOpenMatch }) {
-  if (!fixture || !prediction) return null
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 140, background: 'rgba(2,6,23,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: 'min(920px, 100%)', maxHeight: '92vh', overflowY: 'auto', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', boxShadow: '0 20px 60px rgba(2,6,23,0.7)' }}>
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--sw-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Correct Score Insights</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <button onClick={() => onOpenMatch?.(fixture)} style={{ minHeight: 44, padding: '0 10px', borderRadius: 8, border: '1px solid rgba(209,213,219,0.4)', background: 'rgba(209,213,219,0.12)', color: '#e5e7eb', cursor: 'pointer' }}>Open Match Details</button>
-            <button onClick={onClose} style={{ minHeight: 44, padding: '0 10px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#94a3b8', cursor: 'pointer' }}>Close</button>
-          </div>
-        </div>
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ padding: '14px 16px', background: 'var(--sw-surface-1)', borderRadius: 10, border: '1px solid var(--sw-border)' }}>
-            <div style={{ fontSize: 11, color: 'var(--sw-muted)', marginBottom: 8 }}>{fixture.league?.name} - {fixture.time}</div>
-            <div style={{ fontSize: 16, fontWeight: 900, color: '#f1f5f9' }}>{fixture.homeTeam?.name} vs {fixture.awayTeam?.name}</div>
-          </div>
-          <div className="cs-outcome-row" style={{ display: 'flex', gap: 10 }}>
-            <ResultPill label={fixture.homeTeam?.name?.split(' ')[0]} prob={prediction.homeWinProb} color="#d1d5db" bg="rgba(209,213,219,0.08)" />
-            <ResultPill label="Draw" prob={prediction.drawProb} color="#f59e0b" bg="rgba(245,158,11,0.08)" />
-            <ResultPill label={fixture.awayTeam?.name?.split(' ')[0]} prob={prediction.awayWinProb} color="#a78bfa" bg="rgba(167,139,250,0.08)" />
-          </div>
-          <div style={{ padding: '16px', background: 'var(--sw-surface-1)', borderRadius: 12, border: '1px solid var(--sw-border)' }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: '#f1f5f9', marginBottom: 10 }}>Top Correct Score Projections</div>
-            <ScoreGrid scores={prediction.scores} />
-          </div>
-        </div>
-      </div>
-    </div>
+    <div style={{
+      width, height: 42, borderRadius: 999, flexShrink: 0,
+      background: 'linear-gradient(90deg,#181a1f 25%,#1f2229 50%,#181a1f 75%)',
+      backgroundSize: '300% 100%',
+      animation: 'cs-shimmer 1.5s infinite linear',
+    }} />
   )
 }
 
 export default function CorrectScorePage({ fixtures = [], loading, searchQuery, onSearchChange }) {
   const { t } = useLang()
   const navigate = useNavigate()
+  const today = getAppToday()
+
   const [selected, setSelected] = useState(null)
-  const [modalFixture, setModalFixture] = useState(null)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
   const [internalSearch, setInternalSearch] = useState('')
   const useExternalSearch = typeof searchQuery === 'string' && typeof onSearchChange === 'function'
   const search = useExternalSearch ? searchQuery : internalSearch
   const setSearchValue = useExternalSearch ? onSearchChange : setInternalSearch
-
-  const tx = {
-    search: 'Search team / league...',
-    loading: 'Loading...',
-    noResults: 'No results',
-    noMatches: 'No matches for this day',
-    pick: 'Select a match to see prediction',
-    projections: 'Score Projections',
-    draw: 'Draw',
-    analysisBase: 'Analysis base',
-  }
 
   const filteredFixtures = useMemo(() => {
     if (!search.trim()) return fixtures
@@ -195,219 +69,442 @@ export default function CorrectScorePage({ fixtures = [], loading, searchQuery, 
   const rankedFixtures = useMemo(() => {
     return filteredFixtures
       .map(f => {
-        const p = predictScores(f.homeHistory || [], f.awayHistory || [], f.h2h || [])
+        const p = predictScores(f.homeHistory || [], f.awayHistory || [], f.h2h || [], today)
         const top = p?.scores?.[0]?.probability ?? 0
         return { fixture: f, prediction: p, topProb: top }
       })
       .sort((a, b) => b.topProb - a.topProb)
   }, [filteredFixtures])
 
-  const topRankedFixtures = useMemo(() => rankedFixtures.slice(0, 10), [rankedFixtures])
-
+  // Show all ranked fixtures in the pill rail — no artificial 10-cap
   const selectedPrediction = useMemo(() => {
     if (!selected) return null
-    return topRankedFixtures.find(x => x.fixture.id === selected.id)?.prediction
-      || predictScores(selected.homeHistory || [], selected.awayHistory || [], selected.h2h || [])
-  }, [selected, topRankedFixtures])
-
-  const modalPrediction = useMemo(() => {
-    if (!modalFixture) return null
-    return topRankedFixtures.find(x => x.fixture.id === modalFixture.id)?.prediction
-      || predictScores(modalFixture.homeHistory || [], modalFixture.awayHistory || [], modalFixture.h2h || [])
-  }, [modalFixture, topRankedFixtures])
+    return rankedFixtures.find(x => x.fixture.id === selected.id)?.prediction
+      || predictScores(selected.homeHistory || [], selected.awayHistory || [], selected.h2h || [], today)
+  }, [selected, rankedFixtures])
 
   useEffect(() => {
-    if (!topRankedFixtures.length) {
+    if (!rankedFixtures.length) {
       if (selected) setSelected(null)
-      if (modalFixture) setModalFixture(null)
       return
     }
-    const stillVisible = selected && topRankedFixtures.some(x => x.fixture.id === selected.id)
-    if (!stillVisible) setSelected(topRankedFixtures[0].fixture)
+    const stillVisible = selected && rankedFixtures.some(x => x.fixture.id === selected.id)
+    if (!stillVisible) setSelected(rankedFixtures[0].fixture)
+  }, [rankedFixtures, selected])
 
-    const modalStillVisible = modalFixture && topRankedFixtures.some(x => x.fixture.id === modalFixture.id)
-    if (modalFixture && !modalStillVisible) setModalFixture(null)
-  }, [topRankedFixtures, selected, modalFixture])
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!dropdownOpen) return
+    function handleClick(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [dropdownOpen])
+
+  const topScore    = selectedPrediction?.scores?.[0]
+  const topColor    = topScore ? RC[topScore.result] : '#f97316'
+  const restScores  = selectedPrediction?.scores?.slice(1) || []
+  const maxProb     = topScore?.probability || 1
 
   return (
-    <div className="cs-root" style={{ display: 'flex', gap: 16, height: '100%', minHeight: 0, padding: 16, alignItems: 'stretch' }}>
+    <div style={{ minHeight: '100%', padding: '20px 16px 40px', boxSizing: 'border-box', fontFamily: 'system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
       <style>{`
-        .cs-panel {
-          border: 1px solid var(--sw-border);
-          border-radius: 18px;
-          background: linear-gradient(180deg, rgba(24,25,28,0.96), rgba(17,18,20,0.98));
+        @keyframes cs-shimmer {
+          0%   { background-position: 100% 0 }
+          100% { background-position: -200% 0 }
+        }
+        .cs-sel-trigger {
+          width: 100%; display: flex; align-items: center; gap: 10px;
+          padding: 11px 14px; border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.09);
+          background: #111318; cursor: pointer;
+          transition: border-color 0.14s, background 0.14s;
+          text-align: left; min-height: 48px;
+        }
+        .cs-sel-trigger:hover { border-color: rgba(249,115,22,0.4); background: rgba(249,115,22,0.06); }
+        .cs-sel-trigger.open  { border-color: rgba(249,115,22,0.55); background: rgba(249,115,22,0.08); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+
+        .cs-dropdown-panel {
+          position: absolute; left: 0; right: 0; top: 100%;
+          background: #13151b;
+          border: 1px solid rgba(249,115,22,0.4);
+          border-top: none;
+          border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;
+          max-height: 380px; overflow-y: auto;
+          z-index: 50;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255,255,255,0.08) transparent;
+        }
+        .cs-dropdown-panel::-webkit-scrollbar { width: 4px; }
+        .cs-dropdown-panel::-webkit-scrollbar-track { background: transparent; }
+        .cs-dropdown-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+
+        .cs-drop-row {
+          width: 100%; display: flex; align-items: center; gap: 10px;
+          padding: 10px 14px; border: none; border-bottom: 1px solid rgba(255,255,255,0.04);
+          background: transparent; cursor: pointer; text-align: left;
+          transition: background 0.12s;
+        }
+        .cs-drop-row:last-child { border-bottom: none; }
+        .cs-drop-row:hover { background: rgba(249,115,22,0.07); }
+        .cs-drop-row.active { background: rgba(249,115,22,0.11); }
+
+        .cs-score-card {
+          background: #0f1117; border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 13px; padding: 14px 13px 12px;
+          position: relative; overflow: hidden;
+          transition: border-color 0.14s, transform 0.14s;
+          cursor: default;
+        }
+        .cs-score-card:hover { border-color: rgba(255,255,255,0.13); transform: translateY(-1px); }
+
+        .cs-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0,1fr));
+          gap: 9px;
+        }
+        @media (max-width: 560px) {
+          .cs-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
         }
 
-        .cs-stack {
-          display: flex;
-          flex-direction: column;
-          gap: 18px;
+        .cs-outcome-row {
+          display: flex; gap: 9px;
         }
-
-        @media (max-width: 980px) {
-          .cs-root { flex-direction: column !important; height: auto !important; padding: 12px !important; gap: 12px !important; }
-          .cs-left { width: 100% !important; max-height: none !important; }
-          .cs-right { width: 100% !important; padding: 0 !important; overflow: visible !important; }
-          .cs-right-inner { width: 100% !important; max-width: 100% !important; }
-          .cs-stack { gap: 12px !important; }
-          .cs-summary-grid { grid-template-columns: 1fr !important; }
-          .cs-action-row { flex-direction: column !important; }
-          .cs-action-row > button { width: 100%; }
-          .cs-selected-row { grid-template-columns: 1fr !important; }
-          .cs-selected-score { justify-self: start !important; }
-        }
-        @media (max-width: 620px) {
-          .cs-root { padding: 10px !important; }
-          .cs-left-header,
-          .cs-detail-card,
-          .cs-score-panel,
-          .cs-note-card,
-          .cs-select-card { padding-left: 12px !important; padding-right: 12px !important; }
-          .cs-outcome-row { flex-direction: column !important; }
-          .cs-score-grid-top { grid-template-columns: 1fr !important; }
-          .cs-score-panel { padding: 14px !important; }
+        @media (max-width: 440px) {
+          .cs-outcome-row { gap: 7px; }
         }
       `}</style>
 
-      <div className="cs-left cs-panel" style={{ width: 340, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-        <div className="cs-left-header" style={{ padding: '14px', borderBottom: '1px solid var(--sw-border)' }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: '#f1f5f9', marginBottom: 8 }}>{'\u{1F3AF}'} {t('correct_score')}</div>
-          {!useExternalSearch && <div style={{ position: 'relative' }}>
-            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--sw-muted)' }}>{'\u{1F50D}'}</span>
-            <input value={search} onChange={e => setSearchValue(e.target.value)} placeholder={tx.search} style={{ width: '100%', padding: '8px 10px 8px 30px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-bg)', color: '#f1f5f9', fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
-          </div>}
+      <div>
+
+        {/* ── Page header ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#374151', letterSpacing: '0.12em', marginBottom: 3 }}>STATSWISE</div>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.25px' }}>
+              {t('correct_score')}
+            </h2>
+          </div>
+          {!useExternalSearch && (
+            <input
+              value={search}
+              onChange={e => setSearchValue(e.target.value)}
+              placeholder="Search team or league…"
+              style={{
+                padding: '8px 12px', borderRadius: 10,
+                border: '1px solid rgba(255,255,255,0.07)',
+                background: '#111318', color: '#f1f5f9',
+                fontSize: 12, outline: 'none', width: 200,
+              }}
+            />
+          )}
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          {loading && <div style={{ color: '#d1d5db', fontSize: 13, padding: '20px', textAlign: 'center' }}>{tx.loading}</div>}
-          <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {!loading && filteredFixtures.length === 0 && (
-              <div style={{ color: 'var(--sw-muted)', fontSize: 13, padding: '40px 20px', textAlign: 'center' }}>{search ? tx.noResults : tx.noMatches}</div>
-            )}
-            {!loading && filteredFixtures.length > 10 && (
-              <div style={{ color: 'var(--sw-muted)', fontSize: 11, padding: '0 4px 4px', textAlign: 'center' }}>
-                Showing top 10 fixtures by highest correct score probability
-              </div>
-            )}
-            {topRankedFixtures.map(({ fixture: f, topProb }) => (
-              <FixtureCard
-                key={f.id}
-                fixture={f}
-                onClick={(fixture) => { setSelected(fixture) }}
-                selected={selected?.id === f.id}
-                topProb={topProb}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="cs-right" style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minWidth: 0 }}>
-        {!selected && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--sw-muted)', paddingTop: 80 }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>{'\u{1F4CA}'}</div>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>{tx.pick}</div>
-          </div>
-        )}
-
-        {selected && selectedPrediction && (
-          <div className="cs-right-inner cs-stack" style={{ width: 'min(100%, 980px)', margin: '0 auto' }}>
-            <div className="cs-select-card cs-panel" style={{ padding: '12px 14px' }}>
-              <div style={{ fontSize: 11, color: 'var(--sw-muted)', marginBottom: 6, fontWeight: 700 }}>Select fixture (top 10 highest-probability matches)</div>
-              <select
-                value={selected?.id != null ? String(selected.id) : ''}
-                onChange={e => {
-                  const id = e.target.value
-                  const found = rankedFixtures.find(x => String(x.fixture.id) === id)?.fixture
-                  if (found) setSelected(found)
-                }}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-bg)', color: '#f1f5f9', fontSize: 12, outline: 'none' }}
+        {/* ── Fixture selector dropdown ── */}
+        <div ref={dropdownRef} style={{ position: 'relative', marginBottom: 18 }}>
+          {loading ? (
+            <div style={{ height: 48, borderRadius: 12, background: 'linear-gradient(90deg,#181a1f 25%,#1f2229 50%,#181a1f 75%)', backgroundSize: '300% 100%', animation: 'cs-shimmer 1.5s infinite linear' }} />
+          ) : (
+            <>
+              {/* Trigger button — shows selected fixture */}
+              <button
+                type="button"
+                className={`cs-sel-trigger${dropdownOpen ? ' open' : ''}`}
+                onClick={() => setDropdownOpen(v => !v)}
+                disabled={rankedFixtures.length === 0}
               >
-                {rankedFixtures.map(({ fixture: f, topProb }) => (
-                  <option key={f.id} value={String(f.id)}>
-                    {f.homeTeam?.name} vs {f.awayTeam?.name} - Top {topProb.toFixed(1)}%
-                  </option>
-                ))}
-              </select>
+                {selected ? (
+                  <>
+                    <TeamBadge team={selected.homeTeam} size={18} />
+                    <span style={{ fontSize: 13, fontWeight: 800, color: '#f1f5f9', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {selected.homeTeam?.name} <span style={{ color: '#374151', fontWeight: 500 }}>vs</span> {selected.awayTeam?.name}
+                    </span>
+                    <TeamBadge team={selected.awayTeam} size={18} />
+                    {topScore && (
+                      <span style={{ fontSize: 11, fontWeight: 800, color: topColor, background: `${topColor}14`, border: `1px solid ${topColor}30`, borderRadius: 999, padding: '2px 9px', flexShrink: 0, fontFamily: 'monospace' }}>
+                        {topScore.score} · {topScore.probability.toFixed(1)}%
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span style={{ fontSize: 13, color: '#4b5563' }}>Select a fixture…</span>
+                )}
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, marginLeft: 2, transition: 'transform 0.18s', transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                  <path d="M3 5l4 4 4-4" stroke="#4b5563" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+
+              {/* Dropdown panel — all ranked fixtures */}
+              {dropdownOpen && rankedFixtures.length > 0 && (
+                <div className="cs-dropdown-panel">
+                  {rankedFixtures.map(({ fixture: f, prediction: p, topProb }, idx) => {
+                    const ts = p?.scores?.[0]
+                    const tc = ts ? RC[ts.result] : '#94a3b8'
+                    const isActive = selected?.id === f.id
+                    return (
+                      <button
+                        key={f.id}
+                        type="button"
+                        className={`cs-drop-row${isActive ? ' active' : ''}`}
+                        onClick={() => { setSelected(f); setDropdownOpen(false) }}
+                      >
+                        {/* Rank */}
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#374151', minWidth: 18, textAlign: 'right', flexShrink: 0 }}>
+                          {idx + 1}
+                        </span>
+                        {/* Logos */}
+                        <TeamBadge team={f.homeTeam} size={16} />
+                        {/* Teams */}
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: isActive ? '#f1f5f9' : '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {f.homeTeam?.name} <span style={{ color: '#374151', fontWeight: 400 }}>vs</span> {f.awayTeam?.name}
+                        </span>
+                        <TeamBadge team={f.awayTeam} size={16} />
+                        {/* League + time */}
+                        <span style={{ fontSize: 10, color: '#374151', flexShrink: 0, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {f.league?.name}
+                        </span>
+                        {/* Top predicted score */}
+                        {ts && (
+                          <span style={{ fontSize: 11, fontWeight: 900, color: tc, background: `${tc}12`, border: `1px solid ${tc}28`, borderRadius: 7, padding: '2px 8px', fontFamily: 'monospace', flexShrink: 0 }}>
+                            {ts.score}
+                          </span>
+                        )}
+                        {/* Top probability */}
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#22c55e', flexShrink: 0, minWidth: 38, textAlign: 'right' }}>
+                          {topProb.toFixed(1)}%
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* ── Empty state ── */}
+        {!loading && rankedFixtures.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '80px 20px', color: '#374151' }}>
+            <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.35 }}>⚽</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#4b5563', marginBottom: 6 }}>No fixtures found</div>
+            <div style={{ fontSize: 12 }}>{search ? 'Try a different search.' : 'No matches loaded for today.'}</div>
+          </div>
+        )}
+
+        {/* ── Prediction card ── */}
+        {selected && selectedPrediction && topScore && (
+          <div style={{ background: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 18, overflow: 'hidden' }}>
+
+            {/* Match bar */}
+            <div style={{
+              padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: 10, flexWrap: 'wrap',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flexWrap: 'wrap' }}>
+                <TeamBadge team={selected.homeTeam} size={20} />
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#f1f5f9', overflowWrap: 'anywhere' }}>
+                  {selected.homeTeam?.name}
+                </span>
+                <span style={{ fontSize: 10, color: '#374151', fontWeight: 600, padding: '2px 8px', background: 'rgba(255,255,255,0.04)', borderRadius: 6 }}>
+                  vs
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#f1f5f9', overflowWrap: 'anywhere' }}>
+                  {selected.awayTeam?.name}
+                </span>
+                <TeamBadge team={selected.awayTeam} size={20} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                <span style={{ fontSize: 11, color: '#4b5563', fontWeight: 600 }}>
+                  {selected.league?.name}{selected.time ? ` · ${selected.time}` : ''}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/match/${selected.id}?stat=correctScore`)}
+                  style={{
+                    padding: '6px 11px', borderRadius: 8,
+                    border: '1px solid rgba(209,213,219,0.22)',
+                    background: 'rgba(209,213,219,0.07)',
+                    color: '#94a3b8', fontSize: 11, fontWeight: 700,
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}
+                >
+                  Match Details ↗
+                </button>
+              </div>
             </div>
 
-            <div className="cs-detail-card cs-panel" style={{ padding: '16px 20px' }}>
-              <div style={{ fontSize: 11, color: 'var(--sw-muted)', marginBottom: 10, minWidth: 0 }}>{selected.league?.name}{selected.time ? ` • ${selected.time}` : ''}</div>
-              <div className="cs-selected-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: 16 }}>
-                <div style={{ minWidth: 0, display: 'grid', gridTemplateRows: '1fr 1fr', gap: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <TeamBadge team={selected.homeTeam} size={20} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.2, textAlign: 'left' }}>{selected.homeTeam?.name}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <TeamBadge team={selected.awayTeam} size={20} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', minWidth: 0, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.2, textAlign: 'left' }}>{selected.awayTeam?.name}</span>
-                  </div>
-                </div>
-                <div style={{ textAlign: 'center', minWidth: 58, justifySelf: 'end', display: 'grid', gridTemplateRows: 'auto auto', gap: 8, justifyItems: 'center' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 24, padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 800, color: selected.status === 'FT' ? '#22c55e' : selected.isLive ? '#f97316' : '#94a3b8', background: selected.status === 'FT' ? 'rgba(34,197,94,0.12)' : selected.isLive ? 'rgba(249,115,22,0.12)' : 'rgba(148,163,184,0.10)', border: selected.status === 'FT' ? '1px solid rgba(34,197,94,0.32)' : selected.isLive ? '1px solid rgba(249,115,22,0.32)' : '1px solid rgba(148,163,184,0.22)' }}>
-                    {selected.isLive ? `${selected.elapsed || ''}'` : selected.status === 'FT' ? 'FT' : (selected.time || 'NS')}
+            {/* ── HERO ── */}
+            <div style={{
+              position: 'relative', textAlign: 'center',
+              padding: '44px 24px 36px',
+              background: `radial-gradient(ellipse 55% 55% at 50% 100%, ${topColor}0e 0%, transparent 72%)`,
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+            }}>
+              {/* Result label */}
+              <div style={{
+                fontSize: 10, fontWeight: 800, color: topColor, letterSpacing: '0.14em',
+                marginBottom: 12, opacity: 0.75,
+              }}>
+                {RL[topScore.result]?.toUpperCase()} · TOP PICK
+              </div>
+
+              {/* Big scoreline */}
+              <div style={{
+                fontSize: 'clamp(72px, 15vw, 128px)',
+                fontWeight: 700, lineHeight: 1,
+                fontFamily: '"Courier New", Courier, monospace',
+                letterSpacing: '-2px', color: topColor,
+                textShadow: `0 0 80px ${topColor}28, 0 0 30px ${topColor}18`,
+              }}>
+                {topScore.score}
+              </div>
+
+              {/* Probability */}
+              <div style={{ marginTop: 16, display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 7 }}>
+                <span style={{
+                  fontSize: 30, fontWeight: 900, color: topColor,
+                  fontFamily: '"Courier New", Courier, monospace', lineHeight: 1,
+                }}>
+                  {topScore.probability.toFixed(1)}%
+                </span>
+                <span style={{ fontSize: 12, color: '#4b5563', fontWeight: 600 }}>probability</span>
+              </div>
+
+              {/* H2H badge */}
+              {topScore.historicalHits > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <span style={{
+                    fontSize: 11, fontWeight: 800, color: '#f59e0b',
+                    background: 'rgba(245,158,11,0.1)',
+                    border: '1px solid rgba(245,158,11,0.25)',
+                    borderRadius: 999, padding: '4px 12px',
+                  }}>
+                    ⬤ {topScore.historicalHits}× in H2H / history
                   </span>
-                  {(selected.isLive || selected.status === 'FT') ? (
-                    <div style={{ display: 'grid', gridTemplateRows: '1fr 1fr', gap: 10 }}>
-                      <span style={{ fontSize: 20, fontWeight: 900, color: '#f8fafc', lineHeight: 1 }}>{selected.homeGoals ?? '-'}</span>
-                      <span style={{ fontSize: 20, fontWeight: 900, color: '#f8fafc', lineHeight: 1 }}>{selected.awayGoals ?? '-'}</span>
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '20px 18px 22px' }}>
+
+              {/* ── Outcome split ── */}
+              <div className="cs-outcome-row" style={{ marginBottom: 20 }}>
+                {[
+                  { label: selected.homeTeam?.name?.split(' ')[0] || 'Home', prob: selectedPrediction.homeWinProb, color: '#d1d5db', border: 'rgba(209,213,219,0.18)', bg: 'rgba(209,213,219,0.05)' },
+                  { label: 'Draw',                                             prob: selectedPrediction.drawProb,    color: '#f59e0b', border: 'rgba(245,158,11,0.22)',  bg: 'rgba(245,158,11,0.05)'  },
+                  { label: selected.awayTeam?.name?.split(' ')[0] || 'Away',  prob: selectedPrediction.awayWinProb, color: '#a78bfa', border: 'rgba(167,139,250,0.22)', bg: 'rgba(167,139,250,0.05)' },
+                ].map(({ label, prob, color, border, bg }) => (
+                  <div
+                    key={label}
+                    style={{
+                      flex: 1, minWidth: 0, textAlign: 'center',
+                      padding: '14px 10px', borderRadius: 13,
+                      background: bg, border: `1px solid ${border}`,
+                    }}
+                  >
+                    <div style={{
+                      fontSize: 'clamp(18px,4vw,26px)', fontWeight: 900, color,
+                      fontFamily: '"Courier New", Courier, monospace', lineHeight: 1,
+                    }}>
+                      {prob}%
                     </div>
-                  ) : null}
-                </div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 5, overflowWrap: 'anywhere', lineHeight: 1.3 }}>
+                      {label}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div style={{ marginTop: 10 }}>
-                <div className="cs-action-row" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => setModalFixture(selected)}
-                    style={{ minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid var(--sw-border-strong)', background: 'rgba(255,122,0,0.12)', color: '#f5f5f5', fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    Quick View
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/match/${selected.id}?stat=correctScore`)}
-                    style={{ minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid rgba(209,213,219,0.4)', background: 'rgba(209,213,219,0.12)', color: '#e5e7eb', fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    Open Match Details
-                  </button>
+
+              {/* ── Other scorelines grid ── */}
+              {restScores.length > 0 && (
+                <div style={{ marginBottom: 18 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: '#374151', letterSpacing: '0.1em', marginBottom: 10 }}>
+                    OTHER LIKELY SCORELINES
+                  </div>
+                  <div className="cs-grid">
+                    {restScores.map(s => {
+                      const col = RC[s.result]
+                      const barPct = (s.probability / maxProb) * 100
+                      return (
+                        <div key={s.score} className="cs-score-card">
+                          {/* Left accent bar */}
+                          <div style={{
+                            position: 'absolute', top: 0, left: 0, bottom: 0, width: 2,
+                            background: col, opacity: 0.4,
+                            borderRadius: '13px 0 0 13px',
+                          }} />
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 5 }}>
+                            <span style={{
+                              fontSize: 20, fontWeight: 700, color: '#e2e8f0', lineHeight: 1,
+                              fontFamily: '"Courier New", Courier, monospace',
+                            }}>
+                              {s.score}
+                            </span>
+                            {s.historicalHits > 0 && (
+                              <span style={{
+                                fontSize: 9, fontWeight: 800, color: '#f59e0b',
+                                background: 'rgba(245,158,11,0.09)',
+                                border: '1px solid rgba(245,158,11,0.22)',
+                                borderRadius: 4, padding: '1px 5px', flexShrink: 0,
+                              }}>
+                                H2H
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: col }}>{s.probability.toFixed(1)}%</div>
+                          <div style={{ height: 2, background: 'rgba(255,255,255,0.05)', borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>
+                            <div style={{
+                              height: '100%', width: `${barPct}%`, background: col, borderRadius: 2,
+                              transition: 'width 0.5s cubic-bezier(0.22,1,0.36,1)',
+                            }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
+              )}
+
+              {/* ── Lambda strip ── */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+                padding: '9px 13px', borderRadius: 9,
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.05)',
+                marginBottom: 12,
+              }}>
+                <span style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>Expected goals</span>
+                <span style={{ fontSize: 10, color: '#1f2937' }}>—</span>
+                <span style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>
+                  Home&nbsp;<strong style={{ color: '#d1d5db' }}>{selectedPrediction.lambdaHome}</strong>
+                </span>
+                <span style={{ fontSize: 10, color: '#1f2937' }}>·</span>
+                <span style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>
+                  Away&nbsp;<strong style={{ color: '#a78bfa' }}>{selectedPrediction.lambdaAway}</strong>
+                </span>
+                <span style={{ fontSize: 10, color: '#1f2937', margin: '0 2px' }}>·</span>
+                <span style={{ fontSize: 10, color: '#374151' }}>
+                  {selected.homeHistory?.length || 0}/{selected.awayHistory?.length || 0} form · {selected.h2h?.length || 0} H2H
+                </span>
               </div>
-            </div>
 
-            <div className="cs-note-card" style={{ padding: '10px 14px', borderRadius: 12, background: 'rgba(255,122,0,0.08)', border: '1px solid rgba(255,122,0,0.22)', fontSize: 12, color: '#d1d5db', lineHeight: 1.5 }}>{'\u26A0\uFE0F'} {t('cs_disclaimer')}</div>
-
-            <div className="cs-outcome-row cs-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 10 }}>
-              <ResultPill label={selected.homeTeam?.name?.split(' ')[0]} prob={selectedPrediction.homeWinProb} color="#d1d5db" bg="rgba(209,213,219,0.08)" />
-              <ResultPill label={tx.draw} prob={selectedPrediction.drawProb} color="#f59e0b" bg="rgba(245,158,11,0.08)" />
-              <ResultPill label={selected.awayTeam?.name?.split(' ')[0]} prob={selectedPrediction.awayWinProb} color="#a78bfa" bg="rgba(167,139,250,0.08)" />
-            </div>
-
-            <div className="cs-score-panel cs-panel" style={{ padding: '20px' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 14 }}>{'\u{1F522}'} {tx.projections}</div>
-              <ScoreGrid scores={selectedPrediction.scores} />
-            </div>
-
-            <div className="cs-panel" style={{ padding: '14px 16px', fontSize: 12, color: 'var(--sw-muted)', lineHeight: 1.5 }}>
-              <span style={{ color: '#64748b' }}>{tx.analysisBase}: </span>
-              {selected.homeHistory?.length || 0} / {selected.awayHistory?.length || 0} / {selected.h2h?.length || 0} H2H
+              {/* ── Disclaimer ── */}
+              <div style={{
+                fontSize: 11, color: '#374151', lineHeight: 1.55,
+                padding: '8px 12px', borderRadius: 9,
+                background: 'rgba(249,115,22,0.04)',
+                border: '1px solid rgba(249,115,22,0.1)',
+              }}>
+                ⚠ {t('cs_disclaimer')}
+              </div>
             </div>
           </div>
         )}
       </div>
-
-      {modalFixture && modalPrediction && (
-        <CorrectScoreDetailsModal
-          fixture={modalFixture}
-          prediction={modalPrediction}
-          onClose={() => setModalFixture(null)}
-          onOpenMatch={(fixture) => {
-            if (!fixture?.id) return
-            navigate(`/match/${fixture.id}?stat=correctScore`)
-          }}
-        />
-      )}
     </div>
   )
 }

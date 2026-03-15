@@ -470,6 +470,13 @@ function buildTeamStats(row, notesMap, removedOddsColumns) {
   return { homeStats, awayStats }
 }
 
+function printProgress(current, total, label) {
+  const pct = total > 0 ? Math.floor((current / total) * 100) : 0
+  const filled = Math.floor(pct / 5)
+  const bar = '█'.repeat(filled) + '░'.repeat(20 - filled)
+  process.stdout.write(`\r  [${bar}] ${pct}%  ${current}/${total} rows  ${label}          `)
+}
+
 async function importHistoricalMatches() {
   const dataRoot = process.argv[2] || process.env.HISTORICAL_DATA_DIR
   if (!dataRoot) {
@@ -487,6 +494,23 @@ async function importHistoricalMatches() {
   const todayUtc = new Date()
   todayUtc.setUTCHours(23, 59, 59, 999)
 
+  // Pre-scan to get total row count for accurate progress
+  console.log('Scanning files...')
+  let totalRows = 0
+  const fileList = []
+  for (const seasonLabel of seasonFolders) {
+    const seasonPath = path.join(absoluteRoot, seasonLabel)
+    const csvFiles = await listCsvFiles(seasonPath)
+    for (const csvFileName of csvFiles) {
+      const csvPath = path.join(seasonPath, csvFileName)
+      const content = await fs.readFile(csvPath, 'utf8')
+      const records = parse(content, { columns: true, skip_empty_lines: true, bom: true, relax_column_count: true, trim: true })
+      fileList.push({ seasonLabel, csvFileName, csvPath, records })
+      totalRows += records.length
+    }
+  }
+  console.log(`Found ${fileList.length} file(s), ${totalRows} rows total.\n`)
+
   const stats = {
     files: 0,
     rowsRead: 0,
@@ -499,91 +523,78 @@ async function importHistoricalMatches() {
   const teamCache = new Map()
 
   try {
-    for (const seasonLabel of seasonFolders) {
+    for (const { seasonLabel, csvFileName, records } of fileList) {
       const seasonId = await upsertSeason(client, seasonLabel)
-      const seasonPath = path.join(absoluteRoot, seasonLabel)
-      const csvFiles = await listCsvFiles(seasonPath)
+      const divisionCode = path.basename(csvFileName, '.csv').toUpperCase()
+      const leagueId = await upsertLeague(client, divisionCode)
+      const sourceFile = path.join(seasonLabel, csvFileName).replaceAll('\\', '/')
 
-      for (const csvFileName of csvFiles) {
-        const divisionCode = path.basename(csvFileName, '.csv').toUpperCase()
-        const leagueId = await upsertLeague(client, divisionCode)
-        const sourceFile = path.join(seasonLabel, csvFileName).replaceAll('\\', '/')
-        const csvPath = path.join(seasonPath, csvFileName)
-        const content = await fs.readFile(csvPath, 'utf8')
+      stats.files += 1
+      stats.rowsRead += records.length
 
-        const records = parse(content, {
-          columns: true,
-          skip_empty_lines: true,
-          bom: true,
-          relax_column_count: true,
-          trim: true,
+      await client.query('BEGIN')
+      for (const row of records) {
+        printProgress(stats.rowsRead - records.length + stats.rowsImported + stats.rowsSkippedUnfinishedOrFuture + 1, totalRows, `${divisionCode}`)
+
+        const valid = pickFinishedOnly(row, todayUtc)
+        if (!valid) {
+          stats.rowsSkippedUnfinishedOrFuture += 1
+          continue
+        }
+
+        const homeTeamName = (row.HomeTeam || '').trim()
+        const awayTeamName = (row.AwayTeam || '').trim()
+        if (!homeTeamName || !awayTeamName) {
+          stats.rowsSkippedUnfinishedOrFuture += 1
+          continue
+        }
+
+        const homeTeamId = await upsertTeam(client, homeTeamName, teamCache)
+        const awayTeamId = await upsertTeam(client, awayTeamName, teamCache)
+        const kickoffTime = parseTime(row.Time)
+        const attendance = parseIntOrNull(row.Attendance)
+        const homeGoalsHT = parseIntOrNull(row.HTHG)
+        const awayGoalsHT = parseIntOrNull(row.HTAG)
+        const resultHT = row.HTR && ['H', 'D', 'A'].includes(row.HTR) ? row.HTR : null
+        const referee = row.Referee && row.Referee.trim() ? row.Referee.trim() : null
+
+        const fixtureId = await upsertFixture(client, {
+          leagueId,
+          seasonId,
+          divisionCode,
+          sourceFile,
+          fixtureDate: valid.fixtureDate.toISOString().slice(0, 10),
+          kickoffTime,
+          homeTeamId,
+          awayTeamId,
+          homeGoalsFT: valid.homeGoalsFT,
+          awayGoalsFT: valid.awayGoalsFT,
+          resultFT: valid.resultFT,
+          homeGoalsHT,
+          awayGoalsHT,
+          resultHT,
+          referee,
+          attendance,
         })
 
-        stats.files += 1
-        stats.rowsRead += records.length
+        await upsertFixtureTeams(client, {
+          fixtureId,
+          leagueId,
+          seasonId,
+          fixtureDate: valid.fixtureDate.toISOString().slice(0, 10),
+          homeTeamId,
+          awayTeamId,
+          homeGoalsFT: valid.homeGoalsFT,
+          awayGoalsFT: valid.awayGoalsFT,
+          resultFT: valid.resultFT,
+        })
 
-        await client.query('BEGIN')
-        for (const row of records) {
-          const valid = pickFinishedOnly(row, todayUtc)
-          if (!valid) {
-            stats.rowsSkippedUnfinishedOrFuture += 1
-            continue
-          }
+        const { homeStats, awayStats } = buildTeamStats(row, notesMap, stats.oddsColumnsRemoved)
+        await upsertFixtureStats(client, fixtureId, homeTeamId, awayTeamId, homeStats, awayStats)
 
-          const homeTeamName = (row.HomeTeam || '').trim()
-          const awayTeamName = (row.AwayTeam || '').trim()
-          if (!homeTeamName || !awayTeamName) {
-            stats.rowsSkippedUnfinishedOrFuture += 1
-            continue
-          }
-
-          const homeTeamId = await upsertTeam(client, homeTeamName, teamCache)
-          const awayTeamId = await upsertTeam(client, awayTeamName, teamCache)
-          const kickoffTime = parseTime(row.Time)
-          const attendance = parseIntOrNull(row.Attendance)
-          const homeGoalsHT = parseIntOrNull(row.HTHG)
-          const awayGoalsHT = parseIntOrNull(row.HTAG)
-          const resultHT = row.HTR && ['H', 'D', 'A'].includes(row.HTR) ? row.HTR : null
-          const referee = row.Referee && row.Referee.trim() ? row.Referee.trim() : null
-
-          const fixtureId = await upsertFixture(client, {
-            leagueId,
-            seasonId,
-            divisionCode,
-            sourceFile,
-            fixtureDate: valid.fixtureDate.toISOString().slice(0, 10),
-            kickoffTime,
-            homeTeamId,
-            awayTeamId,
-            homeGoalsFT: valid.homeGoalsFT,
-            awayGoalsFT: valid.awayGoalsFT,
-            resultFT: valid.resultFT,
-            homeGoalsHT,
-            awayGoalsHT,
-            resultHT,
-            referee,
-            attendance,
-          })
-
-          await upsertFixtureTeams(client, {
-            fixtureId,
-            leagueId,
-            seasonId,
-            fixtureDate: valid.fixtureDate.toISOString().slice(0, 10),
-            homeTeamId,
-            awayTeamId,
-            homeGoalsFT: valid.homeGoalsFT,
-            awayGoalsFT: valid.awayGoalsFT,
-            resultFT: valid.resultFT,
-          })
-
-          const { homeStats, awayStats } = buildTeamStats(row, notesMap, stats.oddsColumnsRemoved)
-          await upsertFixtureStats(client, fixtureId, homeTeamId, awayTeamId, homeStats, awayStats)
-
-          stats.rowsImported += 1
-        }
-        await client.query('COMMIT')
+        stats.rowsImported += 1
       }
+      await client.query('COMMIT')
     }
   } catch (error) {
     await client.query('ROLLBACK')
@@ -593,6 +604,7 @@ async function importHistoricalMatches() {
     await pool.end()
   }
 
+  process.stdout.write('\n\n')
   console.log('Historical import completed:')
   console.log(`  Files processed: ${stats.files}`)
   console.log(`  Rows read: ${stats.rowsRead}`)

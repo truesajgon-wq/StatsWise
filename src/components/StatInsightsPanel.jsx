@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react'
 import { useLang } from '../context/LangContext.jsx'
-import { extractStatValue, getStatDef, hasStatValue } from '../data/statsConfig.js'
+import { extractStatValue, getStatDef, getHistorySummarySnapshot, hasStatValue } from '../data/statsConfig.js'
 
 const MIN_RATE = 0.6
 
@@ -17,7 +17,17 @@ function calcHits(history, statKey, alt, isHome) {
   const last10 = history
     .filter(match => hasStatValue(match, statKey, isHome))
     .slice(0, 10)
-  if (!last10.length) return { hits: 0, total: 0, rate: 0 }
+  if (!last10.length) {
+    const summary = getHistorySummarySnapshot(history, statKey, alt, isHome)
+    if (summary) {
+      return {
+        hits: summary.hits ?? Math.round((summary.total || 0) * summary.rate),
+        total: summary.total || 0,
+        rate: summary.rate || 0,
+      }
+    }
+    return { hits: 0, total: 0, rate: 0 }
+  }
   const def = getStatDef(statKey)
   const hits = last10.filter(m => {
     const v = extractStatValue(m, statKey, isHome)

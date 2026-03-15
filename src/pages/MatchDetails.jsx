@@ -3,13 +3,14 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext.jsx'
 import useMatchDetails from '../hooks/useMatchDetails'
-import { extractStatValue, hasStatValue, STATS_ORDER, getStatDef, STAT_GROUPS } from '../data/statsConfig'
+import { extractStatValue, hasStatValue, STATS_ORDER, getStatDef, STAT_GROUPS, getHistorySummarySnapshot } from '../data/statsConfig'
 import MatchDetailsSwimlane from '../components/MatchDetailsSwimlane'
 import PlayerStatsPage from './PlayerStatsPage.jsx'
 import { fetchFixturesByDate } from '../data/api.js'
 import { formatAppDate } from '../utils/dateFormat.js'
 import StatsWiseWordmark from '../components/StatsWiseWordmark.jsx'
 import UserDashboard from '../components/UserDashboard.jsx'
+import { buildFormationPitchSlots } from '../utils/pitchLayout.js'
 
 const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN'])
 const FALLBACK_FORMATION = '4-3-3'
@@ -225,92 +226,35 @@ function resolveShirtColors(teamLineup, isGk) {
   return null
 }
 
-function parseGrid(g) {
-  const p = (g || '1:1').split(':').map(Number)
-  return { col: p[0] || 1, row: p[1] || 1 }
-}
-
-function groupByPitchRow(players = []) {
-  const rows = {}
-  players.forEach(player => {
-    const { row } = parseGrid(player?.grid)
-    ;(rows[row] = rows[row] || []).push(player)
-  })
-  return Object.entries(rows)
-    .sort(([a], [b]) => +a - +b)
-    .map(([, rowPlayers]) => rowPlayers.sort((a, b) => parseGrid(a?.grid).col - parseGrid(b?.grid).col))
-}
-
-function formationLineCounts(teamData) {
-  const parsed = String(teamData?.formation || '')
-    .split('-')
-    .map(Number)
-    .filter(value => Number.isFinite(value) && value > 0)
-  if (parsed.length && parsed.reduce((sum, value) => sum + value, 1) === 11) return [1, ...parsed]
-
-  const groupedRows = groupByPitchRow(teamData?.startXI || [])
-  if (groupedRows.length) return groupedRows.map(row => row.length)
-
-  const starters = Array.isArray(teamData?.startXI) ? teamData.startXI : []
-  return starters.length === 11 ? [1, 4, 3, 3] : [Math.max(1, starters.length)]
-}
-
-function orderStarters(teamData) {
-  return [...(teamData?.startXI || [])].sort((a, b) => {
-    const aGrid = parseGrid(a?.grid)
-    const bGrid = parseGrid(b?.grid)
-    if (aGrid.row !== bGrid.row) return aGrid.row - bGrid.row
-    return aGrid.col - bGrid.col
-  })
-}
-
-function buildPitchSlots(teamData, reverse = false) {
-  const starters = orderStarters(teamData).slice(0, 11)
-  if (!starters.length) return []
-
-  let lineCounts = formationLineCounts(teamData)
-  if (lineCounts.reduce((sum, value) => sum + value, 0) !== starters.length) {
-    lineCounts = groupByPitchRow(starters).map(row => row.length)
-  }
-
-  let cursor = 0
-  const totalLines = lineCounts.length
-  return lineCounts.flatMap((count, lineIndex) => {
-    const linePlayers = starters.slice(cursor, cursor + count)
-    cursor += count
-    const ratio = totalLines === 1 ? 0.5 : lineIndex / (totalLines - 1)
-    const x = reverse ? (86 - ratio * 72) : (14 + ratio * 72)
-    return linePlayers.map((player, slotIndex) => {
-      const spread = count === 1 ? 0 : count === 2 ? 24 : count === 3 ? 40 : count === 4 ? 54 : 62
-      const startY = 50 - (spread / 2)
-      const y = count === 1 ? 50 : (startY + (slotIndex / Math.max(1, count - 1)) * spread)
-      return { player, x, y }
-    })
-  })
-}
-
 function PlayerToken({ player, primary, numColor, compact = false }) {
   const parts = (player.name || '').trim().split(' ')
   const label = parts.length > 1 ? parts[parts.length - 1].slice(0, 10) : (player.name || '').slice(0, 10)
   return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:compact ? 1 : 2, userSelect:'none', width: compact ? 42 : 54 }}>
-      <Shirt primary={primary} numColor={numColor} number={player.number} size={compact ? 24 : 32} />
+    <div style={{ position:'relative', userSelect:'none', width: compact ? 42 : 54, height: compact ? 28 : 36, overflow:'visible' }}>
+      <div style={{ display:'grid', placeItems:'center', width:'100%', height:'100%' }}>
+        <Shirt primary={primary} numColor={numColor} number={player.number} size={compact ? 24 : 32} />
+      </div>
       <span style={{
+        position: 'absolute',
+        top: '100%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        marginTop: compact ? 1 : 2,
         fontSize: compact ? 8 : 9, fontWeight: 700, color: '#f0fdf4', textAlign:'center',
-        maxWidth: '100%', lineHeight: 1.1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+        width: compact ? 44 : 64, lineHeight: 1.1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
         textShadow: '0 1px 3px rgba(0,0,0,0.8)',
       }}>{label}</span>
     </div>
   )
 }
 
-function PitchSide({ teamData, defaultPrimary, defaultNumColor, reverseColumns = false, compact = false }) {
+function PitchLayer({ teamData, defaultPrimary, defaultNumColor, side = 'home', compact = false }) {
   if (!teamData?.startXI?.length) return null
-  const slots = buildPitchSlots(teamData, reverseColumns)
+  const slots = buildFormationPitchSlots((teamData?.startXI || []).slice(0, 11), { formation: teamData?.formation, side })
   return (
-    <div style={{ position: 'relative', flex: 1, minWidth: 0, minHeight: 0 }}>
-      {slots.map(({ player, x, y }, index) => {
-        const isGk = player.pos === 'G'
+    <div style={{ position: 'absolute', inset: 0 }}>
+      {slots.map(({ item: player, x, y }, index) => {
+        const isGk = String(player.pos || player.position || '').toLowerCase().startsWith('g')
         const api = resolveShirtColors(teamData, isGk)
         return (
           <div
@@ -349,7 +293,7 @@ function FormationPitch({ home, away }) {
 
   if (!home?.startXI?.length || !away?.startXI?.length) return null
 
-  const pitchMinHeight = compact ? 220 : 320
+  const pitchMinHeight = compact ? 244 : 336
   const centerCircle = compact ? 60 : 84
   const outerInset = compact ? 10 : 14
   const boxOuterWidth = compact ? 68 : 86
@@ -400,10 +344,9 @@ function FormationPitch({ home, away }) {
         {away?.formation}
       </div>
 
-      <div style={{ position:'relative', zIndex:5, display:'flex', alignItems:'stretch', height:'100%', padding: compact ? '38px 10px 12px' : '46px 16px 18px' }}>
-        <PitchSide teamData={home} defaultPrimary="#1d6b3f" defaultNumColor="#fff" reverseColumns={false} compact={compact} />
-        <div style={{ width:compact ? 6 : 12, flexShrink:0 }} />
-        <PitchSide teamData={away} defaultPrimary="#d97706" defaultNumColor="#fff" reverseColumns={true} compact={compact} />
+      <div style={{ position:'relative', zIndex:5, height:'100%', padding: compact ? '38px 10px 12px' : '46px 16px 18px' }}>
+        <PitchLayer teamData={home} defaultPrimary="#1d6b3f" defaultNumColor="#fff" side="home" compact={compact} />
+        <PitchLayer teamData={away} defaultPrimary="#d97706" defaultNumColor="#fff" side="away" compact={compact} />
       </div>
     </div>
   )
@@ -631,7 +574,8 @@ function H2HPanel({ h2h, homeHistory, awayHistory, fixture }) {
   ]
   const activeAll = sub==='h2h' ? h2h : sub==='home' ? homeHistory : awayHistory
   const visibleCount = historyRangeCount(range)
-  const active = (activeAll || []).slice(0, visibleCount)
+  const activeRows = (activeAll || []).filter(match => !match?.isSummaryOnly)
+  const active = activeRows.slice(0, visibleCount)
   const teamLabel = sub === 'away' ? (fixture?.awayTeam?.name || 'Away') : (fixture?.homeTeam?.name || 'Home')
   const rangeOptions = ['L5', 'L10', 'L15']
 
@@ -701,7 +645,19 @@ function rc(rate) {
 function calcHits(history, statKey, alt, isHome) {
   if (!history?.length) return { hits:0, total:0, rate:0, avg:0, values:[] }
   const last10 = history.filter(match => hasStatValue(match, statKey, isHome)).slice(0,10)
-  if (!last10.length) return { hits:0, total:0, rate:0, avg:0, values:[] }
+  if (!last10.length) {
+    const summary = getHistorySummarySnapshot(history, statKey, alt, isHome)
+    if (summary) {
+      return {
+        hits: summary.hits ?? Math.round((summary.total || 0) * summary.rate),
+        total: summary.total || 0,
+        rate: summary.rate || 0,
+        avg: null,
+        values: [],
+      }
+    }
+    return { hits:0, total:0, rate:0, avg:0, values:[] }
+  }
   const def = getStatDef(statKey)
   const values = last10.map(m => extractStatValue(m, statKey, isHome))
   const hits = values.filter(v => def?.binary ? v===1 : v>(alt ?? 0)).length
@@ -756,7 +712,7 @@ function StatRow({ statDef, homeHistory, awayHistory, alt, onAltChange }) {
           <div key={String(isHome)} style={{ padding:'6px 8px', borderRight: isHome ? '1px solid var(--sw-border)' : 'none' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
               <span style={{ fontSize:10, color: isHome ? '#d1d5db' : '#9ca3af', fontWeight:700 }}>{isHome ? 'Home' : 'Away'}{isTeam ? (isHome ? ' H' : ' A') : ''}</span>
-              {!binary && <span style={{ fontSize:9, color:'#4b5563' }}>avg {d.avg}</span>}
+              {!binary && <span style={{ fontSize:9, color:'#4b5563' }}>{d.avg == null ? 'summary rate' : `avg ${d.avg}`}</span>}
             </div>
             <Pill d={d} />
             {d.values.length>0 && <SparkBars values={d.values} alt={alt} binary={binary} />}
@@ -775,8 +731,25 @@ function HistoricalStatsPanel({ homeHistory, awayHistory, fixture }) {
   }, [])
   const [alts, setAlts] = useState(defaultAlts)
   const [grp, setGrp]   = useState('all')
+  const [venueFilter, setVenueFilter] = useState('all')
 
-  if (!homeHistory?.length && !awayHistory?.length) return <EmptyState icon={'\u{1F4C8}'} text="Historical stats load once team history is available." />
+  const filteredHomeHistory = useMemo(() => {
+    if (venueFilter === 'home') return (homeHistory || []).filter(match => match?.isHome)
+    if (venueFilter === 'away') return (homeHistory || []).filter(match => !match?.isHome)
+    return homeHistory || []
+  }, [homeHistory, venueFilter])
+
+  const filteredAwayHistory = useMemo(() => {
+    if (venueFilter === 'home') return (awayHistory || []).filter(match => match?.isHome)
+    if (venueFilter === 'away') return (awayHistory || []).filter(match => !match?.isHome)
+    return awayHistory || []
+  }, [awayHistory, venueFilter])
+
+  const hasAnyHistory = filteredHomeHistory.length > 0 || filteredAwayHistory.length > 0
+  const homeVisibleCount = filteredHomeHistory.filter(match => !match?.isSummaryOnly).length
+  const awayVisibleCount = filteredAwayHistory.filter(match => !match?.isSummaryOnly).length
+
+  if (!hasAnyHistory) return <EmptyState icon={'\u{1F4C8}'} text="Historical stats load once team history is available." />
 
   const groups  = ['all', ...Object.keys(STAT_GROUPS)]
   const visible = grp==='all' ? STATS_ORDER : STATS_ORDER.filter(s => s.group===grp)
@@ -799,22 +772,46 @@ function HistoricalStatsPanel({ homeHistory, awayHistory, fixture }) {
           )
         })}
       </div>
+      <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:11 }}>
+        {[
+          { key: 'all', label: 'All Games' },
+          { key: 'home', label: 'Home Games' },
+          { key: 'away', label: 'Away Games' },
+        ].map(option => (
+          <button
+            key={option.key}
+            onClick={() => setVenueFilter(option.key)}
+            style={{
+              padding:'4px 10px',
+              borderRadius:20,
+              border:`1px solid ${venueFilter === option.key ? 'rgba(249,115,22,0.45)' : 'var(--sw-border)'}`,
+              background: venueFilter === option.key ? 'rgba(249,115,22,0.12)' : 'transparent',
+              color: venueFilter === option.key ? '#ffb36b' : '#94a3b8',
+              fontSize:10.5,
+              fontWeight: venueFilter === option.key ? 800 : 600,
+              cursor:'pointer',
+            }}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
       {/* Team headers */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', marginBottom:8 }}>
         <div style={{ display:'flex', alignItems:'center', gap:5, paddingLeft:8 }}>
           {fixture?.homeTeam?.logo && <img src={fixture.homeTeam.logo} alt="" width={16} height={16} style={{ objectFit:'contain' }} />}
           <span style={{ fontSize:10.5, fontWeight:800, color:'#d1d5db', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{fixture?.homeTeam?.name}</span>
-          <span style={{ fontSize:9, color:'#374151' }}>({homeHistory?.length||0})</span>
+          <span style={{ fontSize:9, color:'#374151' }}>({homeVisibleCount})</span>
         </div>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:5, paddingRight:8 }}>
-          <span style={{ fontSize:9, color:'#374151' }}>({awayHistory?.length||0})</span>
+          <span style={{ fontSize:9, color:'#374151' }}>({awayVisibleCount})</span>
           <span style={{ fontSize:10.5, fontWeight:800, color:'#9ca3af', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{fixture?.awayTeam?.name}</span>
           {fixture?.awayTeam?.logo && <img src={fixture.awayTeam.logo} alt="" width={16} height={16} style={{ objectFit:'contain' }} />}
         </div>
       </div>
       {visible.map(stat => (
         <StatRow key={stat.key} statDef={stat}
-          homeHistory={homeHistory||[]} awayHistory={awayHistory||[]}
+          homeHistory={filteredHomeHistory} awayHistory={filteredAwayHistory}
           alt={alts[stat.key]}
           onAltChange={(k,v) => setAlts(prev => ({...prev, [k]:v}))} />
       ))}

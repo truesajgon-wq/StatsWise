@@ -8,7 +8,8 @@
     "dev:watch": "node --watch server.js",
     "test": "node --test --test-isolation=none tests/*.test.js",
     "import:historical": "node scripts/import-historical.js",
-    "import:fixtures": "node scripts/import-fixtures-csv.js"
+    "import:fixtures": "node scripts/import-fixtures-csv.js",
+    "import:other-leagues": "node scripts/import-other-leagues.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

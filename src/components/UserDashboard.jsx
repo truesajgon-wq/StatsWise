@@ -127,15 +127,16 @@ function ChangePasswordForm({ compact = false }) {
         {t('dash_change_pw')}
       </div>
 
-      {[ 
-        { label: t('dash_old_pw'), val: current, set: setCurrent },
-        { label: t('dash_new_pw'), val: next, set: setNext },
-        { label: t('dash_confirm_pw'), val: confirm, set: setConfirm },
-      ].map(({ label, val, set }) => (
+      {[
+        { label: t('dash_old_pw'), val: current, set: setCurrent, autoComplete: 'current-password' },
+        { label: t('dash_new_pw'), val: next, set: setNext, autoComplete: 'new-password' },
+        { label: t('dash_confirm_pw'), val: confirm, set: setConfirm, autoComplete: 'new-password' },
+      ].map(({ label, val, set, autoComplete }) => (
         <div key={label}>
           <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>{label}</div>
           <input
             type="password"
+            autoComplete={autoComplete}
             value={val}
             onChange={e => {
               set(e.target.value)
@@ -456,6 +457,7 @@ function ProfilePanel({ user, compact = false }) {
         <div>
           <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, letterSpacing: '0.06em', marginBottom: 3 }}>NICKNAME</div>
           <input
+            autoComplete="nickname"
             value={nickname}
             onChange={e => { setNickname(e.target.value); setSaved(false) }}
             style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#f1f5f9', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
@@ -465,6 +467,8 @@ function ProfilePanel({ user, compact = false }) {
         <div>
           <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, letterSpacing: '0.06em', marginBottom: 3 }}>EMAIL</div>
           <input
+            type="email"
+            autoComplete="email"
             value={email}
             onChange={e => { setEmail(e.target.value); setSaved(false) }}
             style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#f1f5f9', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}

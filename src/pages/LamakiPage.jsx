@@ -161,19 +161,39 @@ function buildRecommendationReasons(result, t) {
     awayMeta = {},
     homePatterns = [],
     awayPatterns = [],
+    h2hMeta = {},
   } = result
 
   const reasons = []
 
+  // H2H is highest-priority evidence — surface it first
+  if (h2hMeta.totalSwings > 0) {
+    const homeName = result.fixture?.homeTeam?.name
+    const awayName = result.fixture?.awayTeam?.name
+    if (h2hMeta.dominantSide === 'home') {
+      reasons.push(
+        `H2H history: ${homeName} came from behind to win ${h2hMeta.homeTeamComebacks}x in ${h2hMeta.sampleSize} head-to-head matches (${formatPercent(h2hMeta.homeTeamComebackRate)}) — direct matchup evidence.`,
+      )
+    } else if (h2hMeta.dominantSide === 'away') {
+      reasons.push(
+        `H2H history: ${awayName} came from behind to win ${h2hMeta.awayTeamComebacks}x in ${h2hMeta.sampleSize} head-to-head matches (${formatPercent(h2hMeta.awayTeamComebackRate)}) — direct matchup evidence.`,
+      )
+    } else if (h2hMeta.dominantSide === 'both') {
+      reasons.push(
+        `H2H history: ${h2hMeta.totalSwings} swing results across ${h2hMeta.sampleSize} meetings — both teams have come from behind in this fixture, making it a high-volatility matchup.`,
+      )
+    }
+  }
+
   if (lamakType === 'home' || lamakType === 'both') {
     reasons.push(
-      `${result.fixture?.homeTeam?.name} have ${homeMeta.exactComebackCount || homeMeta.comebackCount || 0} halftime-comeback wins (${t('lamaki_one_two_two_one')}) in ${homeMeta.sampleSize || 0} loaded matches (${formatPercent(homeMeta.exactComebackRate || homeMeta.comebackRate)}).`,
+      `${result.fixture?.homeTeam?.name} have ${homeMeta.exactComebackCount || homeMeta.comebackCount || 0} HT/FT wins in ${homeMeta.sampleSize || 0} matches (up to 3 years) — ${formatPercent(homeMeta.exactComebackRate || homeMeta.comebackRate)} rate.`,
     )
   }
 
   if (lamakType === 'away' || lamakType === 'both') {
     reasons.push(
-      `${result.fixture?.awayTeam?.name} have ${awayMeta.exactComebackCount || awayMeta.comebackCount || 0} halftime-comeback wins (${t('lamaki_one_two_two_one')}) in ${awayMeta.sampleSize || 0} loaded matches (${formatPercent(awayMeta.exactComebackRate || awayMeta.comebackRate)}).`,
+      `${result.fixture?.awayTeam?.name} have ${awayMeta.exactComebackCount || awayMeta.comebackCount || 0} HT/FT wins in ${awayMeta.sampleSize || 0} matches (up to 3 years) — ${formatPercent(awayMeta.exactComebackRate || awayMeta.comebackRate)} rate.`,
     )
   }
 
@@ -190,26 +210,33 @@ function buildRecommendationReasons(result, t) {
   }
 
   if (homeMeta.recentComebacks >= 2 || awayMeta.recentComebacks >= 2) {
-    reasons.push(`Recent form reinforces the angle: at least one side has multiple halftime-comeback wins in the last 3 loaded matches.`)
+    reasons.push(`Recent form reinforces the angle: at least one side has multiple HT/FT wins in the last 3 matches.`)
   }
 
   if (hasTriangle) {
-    reasons.push(`${t('lamaki_triangle')} is active, which adds overlap between both teams' winning patterns and raises comeback volatility.`)
+    reasons.push(`${t('lamaki_triangle')} is active — both teams share common opponents where swing events occurred, forming a 3-team HT/FT pattern.`)
   }
 
-  const monthHits = (homeMeta.datePatterns?.sameMonth || 0) + (awayMeta.datePatterns?.sameMonth || 0)
-  if (monthHits >= 3) {
-    reasons.push(`Calendar pattern support is present too: ${monthHits} related matches landed in the same month window.`)
+  const calendarHits = [
+    homeMeta.datePatterns?.exactDateMinus2,
+    awayMeta.datePatterns?.exactDateMinus2,
+    homeMeta.datePatterns?.exactDateMinus3,
+    awayMeta.datePatterns?.exactDateMinus3,
+    homeMeta.datePatterns?.sameDayLastYear,
+    awayMeta.datePatterns?.sameDayLastYear,
+  ].filter(Boolean).length
+  if (calendarHits >= 1) {
+    reasons.push(`Calendar cycle pattern detected: ${calendarHits} year-window hit(s) across both teams' swing histories.`)
+  } else {
+    const monthHits = (homeMeta.datePatterns?.sameMonth || 0) + (awayMeta.datePatterns?.sameMonth || 0)
+    if (monthHits >= 3) {
+      reasons.push(`Calendar pattern support: ${monthHits} related matches landed in the same month window.`)
+    }
   }
 
-  const patternCount = homePatterns.length + awayPatterns.length
-  if (patternCount > 0) {
-    reasons.push(`The engine found ${patternCount} supporting pattern tags across both teams, not just one isolated stat.`)
-  }
-
-  const loadedSamples = (homeMeta.sampleSize || 0) + (awayMeta.sampleSize || 0)
+  const loadedSamples = (homeMeta.sampleSize || 0) + (awayMeta.sampleSize || 0) + (h2hMeta.sampleSize || 0)
   if (loadedSamples > 0) {
-    reasons.push(`Model probability is built from ${loadedSamples} loaded team matches, weighting comeback wins, lead collapses, recency, and calendar overlap.`)
+    reasons.push(`Model built from ${loadedSamples} total matches (team history + H2H), weighting comeback wins, lead collapses, recency, and calendar cycles.`)
   }
 
   return reasons.slice(0, 5)
@@ -223,6 +250,7 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
     fixture,
     homeScore,
     awayScore,
+    h2hScore = 0,
     combinedScore,
     probability,
     strength,
@@ -232,6 +260,7 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
     awayPatterns = [],
     homeMeta = {},
     awayMeta = {},
+    h2hMeta = {},
   } = result
 
   const color = strengthColor(strength)
@@ -302,6 +331,12 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
               <div className="lamaki-metric-value">{homeScore} / {awayScore}</div>
             </div>
             <div className="lamaki-metric-card">
+              <div className="lamaki-metric-label">H2H Score</div>
+              <div className="lamaki-metric-value" style={{ color: h2hScore >= 40 ? '#22c55e' : h2hScore >= 20 ? '#f59e0b' : '#94a3b8' }}>
+                {h2hScore}{h2hMeta.sampleSize > 0 ? ` (${h2hMeta.sampleSize}g)` : ''}
+              </div>
+            </div>
+            <div className="lamaki-metric-card">
               <div className="lamaki-metric-label">Pattern Type</div>
               <div className="lamaki-metric-value lamaki-metric-value-soft">{lamakTypeLabel}</div>
             </div>
@@ -333,15 +368,15 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
               <div className="lamaki-team-signal-grid">
                 <div className="lamaki-team-signal-card">
                   <div className="lamaki-team-signal-name">{fixture?.homeTeam?.name}</div>
-                  <div className="lamaki-team-signal-line">HT down, FT win ({t('lamaki_one_two_two_one')}): <strong>{homeMeta.exactComebackCount || homeMeta.comebackCount || 0}/{homeMeta.sampleSize || 0}</strong> ({formatPercent(homeMeta.exactComebackRate || homeMeta.comebackRate)})</div>
+                  <div className="lamaki-team-signal-line">HT/FT: <strong>{homeMeta.exactComebackCount || homeMeta.comebackCount || 0}/{homeMeta.sampleSize || 0}</strong> ({formatPercent(homeMeta.exactComebackRate || homeMeta.comebackRate)})</div>
                   <div className="lamaki-team-signal-line">First-to-score collapse ({t('lamaki_wfb')}): <strong>{homeMeta.wfbCount || homeMeta.collapseCount || 0}</strong> ({formatPercent(homeMeta.wfbRate || homeMeta.collapseRate)})</div>
-                  <div className="lamaki-team-signal-line">Recent HT-down wins: <strong>{homeMeta.recentComebacks || 0}</strong> in last 3</div>
+                  <div className="lamaki-team-signal-line">Recent HT/FT wins: <strong>{homeMeta.recentComebacks || 0}</strong> in last 3</div>
                 </div>
                 <div className="lamaki-team-signal-card">
                   <div className="lamaki-team-signal-name">{fixture?.awayTeam?.name}</div>
-                  <div className="lamaki-team-signal-line">HT down, FT win ({t('lamaki_one_two_two_one')}): <strong>{awayMeta.exactComebackCount || awayMeta.comebackCount || 0}/{awayMeta.sampleSize || 0}</strong> ({formatPercent(awayMeta.exactComebackRate || awayMeta.comebackRate)})</div>
+                  <div className="lamaki-team-signal-line">HT/FT: <strong>{awayMeta.exactComebackCount || awayMeta.comebackCount || 0}/{awayMeta.sampleSize || 0}</strong> ({formatPercent(awayMeta.exactComebackRate || awayMeta.comebackRate)})</div>
                   <div className="lamaki-team-signal-line">First-to-score collapse ({t('lamaki_wfb')}): <strong>{awayMeta.wfbCount || awayMeta.collapseCount || 0}</strong> ({formatPercent(awayMeta.wfbRate || awayMeta.collapseRate)})</div>
-                  <div className="lamaki-team-signal-line">Recent HT-down wins: <strong>{awayMeta.recentComebacks || 0}</strong> in last 3</div>
+                  <div className="lamaki-team-signal-line">Recent HT/FT wins: <strong>{awayMeta.recentComebacks || 0}</strong> in last 3</div>
                 </div>
               </div>
             </section>
@@ -355,9 +390,33 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
             </div>
           )}
 
+          {h2hMeta.totalSwings > 0 && (() => {
+            const h2hHistory = fixture?.h2h || []
+            const h2hHomeComebacks = mapSwingRows(h2hHistory, true, fixture?.homeTeam?.name || 'Home', 'one_two_two_one')
+            const h2hAwayWins = mapSwingRows(h2hHistory, true, fixture?.homeTeam?.name || 'Home', 'wfb')
+            const allH2HSwings = [...h2hHomeComebacks, ...h2hAwayWins].slice(0, 12)
+            return (
+              <div className="lamaki-history-card" style={{ marginBottom: 12 }}>
+                <div className="lamaki-history-head" style={{ color: '#c4b5fd' }}>
+                  H2H Swing History — {fixture?.homeTeam?.name} vs {fixture?.awayTeam?.name} ({h2hMeta.totalSwings} swing event{h2hMeta.totalSwings !== 1 ? 's' : ''} in {h2hMeta.sampleSize} meetings)
+                </div>
+                {allH2HSwings.length > 0 ? allH2HSwings.map((row, index) => (
+                  <div key={`h2h-${index}`} className="lamaki-history-row">
+                    <div className="lamaki-history-date">{formatDate(row.date)}</div>
+                    <div className="lamaki-history-opponent">{row.fixtureName}</div>
+                    <div className="lamaki-history-split">HT {row.ht}</div>
+                    <div className="lamaki-history-split lamaki-history-split-ft">FT {row.ft}</div>
+                  </div>
+                )) : (
+                  <div className="lamaki-history-empty">Swing events detected but HT detail unavailable.</div>
+                )}
+              </div>
+            )
+          })()}
+
           <div className="lamaki-history-grid">
             <div className="lamaki-history-card">
-              <div className="lamaki-history-head">{fixture?.homeTeam?.name} {homeHistoryMode === 'wfb' ? `first-to-score collapses (${t('lamaki_wfb')})` : `HT down, FT win (${t('lamaki_one_two_two_one')})`} ({homeComebacks.length}/{homeHistory.length}, {homeRate}%)</div>
+              <div className="lamaki-history-head">{fixture?.homeTeam?.name} {homeHistoryMode === 'wfb' ? `first-to-score collapses (${t('lamaki_wfb')})` : 'HT/FT'} ({homeComebacks.length}/{homeHistory.length}, {homeRate}%)</div>
               {homeComebacks.length ? homeComebacks.map((row, index) => (
                 <div key={`h-${index}`} className="lamaki-history-row">
                   <div className="lamaki-history-date">{formatDate(row.date)}</div>
@@ -365,10 +424,10 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
                   <div className="lamaki-history-split">HT {row.ht}</div>
                   <div className="lamaki-history-split lamaki-history-split-ft">FT {row.ft}</div>
                 </div>
-              )) : <div className="lamaki-history-empty">No {homeHistoryMode === 'wfb' ? `first-to-score collapses (${t('lamaki_wfb')})` : `HT down, FT win (${t('lamaki_one_two_two_one')})`} found in loaded history.</div>}
+              )) : <div className="lamaki-history-empty">No {homeHistoryMode === 'wfb' ? `first-to-score collapses (${t('lamaki_wfb')})` : 'HT/FT wins'} found in up to 3 years of history.</div>}
             </div>
             <div className="lamaki-history-card">
-              <div className="lamaki-history-head lamaki-history-head-away">{fixture?.awayTeam?.name} {awayHistoryMode === 'wfb' ? `first-to-score collapses (${t('lamaki_wfb')})` : `HT down, FT win (${t('lamaki_one_two_two_one')})`} ({awayComebacks.length}/{awayHistory.length}, {awayRate}%)</div>
+              <div className="lamaki-history-head lamaki-history-head-away">{fixture?.awayTeam?.name} {awayHistoryMode === 'wfb' ? `first-to-score collapses (${t('lamaki_wfb')})` : 'HT/FT'} ({awayComebacks.length}/{awayHistory.length}, {awayRate}%)</div>
               {awayComebacks.length ? awayComebacks.map((row, index) => (
                 <div key={`a-${index}`} className="lamaki-history-row">
                   <div className="lamaki-history-date">{formatDate(row.date)}</div>
@@ -376,7 +435,7 @@ function LamakDetailsModal({ result, onClose, onOpenMatch }) {
                   <div className="lamaki-history-split">HT {row.ht}</div>
                   <div className="lamaki-history-split lamaki-history-split-ft">FT {row.ft}</div>
                 </div>
-              )) : <div className="lamaki-history-empty">No {awayHistoryMode === 'wfb' ? `first-to-score collapses (${t('lamaki_wfb')})` : `HT down, FT win (${t('lamaki_one_two_two_one')})`} found in loaded history.</div>}
+              )) : <div className="lamaki-history-empty">No {awayHistoryMode === 'wfb' ? `first-to-score collapses (${t('lamaki_wfb')})` : 'HT/FT wins'} found in up to 3 years of history.</div>}
             </div>
           </div>
         </div>

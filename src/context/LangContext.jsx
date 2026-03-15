@@ -75,6 +75,15 @@ const EN = {
   correct_score: 'Correct Score',
   cs_disclaimer: 'This is a statistical projection, not a guaranteed result.',
 
+  nav_sgp: 'Same Game Parlay',
+  sgp_title: 'Same Game Parlay',
+  sgp_subtitle: 'Best multi-leg combinations backed by historical data',
+  sgp_none: 'No SGP signals for today',
+  sgp_none_sub: 'Not enough historical data to build confident parlays.',
+  sgp_strong: 'Strong',
+  sgp_moderate: 'Moderate',
+  sgp_weak: 'Weak',
+
   lamaki_title: 'Comeback Bets',
   lamaki_subtitle: 'Fixtures with historical comeback patterns',
   lamaki_none: 'No comeback patterns for today',

@@ -11,6 +11,58 @@ function firstNumber(...values) {
   return null
 }
 
+function normalizeSummaryAltKey(value) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric.toFixed(1) : null
+}
+
+function firstSummary(history = []) {
+  return Array.isArray(history)
+    ? history.find(entry => entry?.adamChoiSummary)?.adamChoiSummary || null
+    : null
+}
+
+function summarySideBucket(bucket, isHome = true) {
+  if (!bucket || typeof bucket !== 'object') return null
+  const candidate = isHome ? bucket.home : bucket.away
+  return candidate?.rate != null ? candidate : (bucket.overall?.rate != null ? bucket.overall : null)
+}
+
+export function getHistorySummarySnapshot(history, key, alt, isHome = true, options = {}) {
+  const summary = firstSummary(history)
+  if (!summary) return null
+  const stat = summary?.[key]
+  if (!stat || typeof stat !== 'object') return null
+
+  const perspective = options?.perspective === 'against' ? 'against' : 'for'
+  let bucket = null
+
+  if (stat.binary) {
+    bucket = stat.binary
+  } else {
+    const altKey = normalizeSummaryAltKey(alt)
+    if (!altKey) return null
+    const slots = perspective === 'against'
+      ? [stat.againstThresholds, stat.thresholds]
+      : [stat.forThresholds, stat.thresholds]
+    for (const slot of slots) {
+      if (slot?.[altKey]) {
+        bucket = slot[altKey]
+        break
+      }
+    }
+  }
+
+  const side = summarySideBucket(bucket, isHome)
+  if (!side || side.rate == null) return null
+  return {
+    hits: Number.isFinite(Number(side.hits)) ? Number(side.hits) : null,
+    total: Number.isFinite(Number(side.total)) ? Number(side.total) : null,
+    rate: Number(side.rate) || 0,
+    source: 'adamchoi-summary',
+  }
+}
+
 export function hasStatValue(match, key, isHome = true) {
   return extractStatValue(match, key, isHome, { raw: true }) != null
 }

@@ -8,6 +8,7 @@ import UserDashboard from '../components/UserDashboard.jsx'
 import LamakiPage from './LamakiPage.jsx'
 import PlayerStatsPage from './PlayerStatsPage.jsx'
 import CorrectScorePage from './CorrectScorePage.jsx'
+import SGPPage from './SGPPage.jsx'
 import { useFixturesByDate, useEnrichedFixtures } from '../data/hooks.js'
 import { fetchEspnNews, fetchNewsArticle } from '../data/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -15,7 +16,7 @@ import { useLang } from '../context/LangContext.jsx'
 import PremiumGate from '../components/PremiumGate.jsx'
 import AppFooter from '../components/AppFooter.jsx'
 import StatPredictionPage from './StatPredictionPage.jsx'
-import { SIDEBAR_KEY_MAP, viewKeyToStat, extractStatValue, getStatDef } from '../data/statsConfig.js'
+import { SIDEBAR_KEY_MAP, viewKeyToStat, extractStatValue, getHistorySummarySnapshot, getStatDef } from '../data/statsConfig.js'
 import StatsWiseWordmark from '../components/StatsWiseWordmark.jsx'
 import { getAppToday } from '../utils/appDate.js'
 import { getValuePickConfidenceBadgeStyle, getValuePickConfidenceTier } from '../utils/confidenceBadge.js'
@@ -31,15 +32,21 @@ const DESKTOP_BASE_CENTER_SHIFT = -(DESKTOP_SIDEBAR_WIDTH / 2)
 const FAVORITE_FIXTURES_STORAGE_KEY = 'statswise.favoriteFixtures.v1'
 const PRIORITY_COUNTRY_ORDER = ['England', 'Spain', 'Italy', 'Germany', 'France', 'Poland', 'Portugal']
 const PRIORITY_LEAGUE_ORDER = [
-  2,   // UEFA Champions League
-  3,   // UEFA Europa League
   39,  // Premier League
-  78,  // Bundesliga
   140, // La Liga
-  61,  // Ligue 1
   135, // Serie A
+  78,  // Bundesliga
+  61,  // Ligue 1
   106, // Ekstraklasa
-  94,  // Primeira Liga
+]
+const PRIORITY_LEAGUE_NAME_ORDER = [
+  'premier league',
+  'la liga',
+  'laliga',
+  'serie a',
+  'bundesliga',
+  'ligue 1',
+  'ekstraklasa',
 ]
 
 function leaguePriorityIndex(leagueId) {
@@ -53,10 +60,22 @@ function countryPriorityIndex(country) {
 }
 
 function leaguePriorityByName(leagueName = '', country = '') {
-  const name = String(leagueName || '').toLowerCase()
-  const c = String(country || '').toLowerCase()
-  if (c === 'world' && name.includes('champions league')) return 0
-  if (c === 'world' && name.includes('europa league')) return 1
+  const normalizedLeague = String(leagueName || '').trim().toLowerCase()
+  const normalizedCountry = String(country || '').trim().toLowerCase()
+  const matchers = [
+    ['premier league', 'england', ['premier league']],
+    ['la liga', 'spain', ['la liga', 'laliga']],
+    ['serie a', 'italy', ['serie a']],
+    ['bundesliga', 'germany', ['bundesliga']],
+    ['ligue 1', 'france', ['ligue 1']],
+    ['ekstraklasa', 'poland', ['ekstraklasa']],
+  ]
+  for (const [key, expectedCountry, aliases] of matchers) {
+    if (normalizedCountry !== expectedCountry) continue
+    if (aliases.some(alias => normalizedLeague === alias)) {
+      return PRIORITY_LEAGUE_NAME_ORDER.indexOf(key)
+    }
+  }
   return Number.MAX_SAFE_INTEGER
 }
 
@@ -154,11 +173,18 @@ function styleTag(homeHistory, awayHistory) {
   const merged = [...(homeHistory || []), ...(awayHistory || [])]
   if (!merged.length) return 'balanced'
   const avgGoals = merged.reduce((s, m) => s + extractStatValue(m, 'goals', true), 0) / merged.length
-  const avgCorners = merged.reduce((s, m) => s + extractStatValue(m, 'corners', true), 0) / merged.length
-  const avgCards = merged.reduce((s, m) => s + extractStatValue(m, 'cards', true), 0) / merged.length
-  const avgFouls = merged.reduce((s, m) => s + extractStatValue(m, 'fouls', true), 0) / merged.length
-  if (avgCards >= 4.8 || avgFouls >= 24) return 'physical'
-  if (avgCorners >= 10) return 'wide-play'
+  const cornersValues = merged.map(m => extractStatValue(m, 'corners', true, { raw: true })).filter(v => v != null)
+  const cardsValues = merged.map(m => extractStatValue(m, 'cards', true, { raw: true })).filter(v => v != null)
+  const foulsValues = merged.map(m => extractStatValue(m, 'fouls', true, { raw: true })).filter(v => v != null)
+  const avgCorners = cornersValues.length ? cornersValues.reduce((s, v) => s + v, 0) / cornersValues.length : null
+  const avgCards = cardsValues.length ? cardsValues.reduce((s, v) => s + v, 0) / cardsValues.length : null
+  const avgFouls = foulsValues.length ? foulsValues.reduce((s, v) => s + v, 0) / foulsValues.length : null
+  const homeCornerRate = getHistorySummarySnapshot(homeHistory, 'corners', 9.5, true)?.rate ?? null
+  const awayCornerRate = getHistorySummarySnapshot(awayHistory, 'corners', 9.5, false)?.rate ?? null
+  const homeCardRate = getHistorySummarySnapshot(homeHistory, 'cards', 3.5, true)?.rate ?? null
+  const awayCardRate = getHistorySummarySnapshot(awayHistory, 'cards', 3.5, false)?.rate ?? null
+  if ((avgCards != null && avgCards >= 4.8) || (avgFouls != null && avgFouls >= 24) || homeCardRate >= 0.6 || awayCardRate >= 0.6) return 'physical'
+  if ((avgCorners != null && avgCorners >= 10) || homeCornerRate >= 0.6 || awayCornerRate >= 0.6) return 'wide-play'
   if (avgGoals >= 2.8) return 'high-tempo'
   return 'balanced'
 }
@@ -181,62 +207,63 @@ function fallbackTips(fixtures, t, count = 5) {
 function buildTips(fixtures, t) {
   const statPool = ['teamGoals', 'goals', 'btts', 'corners', 'cards', 'shots', 'fouls', 'firstHalfGoals', 'goalsInBothHalves']
   const ready = (fixtures || []).filter(f => f.homeHistory?.length && f.awayHistory?.length)
-  const tips = []
+
+  // Collect every fixture × stat × side candidate into one flat pool,
+  // then rank globally — top 5 may span any fixture or stat combination.
+  const pool = []
 
   for (const fixture of ready) {
-    let best = null
+    const style = styleTag(fixture.homeHistory, fixture.awayHistory)
     for (const statKey of statPool) {
       const def = getStatDef(statKey)
       const alt = def?.defaultAlt ?? 0
       if (!def) continue
       const candidates = evaluateFixturePrediction(fixture, statKey, alt)
       if (!candidates.length) continue
-      const style = styleTag(fixture.homeHistory, fixture.awayHistory)
-      const styleBoost = style === 'high-tempo' && ['goals', 'btts', 'shots', 'firstHalfGoals', 'goalsInBothHalves', 'teamGoals'].includes(statKey)
-        ? 0.04
-        : style === 'physical' && ['cards', 'fouls', 'teamFouls', 'teamCards'].includes(statKey)
-          ? 0.04
-          : style === 'wide-play' && ['corners', 'teamCorners'].includes(statKey)
-            ? 0.04
-            : 0
-      const rankedCandidates = candidates
-        .map(candidate => {
-          const breakdown = buildModelBreakdown(candidate)
-          const adjustedScore = clamp01(candidate.combinedRate + styleBoost)
-          return {
-            ...candidate,
-            score: adjustedScore,
-            breakdown,
-            style,
-          }
-        })
-        .sort((a, b) => b.score - a.score)
-      const candidate = rankedCandidates[0]
-      if (!candidate) continue
-      if (!best || candidate.score > best.score) {
-        best = {
-          statKey,
-          alt,
-          score: candidate.score,
-          def,
-          style: candidate.style,
-          candidate,
-        }
+      const styleBoost =
+        style === 'high-tempo' && ['goals', 'btts', 'shots', 'firstHalfGoals', 'goalsInBothHalves', 'teamGoals'].includes(statKey) ? 0.04
+        : style === 'physical' && ['cards', 'fouls', 'teamFouls', 'teamCards'].includes(statKey) ? 0.04
+        : style === 'wide-play' && ['corners', 'teamCorners'].includes(statKey) ? 0.04
+        : 0
+      for (const candidate of candidates) {
+        const breakdown = buildModelBreakdown(candidate)
+        const score = clamp01(candidate.combinedRate + styleBoost)
+        pool.push({ fixture, statKey, alt, def, style, score, candidate, breakdown })
       }
     }
+  }
 
-    if (!best) continue
-    const confidence = Math.max(55, Math.min(95, Math.round(best.score * 100)))
-    const thresholdText = best.def?.binary ? 'YES' : `Over ${best.alt}`
-    const breakdown = best.candidate?.breakdown || {}
-    tips.push({
+  // Sort globally, then deduplicate by fixture+stat+side so the same bet
+  // can't appear twice (e.g. home teamGoals shown once only).
+  pool.sort((a, b) => b.score - a.score)
+  const seen = new Set()
+  const top = pool.filter(item => {
+    const key = `${item.fixture.id}:${item.statKey}:${item.candidate.isHome ?? 'match'}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).slice(0, 5)
+
+  if (!top.length) return fallbackTips(fixtures, t, 5)
+
+  return top.map(({ fixture, statKey, alt, def, style, score, candidate, breakdown }) => {
+    const confidence = Math.max(55, Math.min(95, Math.round(score * 100)))
+    const thresholdText = def?.binary ? 'YES' : `Over ${alt}`
+    // For team-scoped stats, prefix the specific team name so it's clear which side
+    const teamName = candidate.teamScope
+      ? (candidate.isHome ? fixture.homeTeam?.name : fixture.awayTeam?.name)
+      : null
+    const betLabel = teamName
+      ? `${teamName} — ${localizedLabel(statKey, t)} - ${thresholdText}`
+      : `${localizedLabel(statKey, t)} - ${thresholdText}`
+    return {
       fixture,
       fixtureId: fixture.id,
-      statKey: best.statKey,
+      statKey,
       confidence,
       match: `${fixture.homeTeam.name} vs ${fixture.awayTeam.name}`,
-      bet: `${localizedLabel(best.statKey, t)} - ${thresholdText}`,
-      why: `L5 ${breakdown.l5 == null ? '-' : `${(breakdown.l5 * 100) | 0}%`} | L10 ${breakdown.l10 == null ? '-' : `${(breakdown.l10 * 100) | 0}%`} | L15 ${breakdown.l15 == null ? '-' : `${(breakdown.l15 * 100) | 0}%`} | H2H ${breakdown.h2h == null ? '-' : `${(breakdown.h2h * 100) | 0}%`} | Opponent allowance ${breakdown.opponent == null ? '-' : `${(breakdown.opponent * 100) | 0}%`} | Style: ${best.style}`,
+      bet: betLabel,
+      why: `L5 ${breakdown.l5 == null ? '-' : `${(breakdown.l5 * 100) | 0}%`} | L10 ${breakdown.l10 == null ? '-' : `${(breakdown.l10 * 100) | 0}%`} | L15 ${breakdown.l15 == null ? '-' : `${(breakdown.l15 * 100) | 0}%`} | H2H ${breakdown.h2h == null ? '-' : `${(breakdown.h2h * 100) | 0}%`} | Opponent allowance ${breakdown.opponent == null ? '-' : `${(breakdown.opponent * 100) | 0}%`} | Style: ${style}`,
       breakdown: {
         l5: breakdown.l5,
         l10: breakdown.l10,
@@ -245,16 +272,12 @@ function buildTips(fixtures, t) {
         opponent: breakdown.opponent,
         consistency: breakdown.consistency,
         sample: breakdown.sample,
-        style: best.style,
+        style,
       },
       fallback: false,
-      rankScore: best.score,
-    })
-  }
-
-  const ranked = tips.sort((a, b) => b.rankScore - a.rankScore).slice(0, 5)
-  if (ranked.length) return ranked
-  return fallbackTips(fixtures, t, 5)
+      rankScore: score,
+    }
+  })
 }
 
 export default function HomePage() {
@@ -282,6 +305,8 @@ export default function HomePage() {
   const [newsItems, setNewsItems] = useState([])
   const [newsLoading, setNewsLoading] = useState(false)
   const [selectedNews, setSelectedNews] = useState(null)
+  const [selectedNewsSource, setSelectedNewsSource] = useState('desktop')
+  const [mobileInsightsTab, setMobileInsightsTab] = useState('tips')
   const [newsModalLoading, setNewsModalLoading] = useState(false)
   const [favoriteFixtureIds, setFavoriteFixtureIds] = useState(() => {
     try {
@@ -361,22 +386,24 @@ function handleViewChange(key) {
   const isLamakiView = activeView === 'lamaki'
   const isPlayerStatsView = activeView === 'player_stats'
   const isCorrectScore = activeView === 'correct_score'
+  const isSgpView = activeView === 'sgp'
   const activeStatKey = viewKeyToStat(activeView)
   const isStatPage = Boolean(activeStatKey)
-  const isSpecialView = isLamakiView || isPlayerStatsView || isCorrectScore || isStatPage
+  const isSpecialView = isLamakiView || isPlayerStatsView || isCorrectScore || isSgpView || isStatPage
   const isStatView = !isScheduleView && !isSpecialView && STAT_KEY_MAP[activeView]
   const tipsInPanelView = false
   const desktopCenterShift = DESKTOP_BASE_CENTER_SHIFT
   const rightPanelVisible = true
   const fixturesDesktopCenterShift = rightPanelVisible ? 10 : DESKTOP_BASE_CENTER_SHIFT
 
-  const shouldEnrich = isLamakiView || isCorrectScore || isStatPage
+  const shouldEnrich = isLamakiView || isCorrectScore || isSgpView || isStatPage
   const enrichOptions = useMemo(() => {
-    if (isCorrectScore) return { includeH2H: true, withStats: false, maxFixtures: 10 }
-    if (isStatPage) return { includeH2H: false, withStats: true, maxFixtures: 10 }
-    if (isLamakiView) return { includeH2H: false, withStats: false, maxFixtures: 10 }
+    if (isCorrectScore) return { includeH2H: true, withStats: false, maxFixtures: 200 }
+    if (isSgpView) return { includeH2H: true, withStats: false, maxFixtures: 200 }
+    if (isStatPage) return { includeH2H: false, withStats: true, maxFixtures: 200 }
+    if (isLamakiView) return { includeH2H: false, withStats: false, maxFixtures: 200 }
     return { includeH2H: false, withStats: false, maxFixtures: 0 }
-  }, [isCorrectScore, isLamakiView, isStatPage])
+  }, [isCorrectScore, isSgpView, isLamakiView, isStatPage])
   const { fixtures: enrichedFixtures, loading: enrichingLoading } = useEnrichedFixtures(fixtures, shouldEnrich, enrichOptions)
   const analyticsLoading = loading || enrichingLoading
 
@@ -418,7 +445,7 @@ function handleViewChange(key) {
   const { fixtures: panelTipFixtures, loading: panelTipLoading } = useEnrichedFixtures(filtered, isScheduleView || isStatView, {
     includeH2H: true,
     withStats: false,
-    maxFixtures: 16,
+    maxFixtures: 60,
     historyCount: 15,
     h2hCount: 10,
   })
@@ -441,12 +468,12 @@ function handleViewChange(key) {
       })
     })
     return Object.values(map).sort((a, b) => {
-      const ap = leaguePriorityIndex(a?.league?.id)
-      const bp = leaguePriorityIndex(b?.league?.id)
-      if (ap !== bp) return ap - bp
       const an = leaguePriorityByName(a?.league?.name, a?.league?.country)
       const bn = leaguePriorityByName(b?.league?.name, b?.league?.country)
       if (an !== bn) return an - bn
+      const ap = leaguePriorityIndex(a?.league?.id)
+      const bp = leaguePriorityIndex(b?.league?.id)
+      if (ap !== bp) return ap - bp
       const ac = countryPriorityIndex(a?.league?.country)
       const bc = countryPriorityIndex(b?.league?.country)
       if (ac !== bc) return ac - bc
@@ -499,10 +526,10 @@ function handleViewChange(key) {
     setDayOffset(prev => prev + 1)
   }
 
-  const showSharedSearch = isScheduleView || isLamakiView || isCorrectScore || isPlayerStatsView || isStatPage
+  const showSharedSearch = isScheduleView || isLamakiView || isCorrectScore || isSgpView || isPlayerStatsView || isStatPage
   const searchPlaceholder = isPlayerStatsView
     ? 'Search player / team...'
-    : isLamakiView || isCorrectScore
+    : isLamakiView || isCorrectScore || isSgpView
       ? 'Search team / league...'
       : isStatPage
         ? 'Search team / league / angle...'
@@ -517,8 +544,9 @@ function handleViewChange(key) {
 
   const activeLeagueInfo = activeLeague ? fixtures.find(f => f.league.id === activeLeague)?.league : null
 
-  async function openNewsModal(item) {
+  async function openNewsModal(item, source = 'desktop') {
     if (!item) return
+    setSelectedNewsSource(source)
     setSelectedNews(item)
     if (item?.image) return
     if (!item?.url) return
@@ -536,6 +564,16 @@ function handleViewChange(key) {
       // Keep feed preview if article parsing fails.
     } finally {
       setNewsModalLoading(false)
+    }
+  }
+
+  function closeNewsModal() {
+    const shouldReturnToMobileNews = selectedNewsSource === 'mobile'
+    setSelectedNews(null)
+    setSelectedNewsSource('desktop')
+    if (shouldReturnToMobileNews) {
+      setMobileInsightsTab('news')
+      setSidebarOpen(true)
     }
   }
 
@@ -606,16 +644,17 @@ function handleViewChange(key) {
             overflow: visible !important;
           }
           .fixture-group-header {
-            padding: 8px 6px 6px !important;
-            background: transparent !important;
-            border: none !important;
-            border-bottom: none !important;
+            padding: 8px 10px !important;
+            background: linear-gradient(90deg, rgba(249,115,22,0.08) 0%, rgba(22,29,46,0.9) 100%) !important;
+            border-bottom: 1px solid var(--sw-border) !important;
+            border-left: 3px solid #f97316 !important;
           }
           .fixture-group-top-badge { display: none !important; }
           .fixture-mobile-list {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 0;
+            padding: 0;
           }
         }
         @media (min-width: 769px) {
@@ -658,12 +697,13 @@ function handleViewChange(key) {
             mobileOpen={sidebarOpen}
             onRequestClose={() => setSidebarOpen(false)}
             mobileInsights={{
+              initialTab: mobileInsightsTab,
               tips: panelTips,
               tipsLoading: panelTipLoading,
               news: newsItems,
               newsLoading,
-              onTipSelect: (tip) => { handleTipClick(tip); setSidebarOpen(false) },
-              onNewsSelect: (news) => { openNewsModal(news); setSidebarOpen(false) },
+              onTipSelect: (tip) => { setMobileInsightsTab('tips'); handleTipClick(tip); setSidebarOpen(false) },
+              onNewsSelect: (news) => { setMobileInsightsTab('news'); openNewsModal(news, 'mobile'); setSidebarOpen(false) },
             }}
           />
         </div>
@@ -688,16 +728,23 @@ function handleViewChange(key) {
 
           {showSharedSearch ? (
             <div className="home-search-wrap" style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: 0 }}>
-              <div className="home-search-inner" style={{ position: 'relative', width: '100%', maxWidth: CONTENT_MAX_WIDTH }}>
+              <form
+                className="home-search-inner"
+                autoComplete="off"
+                onSubmit={e => e.preventDefault()}
+                style={{ position: 'relative', width: '100%', maxWidth: CONTENT_MAX_WIDTH }}
+              >
                 <input
-                  type="text"
+                  type="search"
+                  name="fixture-search"
+                  autoComplete="new-password"
                   placeholder={searchPlaceholder}
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   style={{ width: '100%', padding: '8px 34px 8px 12px', borderRadius: 9, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: 'var(--sw-text)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
                 />
-                {search && <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }}>x</button>}
-              </div>
+                {search && <button type="button" onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }}>x</button>}
+              </form>
             </div>
           ) : <div className="home-header-spacer" style={{ flex: 1 }} />}
 
@@ -762,7 +809,7 @@ function handleViewChange(key) {
           {dashboardOpen && <UserDashboard onClose={() => setDashboardOpen(false)} />}
         </header>
 
-        {(isScheduleView || isStatView || isLamakiView || isStatPage) && (
+        {(isScheduleView || isStatView || isLamakiView || isSgpView || isStatPage) && (
           <DayBar
             days={days}
             selectedIdx={dayIdx}
@@ -802,6 +849,13 @@ function handleViewChange(key) {
               <div className="home-mobile-shell home-shell-section" style={{ padding: '16px 20px' }}>
                 <div className="desktop-global-center-shift" style={{ maxWidth: CONTENT_MAX_WIDTH, margin: '0 auto' }}>
                   <PremiumGate featureName={t('correct_score')}><CorrectScorePage fixtures={enrichedFixtures} loading={analyticsLoading} searchQuery={search} onSearchChange={setSearch} /></PremiumGate>
+                </div>
+              </div>
+            )}
+            {isSgpView && (
+              <div className="home-mobile-shell home-shell-section" style={{ padding: '16px 20px' }}>
+                <div className="desktop-global-center-shift" style={{ maxWidth: CONTENT_MAX_WIDTH, margin: '0 auto' }}>
+                  <PremiumGate featureName="Same Game Parlay"><SGPPage fixtures={enrichedFixtures} loading={analyticsLoading} searchQuery={search} onSearchChange={setSearch} /></PremiumGate>
                 </div>
               </div>
             )}
@@ -864,13 +918,13 @@ function handleViewChange(key) {
                       ) : (
                         <>
                           {!!favoriteFixtures.length && (
-                            <div className="fixture-group-card" style={{ marginBottom: 16, borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(245,158,11,0.45)' }}>
-                              <div className="fixture-group-header" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(245,158,11,0.12)', borderBottom: '1px solid rgba(245,158,11,0.35)' }}>
-                                <span style={{ fontSize: 16 }}>{'\u2605'}</span>
-                                <span style={{ fontWeight: 800, fontSize: 13, color: '#fef3c7', letterSpacing: '0.02em' }}>Favorites</span>
-                                <span style={{ marginLeft: 'auto', fontSize: 11, color: '#fcd34d' }}>{favoriteFixtures.length} match{favoriteFixtures.length > 1 ? 'es' : ''}</span>
+                            <div className="fixture-group-card fixture-group-container" style={{ marginBottom: 12, border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b' }}>
+                              <div className="fixture-group-header" style={{ background: 'rgba(245,158,11,0.1)', borderBottom: '1px solid rgba(245,158,11,0.25)', borderLeft: 'none' }}>
+                                <span style={{ fontSize: 14 }}>★</span>
+                                <span className="fixture-group-header-name" style={{ color: '#fef3c7' }}>Favorites</span>
+                                <span className="fixture-group-header-count" style={{ background: 'rgba(245,158,11,0.15)', color: '#fcd34d' }}>{favoriteFixtures.length}</span>
                               </div>
-                              <div className="fixture-mobile-list" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 8 }}>
+                              <div className="fixture-mobile-list">
                                 {favoriteFixtures.map((f, fi) => (
                                   <FixtureRow
                                     key={`fav-${f.id}`}
@@ -885,15 +939,16 @@ function handleViewChange(key) {
                             </div>
                           )}
                           {groups.map(({ league, fixtures: lf }) => (
-                          <div key={league.id} className="fixture-group-card" style={{ marginBottom: 20, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--sw-border)' }}>
-                            <div className="fixture-group-header" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--sw-surface-2)', borderBottom: '1px solid var(--sw-border)' }}>
-                              <CountryFlag flag={league.flag} country={league.country} countryCode={league.countryCode} alt={league.country} size={16} />
-                              {league.logo && <img src={league.logo} alt={league.name} style={{ width: 20, height: 20, objectFit: 'contain' }} />}
-                              <span style={{ fontWeight: 700, fontSize: 13, color: '#f1f5f9' }}>{league.name}</span>
-                              <span style={{ color: '#6b7280', fontSize: 12 }}> - {league.country}</span>
-                              {league.top && <span className="fixture-group-top-badge" style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 800, background: 'rgba(234,179,8,0.12)', color: '#eab308', border: '1px solid rgba(234,179,8,0.25)', borderRadius: 4, padding: '1px 7px', letterSpacing: 1 }}>TOP</span>}
+                          <div key={league.id} className="fixture-group-card fixture-group-container" style={{ marginBottom: 10 }}>
+                            <div className="fixture-group-header">
+                              <CountryFlag flag={league.flag} country={league.country} countryCode={league.countryCode} alt={league.country} size={14} />
+                              {league.logo && <img src={league.logo} alt={league.name} style={{ width: 16, height: 16, objectFit: 'contain', flexShrink: 0 }} />}
+                              <span className="fixture-group-header-name">{league.name}</span>
+                              <span style={{ fontSize: 11, color: '#8fa3bc', flexShrink: 0 }}>{league.country}</span>
+                              {league.top && <span style={{ fontSize: 9, fontWeight: 800, background: 'rgba(234,179,8,0.12)', color: '#eab308', border: '1px solid rgba(234,179,8,0.25)', borderRadius: 3, padding: '1px 6px', letterSpacing: 0.5, flexShrink: 0 }}>TOP</span>}
+                              <span className="fixture-group-header-count">{lf.length}</span>
                             </div>
-                            <div className="fixture-mobile-list" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 8 }}>
+                            <div className="fixture-mobile-list">
                               {lf.map((f, fi) => (
                                 <FixtureRow
                                   key={f.id}
@@ -964,7 +1019,7 @@ function handleViewChange(key) {
                   {!newsLoading && newsItems.map((n, idx) => (
                     <button
                       key={`${n.url || idx}-${idx}`}
-                      onClick={() => openNewsModal(n)}
+                      onClick={() => openNewsModal(n, 'desktop')}
                       style={{ textDecoration: 'none', border: '1px solid var(--sw-border)', borderRadius: 12, background: 'var(--sw-panel-gradient)', overflow: 'hidden', cursor: 'pointer', padding: 0, textAlign: 'left' }}
                     >
                       {n.image && (
@@ -1092,11 +1147,11 @@ function handleViewChange(key) {
         </div>
       )}
       {selectedNews && (
-        <div className="theme-overlay" onClick={() => setSelectedNews(null)} style={{ position: 'fixed', inset: 0, zIndex: 145, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
+        <div className="theme-overlay" onClick={closeNewsModal} style={{ position: 'fixed', inset: 0, zIndex: 145, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
           <div className="theme-card" onClick={e => e.stopPropagation()} style={{ width: 'min(780px, 100%)', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(2,6,23,0.7)' }}>
             <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--sw-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{selectedNews?.source || 'News'}</div>
-              <button onClick={() => setSelectedNews(null)} style={{ minHeight: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#94a3b8', cursor: 'pointer' }}>Close</button>
+              <button onClick={closeNewsModal} style={{ minHeight: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#94a3b8', cursor: 'pointer' }}>Close</button>
             </div>
             {selectedNews?.image && (
               <div style={{ width: '100%', aspectRatio: '16 / 9', overflow: 'hidden', background: 'var(--sw-surface-0)' }}>

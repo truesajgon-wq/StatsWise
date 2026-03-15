@@ -216,7 +216,7 @@ function PredictionCard({ pred, statDef, rank, accentColor, t, onOpen }) {
 }
 
 // â”€â”€â”€ Filter bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function FilterBar({ minRate, setMinRate, activeAlt, setActiveAlt, alts, isBinary, count, t, onAltStep }) {
+function FilterBar({ minRate, setMinRate, activeAlt, setActiveAlt, alts, isBinary, count, t }) {
   return (
     <div className="stat-prediction-filter-bar" style={{ padding:'12px 16px', background:'var(--sw-surface-1)', borderRadius:12, border:'1px solid var(--sw-border)', display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
       <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', flex:'1 1 280px' }}>
@@ -236,20 +236,12 @@ function FilterBar({ minRate, setMinRate, activeAlt, setActiveAlt, alts, isBinar
       {!isBinary && alts.length > 1 && (
         <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', flex:'999 1 380px' }}>
             <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
-              <button onClick={() => setActiveAlt(null)}
-                style={{ minHeight:44, minWidth:54, padding:'0 12px', borderRadius:10, border:'1px solid', borderColor: activeAlt===null ? '#d1d5db' : 'var(--sw-muted)', background: activeAlt===null ? 'rgba(209,213,219,0.12)' : 'none', color: activeAlt===null ? '#d1d5db' : '#6b7280', fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                {t('filter_all')}
-              </button>
               {alts.map(v => (
                 <button key={v} onClick={() => setActiveAlt(v)}
                   style={{ minHeight:44, minWidth:54, padding:'0 12px', borderRadius:10, border:'1px solid', borderColor: activeAlt===v ? '#f59e0b' : 'var(--sw-muted)', background: activeAlt===v ? 'rgba(245,158,11,0.12)' : 'none', color: activeAlt===v ? '#f59e0b' : '#6b7280', fontSize:12, fontWeight:700, cursor:'pointer', transition:'all 0.12s' }}>
                   {formatAltValue(v)}
                 </button>
               ))}
-              <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-                <button onClick={() => onAltStep(-1)} style={{ width:44, height:44, borderRadius:10, border:'1px solid var(--sw-muted)', background:'none', color:'#9ca3af', fontSize:18, fontWeight:800, cursor:'pointer' }}>-</button>
-                <button onClick={() => onAltStep(1)} style={{ width:44, height:44, borderRadius:10, border:'1px solid var(--sw-muted)', background:'none', color:'#9ca3af', fontSize:18, fontWeight:800, cursor:'pointer' }}>+</button>
-              </div>
             </div>
         </div>
       )}
@@ -357,14 +349,6 @@ export default function StatPredictionPage({ statKey, fixtures = [], loading, on
     setActiveAlt(defaultAltForPage)
   }, [statKey, defaultAltForPage])
 
-  function handleAltStep(delta) {
-    if (statKeysToRun.every(key => getStatDef(key)?.binary)) return
-    const current = activeAlt ?? customAlt ?? (altsToRun[0] ?? statDef?.defaultAlt ?? 2.5)
-    const next = normalizeHalfAlt(Number(current) + delta)
-    setCustomAlt(next)
-    setActiveAlt(next)
-  }
-
   const predictions = useMemo(() => {
     return statKeysToRun
       .flatMap(key => runPredictionEngine(fixtures, key, altsToRun, minRate))
@@ -417,7 +401,6 @@ export default function StatPredictionPage({ statKey, fixtures = [], loading, on
         activeAlt={activeAlt} setActiveAlt={setActiveAlt}
         alts={visibleAlts} isBinary={statKeysToRun.every(key => getStatDef(key)?.binary)}
         count={displayPreds.length} t={t}
-        onAltStep={handleAltStep}
       />
 
       {!useExternalSearch && (

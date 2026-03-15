@@ -903,6 +903,7 @@ async function getFixtureRowById(fixtureId) {
 
 async function getTeamHistoryRows(teamId, count, { homeOnly = false, awayOnly = false, season, league } = {}) {
   const filters = ['(f.home_team_id = $1 OR f.away_team_id = $1)']
+  filters.push(`COALESCE(f.source_file, '') <> 'fixtures.csv'`)
   const params = [teamId]
   let idx = 2
   if (homeOnly) filters.push('f.home_team_id = $1')
@@ -933,6 +934,7 @@ async function getTeamHistoryRows(teamId, count, { homeOnly = false, awayOnly = 
 async function getH2HRows(teamA, teamB, count, { season, league } = {}) {
   const params = [teamA, teamB]
   const filters = ['((f.home_team_id = $1 AND f.away_team_id = $2) OR (f.home_team_id = $2 AND f.away_team_id = $1))']
+  filters.push(`COALESCE(f.source_file, '') <> 'fixtures.csv'`)
   let idx = 3
   if (Number.isFinite(season)) {
     filters.push(`(s.start_year = $${idx} OR s.end_year = $${idx})`)
@@ -955,6 +957,246 @@ async function getH2HRows(teamA, teamB, count, { season, league } = {}) {
   `
   const cacheKey = `db:h2h:${teamA}:${teamB}:${count}:${season || ''}:${league || ''}`
   return dbQueryCached(cacheKey, sql, params, 120)
+}
+
+function normalizeLookupLabel(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function buildTeamAliasCandidates(teamName) {
+  const aliases = new Set()
+  const base = normalizeLookupLabel(teamName)
+  if (!base) return []
+  aliases.add(base)
+
+  const trimmedWords = base
+    .split(' ')
+    .filter(Boolean)
+    .filter(word => !['fc', 'cf', 'sc', 'afc', 'ac', 'club', 'de', 'cd'].includes(word))
+    .join(' ')
+    .trim()
+  if (trimmedWords) aliases.add(trimmedWords)
+
+  const withoutUnited = trimmedWords.replace(/\bunited\b/g, '').replace(/\s+/g, ' ').trim()
+  if (withoutUnited) aliases.add(withoutUnited)
+
+  const abbreviatedManchester = trimmedWords.replace(/\bmanchester\b/g, 'man').replace(/\s+/g, ' ').trim()
+  if (abbreviatedManchester) aliases.add(abbreviatedManchester)
+
+  const abbreviatedManchesterNoUnited = abbreviatedManchester.replace(/\bunited\b/g, '').replace(/\s+/g, ' ').trim()
+  if (abbreviatedManchesterNoUnited) aliases.add(abbreviatedManchesterNoUnited)
+
+  return [...aliases].filter(Boolean)
+}
+
+function scoreCanonicalTeamCandidate(teamName, aliases = [], fixtureCount = 0, countryMatch = 0) {
+  const normalizedName = normalizeLookupLabel(teamName)
+  if (!normalizedName) return -1
+
+  let score = 0
+  for (const alias of aliases) {
+    if (!alias) continue
+    if (normalizedName === alias) score = Math.max(score, 1000 - Math.abs(normalizedName.length - alias.length))
+    else if (normalizedName.includes(alias)) score = Math.max(score, 820 - Math.abs(normalizedName.length - alias.length))
+    else if (alias.includes(normalizedName)) score = Math.max(score, 760 - Math.abs(normalizedName.length - alias.length))
+    else {
+      const aliasTokens = alias.split(' ').filter(Boolean)
+      const nameTokens = normalizedName.split(' ').filter(Boolean)
+      const overlap = aliasTokens.filter(token => nameTokens.includes(token)).length
+      if (overlap > 0) score = Math.max(score, 620 + overlap * 40 - Math.abs(nameTokens.length - aliasTokens.length) * 10)
+    }
+  }
+
+  if (countryMatch) score += 80
+  score += Math.min(Number(fixtureCount) || 0, 400)
+  return score
+}
+
+async function resolveCanonicalLeagueId(leagueId, leagueName, country) {
+  if (!leagueName || !country) return leagueId
+  const sql = `
+    SELECT
+      l.id,
+      COUNT(DISTINCT f.id)::int AS fixture_count
+    FROM leagues l
+    LEFT JOIN fixtures f ON f.league_id = l.id
+      AND COALESCE(f.source_file, '') <> 'fixtures.csv'
+    WHERE lower(l.name) = lower($1)
+      AND lower(COALESCE(l.country, '')) = lower($2)
+    GROUP BY l.id
+    ORDER BY
+      CASE WHEN l.id = $3 THEN 0 ELSE 1 END,
+      COUNT(DISTINCT f.id) DESC,
+      l.id ASC
+    LIMIT 1
+  `
+  const rows = await dbQueryCached(`db:canonicalLeague:${leagueId}:${leagueName}:${country}`, sql, [leagueName, country, Number(leagueId) || -1], 300)
+  const best = [...(rows || [])].sort((a, b) => {
+    const aCount = Number(a.fixture_count || 0)
+    const bCount = Number(b.fixture_count || 0)
+    const aIsRequested = Number(a.id) === Number(leagueId)
+    const bIsRequested = Number(b.id) === Number(leagueId)
+    if (aCount > 0 || bCount > 0) {
+      if (aCount !== bCount) return bCount - aCount
+      if (aIsRequested !== bIsRequested) return aIsRequested ? -1 : 1
+      return Number(a.id || 0) - Number(b.id || 0)
+    }
+    if (aIsRequested !== bIsRequested) return aIsRequested ? -1 : 1
+    return Number(a.id || 0) - Number(b.id || 0)
+  })[0]
+  return Number(best?.id) || leagueId
+}
+
+async function resolveCanonicalTeamId(teamId, teamName, leagueCountry) {
+  const aliases = buildTeamAliasCandidates(teamName)
+  if (!aliases.length) return teamId
+  const likePatterns = aliases.map(alias => `%${alias}%`)
+  const sql = `
+    SELECT
+      t.id,
+      t.name,
+      COUNT(DISTINCT f.id)::int AS fixture_count,
+      MAX(CASE WHEN lower(COALESCE(l.country, '')) = lower($2) THEN 1 ELSE 0 END)::int AS country_match
+    FROM teams t
+    LEFT JOIN fixtures f ON (f.home_team_id = t.id OR f.away_team_id = t.id)
+      AND COALESCE(f.source_file, '') <> 'fixtures.csv'
+    LEFT JOIN leagues l ON l.id = f.league_id
+    WHERE lower(t.name) = ANY($1::text[])
+      OR EXISTS (
+        SELECT 1
+        FROM unnest($3::text[]) AS pattern
+        WHERE lower(t.name) LIKE pattern
+      )
+    GROUP BY t.id, t.name
+    ORDER BY COUNT(DISTINCT f.id) DESC, length(t.name) ASC, t.id ASC
+    LIMIT 40
+  `
+  const rows = await dbQueryCached(`db:canonicalTeam:${teamId}:${aliases.join('|')}:${leagueCountry || ''}`, sql, [aliases, leagueCountry || '', likePatterns], 300)
+  const best = [...(rows || [])]
+    .map(row => {
+      const sameId = Number(row.id) === Number(teamId)
+      const baseScore = scoreCanonicalTeamCandidate(row.name, aliases, row.fixture_count, row.country_match)
+      return {
+        ...row,
+        matchScore: sameId && baseScore > 0 ? baseScore + 500 : baseScore,
+        sameId,
+      }
+    })
+    .sort((a, b) => {
+      const aCount = Number(a.fixture_count || 0)
+      const bCount = Number(b.fixture_count || 0)
+      if (aCount > 0 || bCount > 0) {
+        if (a.matchScore !== b.matchScore) return b.matchScore - a.matchScore
+        if (Number(a.country_match || 0) !== Number(b.country_match || 0)) return Number(b.country_match || 0) - Number(a.country_match || 0)
+        if (aCount !== bCount) return bCount - aCount
+        if (a.sameId !== b.sameId) return a.sameId ? -1 : 1
+        return Number(a.id || 0) - Number(b.id || 0)
+      }
+      if (a.matchScore !== b.matchScore) return b.matchScore - a.matchScore
+      if (Number(a.country_match || 0) !== Number(b.country_match || 0)) return Number(b.country_match || 0) - Number(a.country_match || 0)
+      if (aCount !== bCount) return bCount - aCount
+      if (a.sameId !== b.sameId) return a.sameId ? -1 : 1
+      return Number(a.id || 0) - Number(b.id || 0)
+    })
+    .find(row => Number(row.matchScore || 0) > 0)
+  return Number(best?.id) || teamId
+}
+
+async function resolveCanonicalFixtureContext(row) {
+  if (!row) return null
+  const leagueCountry = row.league_country || ''
+  const [homeTeamId, awayTeamId, leagueId] = await Promise.all([
+    resolveCanonicalTeamId(row.home_team_id, row.home_team_name, leagueCountry),
+    resolveCanonicalTeamId(row.away_team_id, row.away_team_name, leagueCountry),
+    resolveCanonicalLeagueId(row.league_id, row.league_name, leagueCountry),
+  ])
+  return {
+    homeTeamId,
+    awayTeamId,
+    leagueId,
+    season: row.season_start_year,
+  }
+}
+
+function mergeHistoryRows(rowSets, count, excludeFixtureId) {
+  const byId = new Map()
+  for (const rows of rowSets) {
+    for (const row of rows || []) {
+      if (!row || row.id === excludeFixtureId) continue
+      if (!byId.has(row.id)) byId.set(row.id, row)
+    }
+  }
+  return [...byId.values()]
+    .sort((a, b) => {
+      const aDate = new Date(toIsoDateTime(a.fixture_date, a.kickoff_time || '00:00:00')).getTime()
+      const bDate = new Date(toIsoDateTime(b.fixture_date, b.kickoff_time || '00:00:00')).getTime()
+      if (aDate !== bDate) return bDate - aDate
+      return Number(b.id || 0) - Number(a.id || 0)
+    })
+    .slice(0, count)
+}
+
+async function getTeamHistoryRowsWithFallback(teamId, count, options = {}) {
+  const { excludeFixtureId, homeOnly = false, awayOnly = false, season, league } = options
+  const attempts = []
+  const seen = new Set()
+
+  function pushAttempt(nextSeason, nextLeague) {
+    const key = `${nextSeason || ''}:${nextLeague || ''}:${homeOnly ? 1 : 0}:${awayOnly ? 1 : 0}`
+    if (seen.has(key)) return
+    seen.add(key)
+    attempts.push({ season: nextSeason, league: nextLeague, homeOnly, awayOnly })
+  }
+
+  pushAttempt(season, league)
+  if (Number.isFinite(season)) pushAttempt(season, undefined)
+  if (Number.isFinite(league)) pushAttempt(undefined, league)
+  pushAttempt(undefined, undefined)
+
+  const results = []
+  for (const attempt of attempts) {
+    const rows = await getTeamHistoryRows(teamId, count + 5, attempt)
+    results.push(rows)
+    const merged = mergeHistoryRows(results, count, excludeFixtureId)
+    if (merged.length >= count) return merged
+  }
+
+  return mergeHistoryRows(results, count, excludeFixtureId)
+}
+
+async function getH2HRowsWithFallback(teamA, teamB, count, options = {}) {
+  const { excludeFixtureId, season, league } = options
+  const attempts = []
+  const seen = new Set()
+
+  function pushAttempt(nextSeason, nextLeague) {
+    const key = `${nextSeason || ''}:${nextLeague || ''}`
+    if (seen.has(key)) return
+    seen.add(key)
+    attempts.push({ season: nextSeason, league: nextLeague })
+  }
+
+  pushAttempt(season, league)
+  if (Number.isFinite(season)) pushAttempt(season, undefined)
+  if (Number.isFinite(league)) pushAttempt(undefined, league)
+  pushAttempt(undefined, undefined)
+
+  const results = []
+  for (const attempt of attempts) {
+    const rows = await getH2HRows(teamA, teamB, count + 5, attempt)
+    results.push(rows)
+    const merged = mergeHistoryRows(results, count, excludeFixtureId)
+    if (merged.length >= count) return merged
+  }
+
+  return mergeHistoryRows(results, count, excludeFixtureId)
 }
 
 async function getStandings(leagueId, season) {
@@ -1131,8 +1373,8 @@ app.get('/api/match/:id/players', async (req, res) => {
  */
 app.get('/api/teams/:id/last-matches', async (req, res) => {
   const { id }    = req.params
-  const count     = Math.min(Number(req.query.count) || 10, 20)
-  const season    = Number(req.query.season) || new Date().getFullYear()
+  const count     = Math.min(Number(req.query.count) || 10, 30)
+  const season    = Number(req.query.season) || undefined
   const league    = Number(req.query.league) || undefined
   const withStats = String(req.query.stats || '').toLowerCase() === '1' || String(req.query.stats || '').toLowerCase() === 'true'
   try {
@@ -1140,11 +1382,15 @@ app.get('/api/teams/:id/last-matches', async (req, res) => {
       const teamId = Number(id)
       if (!Number.isFinite(teamId)) return res.status(400).json({ success: false, error: 'Invalid team id' })
       const seasonFilter = Number.isFinite(season) ? season : undefined
-      const rows = await getTeamHistoryRows(teamId, count, { season: seasonFilter, league })
+      const fixtureLeagueCountry = String(req.query.country || '').trim()
+      const fixtureLeagueName = String(req.query.leagueName || '').trim()
+      const canonicalLeagueId = await resolveCanonicalLeagueId(league, fixtureLeagueName, fixtureLeagueCountry)
+      const canonicalTeamId = await resolveCanonicalTeamId(teamId, String(req.query.teamName || '').trim() || String(id), fixtureLeagueCountry)
+      const rows = await getTeamHistoryRowsWithFallback(canonicalTeamId || teamId, count, { season: seasonFilter, league: canonicalLeagueId || league })
       const data = rows.map(row => {
         const fixture = fixtureRowToApiShape(row)
         if (!withStats) delete fixture.statistics
-        return mapHistoryEntry(fixture, teamId)
+        return mapHistoryEntry(fixture, canonicalTeamId || teamId)
       })
       return res.json({ success: true, fromCache: false, data })
     }
@@ -1198,8 +1444,15 @@ app.get('/api/head-to-head/:team1/:team2', async (req, res) => {
       if (!Number.isFinite(teamA) || !Number.isFinite(teamB)) {
         return res.status(400).json({ success: false, error: 'Invalid team id' })
       }
-      const rows = await getH2HRows(teamA, teamB, count, { season, league })
-      const data = rows.map(row => mapHistoryEntry(fixtureRowToApiShape(row), teamA))
+      const country = String(req.query.country || '').trim()
+      const leagueName = String(req.query.leagueName || '').trim()
+      const homeTeamName = String(req.query.homeTeamName || '').trim()
+      const awayTeamName = String(req.query.awayTeamName || '').trim()
+      const canonicalLeagueId = await resolveCanonicalLeagueId(league, leagueName, country)
+      const canonicalTeamA = await resolveCanonicalTeamId(teamA, homeTeamName || team1, country)
+      const canonicalTeamB = await resolveCanonicalTeamId(teamB, awayTeamName || team2, country)
+      const rows = await getH2HRowsWithFallback(canonicalTeamA || teamA, canonicalTeamB || teamB, count, { season, league: canonicalLeagueId || league })
+      const data = rows.map(row => mapHistoryEntry(fixtureRowToApiShape(row), canonicalTeamA || teamA))
       return res.json({ success: true, fromCache: false, data })
     }
 
@@ -1239,29 +1492,27 @@ app.get('/api/match/:id/details', async (req, res) => {
 
       const fixture = fixtureRowToApiShape(row)
       const mappedFixture = toMappedFixture(row)
-      const homeId = row.home_team_id
-      const awayId = row.away_team_id
-      const season = row.season_start_year
-      const leagueId = row.league_id
+      const context = await resolveCanonicalFixtureContext(row)
+      const homeId = context?.homeTeamId || row.home_team_id
+      const awayId = context?.awayTeamId || row.away_team_id
+      const season = context?.season || row.season_start_year
+      const leagueId = context?.leagueId || row.league_id
 
       const [homeHistoryRows, awayHistoryRows, h2hRows] = await Promise.all([
-        getTeamHistoryRows(homeId, 20, { season, league: leagueId }),
-        getTeamHistoryRows(awayId, 20, { season, league: leagueId }),
-        getH2HRows(homeId, awayId, 15, { season, league: leagueId }),
+        getTeamHistoryRowsWithFallback(homeId, 20, { season, league: leagueId, excludeFixtureId: fixtureId }),
+        getTeamHistoryRowsWithFallback(awayId, 20, { season, league: leagueId, excludeFixtureId: fixtureId }),
+        getH2HRowsWithFallback(homeId, awayId, 15, { season, league: leagueId, excludeFixtureId: fixtureId }),
       ])
 
       const homeHistory = homeHistoryRows
-        .filter(r => r.id !== fixtureId)
         .slice(0, 15)
         .map(r => mapHistoryEntry(fixtureRowToApiShape(r), homeId))
 
       const awayHistory = awayHistoryRows
-        .filter(r => r.id !== fixtureId)
         .slice(0, 15)
         .map(r => mapHistoryEntry(fixtureRowToApiShape(r), awayId))
 
       const h2h = h2hRows
-        .filter(r => r.id !== fixtureId)
         .slice(0, 15)
         .map(r => mapHistoryEntry(fixtureRowToApiShape(r), homeId))
 
@@ -1410,29 +1661,27 @@ app.get('/api/match/:id/historical-stats', async (req, res) => {
       const row = await getFixtureRowById(fixtureId)
       if (!row) return res.status(404).json({ success: false, error: 'Match not found' })
 
-      const homeId = row.home_team_id
-      const awayId = row.away_team_id
-      const season = row.season_start_year
-      const leagueId = row.league_id
+      const context = await resolveCanonicalFixtureContext(row)
+      const homeId = context?.homeTeamId || row.home_team_id
+      const awayId = context?.awayTeamId || row.away_team_id
+      const season = context?.season || row.season_start_year
+      const leagueId = context?.leagueId || row.league_id
 
       const [homeHistoryRows, awayHistoryRows, h2hRows] = await Promise.all([
-        getTeamHistoryRows(homeId, 20, { season, league: leagueId }),
-        getTeamHistoryRows(awayId, 20, { season, league: leagueId }),
-        getH2HRows(homeId, awayId, 15, { season, league: leagueId }),
+        getTeamHistoryRowsWithFallback(homeId, 20, { season, league: leagueId, excludeFixtureId: fixtureId }),
+        getTeamHistoryRowsWithFallback(awayId, 20, { season, league: leagueId, excludeFixtureId: fixtureId }),
+        getH2HRowsWithFallback(homeId, awayId, 15, { season, league: leagueId, excludeFixtureId: fixtureId }),
       ])
 
       const homeHistory = homeHistoryRows
-        .filter(r => r.id !== fixtureId)
         .slice(0, 15)
         .map(r => mapHistoryEntry(fixtureRowToApiShape(r), homeId))
 
       const awayHistory = awayHistoryRows
-        .filter(r => r.id !== fixtureId)
         .slice(0, 15)
         .map(r => mapHistoryEntry(fixtureRowToApiShape(r), awayId))
 
       const h2h = h2hRows
-        .filter(r => r.id !== fixtureId)
         .slice(0, 15)
         .map(r => mapHistoryEntry(fixtureRowToApiShape(r), homeId))
 
@@ -1526,19 +1775,20 @@ app.get('/fixtures/:id', async (req, res) => {
     if (!row) return res.status(404).json({ success: false, error: 'Match not found' })
 
     const fixture = fixtureRowToApiShape(row)
-    const homeId = row.home_team_id
-    const awayId = row.away_team_id
-    const season = row.season_start_year
-    const leagueId = row.league_id
+    const context = await resolveCanonicalFixtureContext(row)
+    const homeId = context?.homeTeamId || row.home_team_id
+    const awayId = context?.awayTeamId || row.away_team_id
+    const season = context?.season || row.season_start_year
+    const leagueId = context?.leagueId || row.league_id
     const [homeHistoryRows, awayHistoryRows, h2hRows] = await Promise.all([
-      getTeamHistoryRows(homeId, 20, { season, league: leagueId }),
-      getTeamHistoryRows(awayId, 20, { season, league: leagueId }),
-      getH2HRows(homeId, awayId, 15, { season, league: leagueId }),
+      getTeamHistoryRowsWithFallback(homeId, 20, { season, league: leagueId, excludeFixtureId: fixtureId }),
+      getTeamHistoryRowsWithFallback(awayId, 20, { season, league: leagueId, excludeFixtureId: fixtureId }),
+      getH2HRowsWithFallback(homeId, awayId, 15, { season, league: leagueId, excludeFixtureId: fixtureId }),
     ])
 
-    const homeHistory = homeHistoryRows.filter(r => r.id !== fixtureId).slice(0, 15).map(r => mapHistoryEntry(fixtureRowToApiShape(r), homeId))
-    const awayHistory = awayHistoryRows.filter(r => r.id !== fixtureId).slice(0, 15).map(r => mapHistoryEntry(fixtureRowToApiShape(r), awayId))
-    const h2h = h2hRows.filter(r => r.id !== fixtureId).slice(0, 15).map(r => mapHistoryEntry(fixtureRowToApiShape(r), homeId))
+    const homeHistory = homeHistoryRows.slice(0, 15).map(r => mapHistoryEntry(fixtureRowToApiShape(r), homeId))
+    const awayHistory = awayHistoryRows.slice(0, 15).map(r => mapHistoryEntry(fixtureRowToApiShape(r), awayId))
+    const h2h = h2hRows.slice(0, 15).map(r => mapHistoryEntry(fixtureRowToApiShape(r), homeId))
 
     return res.json({
       success: true,
@@ -1565,7 +1815,7 @@ app.get('/team/:id/last/:count', async (req, res) => {
     const teamId = Number(req.params.id)
     const count = clampCount(req.params.count, 10, 20)
     if (!Number.isFinite(teamId)) return res.status(400).json({ success: false, error: 'Invalid team id' })
-    const rows = await getTeamHistoryRows(teamId, count)
+    const rows = await getTeamHistoryRowsWithFallback(teamId, count)
     return res.json({ success: true, data: rows.map(row => mapHistoryEntry(fixtureRowToApiShape(row), teamId)) })
   } catch (err) {
     console.error('[/team/:id/last/:count]', err.message)
@@ -1578,7 +1828,7 @@ app.get('/team/:id/home-last/:count', async (req, res) => {
     const teamId = Number(req.params.id)
     const count = clampCount(req.params.count, 10, 20)
     if (!Number.isFinite(teamId)) return res.status(400).json({ success: false, error: 'Invalid team id' })
-    const rows = await getTeamHistoryRows(teamId, count, { homeOnly: true })
+    const rows = await getTeamHistoryRowsWithFallback(teamId, count, { homeOnly: true })
     return res.json({ success: true, data: rows.map(row => mapHistoryEntry(fixtureRowToApiShape(row), teamId)) })
   } catch (err) {
     console.error('[/team/:id/home-last/:count]', err.message)
@@ -1591,7 +1841,7 @@ app.get('/team/:id/away-last/:count', async (req, res) => {
     const teamId = Number(req.params.id)
     const count = clampCount(req.params.count, 10, 20)
     if (!Number.isFinite(teamId)) return res.status(400).json({ success: false, error: 'Invalid team id' })
-    const rows = await getTeamHistoryRows(teamId, count, { awayOnly: true })
+    const rows = await getTeamHistoryRowsWithFallback(teamId, count, { awayOnly: true })
     return res.json({ success: true, data: rows.map(row => mapHistoryEntry(fixtureRowToApiShape(row), teamId)) })
   } catch (err) {
     console.error('[/team/:id/away-last/:count]', err.message)
@@ -1605,7 +1855,7 @@ app.get('/h2h/:teamA/:teamB', async (req, res) => {
     const teamB = Number(req.params.teamB)
     const count = clampCount(req.query.count || 10, 10, 20)
     if (!Number.isFinite(teamA) || !Number.isFinite(teamB)) return res.status(400).json({ success: false, error: 'Invalid team ids' })
-    const rows = await getH2HRows(teamA, teamB, count)
+    const rows = await getH2HRowsWithFallback(teamA, teamB, count)
     return res.json({ success: true, data: rows.map(row => mapHistoryEntry(fixtureRowToApiShape(row), teamA)) })
   } catch (err) {
     console.error('[/h2h/:teamA/:teamB]', err.message)
@@ -2409,7 +2659,7 @@ function mapSquadPlayers(raw = [], fallbackTeamId = null, fallbackTeamName = '')
 }
 
 function mapHistoryEntry(f, perspectiveTeamId) {
-  const isHome     = f.teams.home.id === perspectiveTeamId
+  const isHome     = Number(f.teams.home.id) === Number(perspectiveTeamId)
   const hg         = f.goals?.home ?? 0
   const ag         = f.goals?.away ?? 0
   const myGoals    = isHome ? hg : ag

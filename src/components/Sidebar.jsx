@@ -49,7 +49,7 @@ function LeagueTree({ leaguesByCountry, activeLeague, onLeagueSelect }) {
             >
               <CountryFlag flag={flag} country={country} countryCode={countryCode} alt={country} size={14} />
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{country}</span>
-              <span style={{ fontSize: 10, color: '#4b5563', display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>{'>'}</span>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transition: 'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', color: '#4b5563' }}><path d="M3 1.5L6.5 5L3 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
 
             {isOpen && leagues.map(league => {
@@ -78,6 +78,7 @@ const STATIC_NAV = [
   { key: 'ligi', icon: '\u{1F3C6}', labelKey: 'nav_ligi', labelFallback: 'Leagues' },
   { key: 'lamaki', icon: '\u{21A9}\u{FE0F}', labelKey: 'nav_lamaki', labelFallback: 'Comeback Bets', accentColor: '#a78bfa', accentBg: 'rgba(167,139,250,0.1)', premium: true },
   { key: 'correct_score', icon: '\u{1F3AF}', labelKey: 'nav_correct_score', labelFallback: 'Correct Score', accentColor: '#22c55e', accentBg: 'rgba(34,197,94,0.1)', premium: true },
+  { key: 'sgp', icon: '\u{1F517}', labelKey: 'nav_sgp', labelFallback: 'Same Game Parlay', accentColor: '#38bdf8', accentBg: 'rgba(56,189,248,0.1)', premium: true },
   { key: 'player_stats', icon: '\u{1F465}', labelKey: 'nav_player_stats', labelFallback: 'Player Statistics', accentColor: '#d1d5db', accentBg: 'rgba(209,213,219,0.1)' },
 ]
 
@@ -99,6 +100,14 @@ export default function Sidebar({ activeView, onViewChange, activeLeague, onLeag
     media.addListener(apply)
     return () => media.removeListener(apply)
   }, [])
+
+  useEffect(() => {
+    if (!isMobile || !mobileOpen) return
+    const nextTab = mobileInsights?.initialTab
+    if (nextTab === 'tips' || nextTab === 'news') {
+      setInsightsTab(nextTab)
+    }
+  }, [isMobile, mobileOpen, mobileInsights?.initialTab])
 
   const leaguesByCountry = useMemo(() => {
     const map = {}
@@ -149,14 +158,12 @@ export default function Sidebar({ activeView, onViewChange, activeLeague, onLeag
   }
 
   const isLigiActive = leaguesExpanded
-  const open = true
 
   const NavBtn = ({ itemKey, icon, label, accentColor = '#f97316', accentBg = 'rgba(249,115,22,0.1)', premium = false, children }) => {
     const isActive = activeView === itemKey
     return (
       <button
         onClick={() => handleItemClick(itemKey)}
-        title={!open ? label : undefined}
         style={{ display: 'flex', alignItems: 'center', gap: 12, padding: isMobile ? '12px 16px' : '9px 16px', justifyContent: 'flex-start', width: '100%', background: isActive ? accentBg : 'none', border: 'none', borderLeft: isActive ? `3px solid ${accentColor}` : '3px solid transparent', borderBottom: '1px solid var(--sw-border)', color: isActive ? accentColor : '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap', fontSize: 13, fontWeight: isActive ? 700 : 400, textAlign: 'left' }}
       >
         <span style={{ fontSize: 18, minWidth: 22, textAlign: 'center', flexShrink: 0 }}>{icon}</span>
@@ -177,15 +184,16 @@ export default function Sidebar({ activeView, onViewChange, activeLeague, onLeag
         </button>
       )}
 
-      <div style={{ height: isMobile ? 64 : 46, borderBottom: '1px solid var(--sw-border)', display: 'flex', alignItems: 'center', paddingLeft: isMobile ? 64 : 16, justifyContent: 'flex-start', flexShrink: 0, overflow: 'hidden' }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--sw-muted)', letterSpacing: '0.1em', whiteSpace: 'nowrap', paddingRight: 40 }}>NAVIGATION</span>
+      <div style={{ height: isMobile ? 64 : 46, borderBottom: '1px solid var(--sw-border)', display: 'flex', alignItems: 'center', paddingLeft: isMobile ? 64 : 16, paddingRight: 16, justifyContent: 'space-between', flexShrink: 0, overflow: 'hidden', background: 'linear-gradient(90deg, rgba(255,122,0,0.05) 0%, transparent 100%)' }}>
+        <span style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,122,0,0.55)', letterSpacing: '0.14em', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>StatsWise</span>
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,122,0,0.4)', boxShadow: '0 0 6px rgba(255,122,0,0.5)' }} />
       </div>
 
       <div style={{ overflowY: 'auto', flex: 1, paddingTop: 4, paddingBottom: isMobile ? 14 : 0 }}>
         {STATIC_NAV.map(item => (
           <div key={item.key}>
             <NavBtn itemKey={item.key} icon={item.icon} label={t(item.labelKey) === item.labelKey ? item.labelFallback : t(item.labelKey)} accentColor={item.accentColor} accentBg={item.accentBg} premium={item.premium}>
-              {item.key === 'ligi' && <span style={{ fontSize: 10, color: '#4b5563', display: 'inline-block', transform: isLigiActive ? 'rotate(90deg)' : 'none' }}>{'>'}</span>}
+              {item.key === 'ligi' && <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transition: 'transform 0.2s', transform: isLigiActive ? 'rotate(90deg)' : 'rotate(0deg)', color: '#4b5563' }}><path d="M3 1.5L6.5 5L3 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             </NavBtn>
             {item.key === 'ligi' && isLigiActive && (
               <div style={{ background: 'var(--sw-surface-0)', borderBottom: '1px solid var(--sw-border)' }}>
@@ -195,7 +203,11 @@ export default function Sidebar({ activeView, onViewChange, activeLeague, onLeag
           </div>
         ))}
 
-        <div style={{ padding: isMobile ? '10px 14px 4px' : '7px 14px 3px', display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ flex: 1, height: 1, background: 'var(--sw-border)' }} /><span style={{ fontSize: 9, color: 'var(--sw-muted)', fontWeight: 700, letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>{statAnalysisLabel}</span><div style={{ flex: 1, height: 1, background: 'var(--sw-border)' }} /></div>
+        <div style={{ padding: isMobile ? '12px 14px 6px' : '9px 14px 5px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, var(--sw-border))' }} />
+          <span style={{ fontSize: 8.5, color: 'rgba(255,122,0,0.45)', fontWeight: 800, letterSpacing: '0.14em', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>{statAnalysisLabel}</span>
+          <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, var(--sw-border), transparent)' }} />
+        </div>
 
         {STATS_ORDER.filter(stat => !stat.hiddenFromSidebar).map(stat => {
           const viewKey = statViewKey(stat.key)
