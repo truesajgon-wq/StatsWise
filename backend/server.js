@@ -987,18 +987,52 @@ function normalizeLookupLabel(value) {
     .trim()
 }
 
+// Words that are too generic to use as standalone team-name aliases
+const ALIAS_SKIP_STANDALONE = new Set([
+  'and', 'the', 'city', 'united', 'town', 'rovers', 'wanderers',
+  'athletic', 'albion', 'county', 'palace', 'villa', 'hotspur',
+])
+
+// Known short name / nickname overrides for teams whose CSV name differs significantly
+const TEAM_NICKNAME_MAP = {
+  'wolverhampton wanderers': 'wolves',
+  'wolverhampton': 'wolves',
+  'west bromwich albion': 'west brom',
+  'west bromwich': 'west brom',
+  'queens park rangers': 'qpr',
+  'sheffield wednesday': 'sheff wed',
+  'sheffield united': 'sheff utd',
+  'brighton hove albion': 'brighton',
+  'brighton and hove albion': 'brighton',
+  'huddersfield town': 'huddersfield',
+  'norwich city': 'norwich',
+  'stoke city': 'stoke',
+  'swansea city': 'swansea',
+  'cardiff city': 'cardiff',
+  'derby county': 'derby',
+  'coventry city': 'coventry',
+  'luton town': 'luton',
+  'ipswich town': 'ipswich',
+  'blackburn rovers': 'blackburn',
+  'bolton wanderers': 'bolton',
+  'wigan athletic': 'wigan',
+  'charlton athletic': 'charlton',
+  'leeds united': 'leeds',
+  'newcastle united': 'newcastle',
+  'leicester city': 'leicester',
+  'crystal palace': 'crystal palace',
+}
+
 function buildTeamAliasCandidates(teamName) {
+  const NOISE_WORDS = new Set(['fc', 'cf', 'sc', 'afc', 'ac', 'club', 'de', 'cd'])
   const aliases = new Set()
   const base = normalizeLookupLabel(teamName)
   if (!base) return []
   aliases.add(base)
 
-  const trimmedWords = base
-    .split(' ')
-    .filter(Boolean)
-    .filter(word => !['fc', 'cf', 'sc', 'afc', 'ac', 'club', 'de', 'cd'].includes(word))
-    .join(' ')
-    .trim()
+  const words = base.split(' ').filter(Boolean)
+  const coreWords = words.filter(w => !NOISE_WORDS.has(w))
+  const trimmedWords = coreWords.join(' ').trim()
   if (trimmedWords) aliases.add(trimmedWords)
 
   const withoutUnited = trimmedWords.replace(/\bunited\b/g, '').replace(/\s+/g, ' ').trim()
@@ -1009,6 +1043,19 @@ function buildTeamAliasCandidates(teamName) {
 
   const abbreviatedManchesterNoUnited = abbreviatedManchester.replace(/\bunited\b/g, '').replace(/\s+/g, ' ').trim()
   if (abbreviatedManchesterNoUnited) aliases.add(abbreviatedManchesterNoUnited)
+
+  // Add each significant word as a standalone alias so that a short historical
+  // name like "Tottenham" matches a full API name like "Tottenham Hotspur".
+  // Skip very generic football words that would cause false positives.
+  for (const word of coreWords) {
+    if (word.length >= 4 && !ALIAS_SKIP_STANDALONE.has(word)) aliases.add(word)
+  }
+  // Always add first word (handles most cases cleanly)
+  if (words[0] && words[0].length >= 3) aliases.add(words[0])
+
+  // Apply nickname/abbreviation overrides
+  const nick = TEAM_NICKNAME_MAP[base] || TEAM_NICKNAME_MAP[trimmedWords]
+  if (nick) aliases.add(nick)
 
   return [...aliases].filter(Boolean)
 }
@@ -1390,7 +1437,7 @@ app.get('/api/match/:id/players', async (req, res) => {
  */
 app.get('/api/teams/:id/last-matches', async (req, res) => {
   const { id }    = req.params
-  const count     = Math.min(Number(req.query.count) || 10, 30)
+  const count     = Math.min(Number(req.query.count) || 10, 100)
   const season    = Number(req.query.season) || undefined
   const league    = Number(req.query.league) || undefined
   const withStats = String(req.query.stats || '').toLowerCase() === '1' || String(req.query.stats || '').toLowerCase() === 'true'

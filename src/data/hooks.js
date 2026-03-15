@@ -182,11 +182,11 @@ export function useMatchHistory(fixture) {
     setLoading(true)
     setError(null)
 
-    // 20 matches per team so venue filtering gives ~10 per direction
+    // 30 matches per team so venue filtering gives ~15 per direction (enough for L15 range)
     Promise.all([
-      fetchTeamHistory(homeId, 20, { season, league, leagueName, country, teamName: homeTeamName }),
-      fetchTeamHistory(awayId, 20, { season, league, leagueName, country, teamName: awayTeamName }),
-      fetchH2H(homeId, awayId, 10, { season, league, leagueName, country, homeTeamName, awayTeamName }),
+      fetchTeamHistory(homeId, 30, { season, league, leagueName, country, teamName: homeTeamName }),
+      fetchTeamHistory(awayId, 30, { season, league, leagueName, country, teamName: awayTeamName }),
+      fetchH2H(homeId, awayId, 15, { season, league, leagueName, country, homeTeamName, awayTeamName }),
     ])
       .then(([home, away, head]) => {
         const result = { homeHistory: home, awayHistory: away, h2h: head }
@@ -227,8 +227,8 @@ export function useEnrichedFixtures(fixtures, enabled = false, options = {}) {
   const includeH2H   = options?.includeH2H === true
   const withStats    = options?.withStats   === true
   const maxFixtures  = Number(options?.maxFixtures) > 0 ? Number(options.maxFixtures) : 200
-  const historyCount = Number(options?.historyCount) > 0 ? Math.min(Number(options.historyCount), 20) : 10
-  const h2hCount     = Number(options?.h2hCount)     > 0 ? Math.min(Number(options.h2hCount),     20) : 10
+  const historyCount = Number(options?.historyCount) > 0 ? Number(options.historyCount) : 20
+  const h2hCount     = Number(options?.h2hCount)     > 0 ? Number(options.h2hCount)     : 10
 
   // Keep data in sync with fixtures list (shows raw fixtures while enrichment runs)
   useEffect(() => {
