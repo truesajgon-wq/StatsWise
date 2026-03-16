@@ -94,16 +94,17 @@ function buildFixtureStatsRows(row) {
 }
 
 function TeamBadge({ name, logo, align = 'center' }) {
+  const textAlign = align === 'flex-start' ? 'left' : align === 'flex-end' ? 'right' : 'center'
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: align, gap: 6, minWidth: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 0, width: '100%' }}>
       {logo ? (
-        <img src={logo} alt={name || 'Club'} width={50} height={50} style={{ width: 50, height: 50, objectFit: 'contain', display: 'block' }} />
+        <img src={logo} alt={name || 'Club'} width={44} height={44} style={{ width: 44, height: 44, objectFit: 'contain', display: 'block' }} />
       ) : (
-        <div style={{ width: 50, height: 50, borderRadius: '50%', border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#94a3b8', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 14 }}>
+        <div style={{ width: 44, height: 44, borderRadius: '50%', border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#94a3b8', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 13 }}>
           {(name || '?').slice(0, 2).toUpperCase()}
         </div>
       )}
-      <div style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 800, textAlign: align === 'flex-start' ? 'left' : align === 'flex-end' ? 'right' : 'center', overflowWrap: 'anywhere', lineHeight: 1.3, maxWidth: '100%' }}>
+      <div style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 700, textAlign: 'center', overflowWrap: 'anywhere', lineHeight: 1.25, maxWidth: '100%', wordBreak: 'break-word' }}>
         {name || '-'}
       </div>
     </div>
@@ -144,46 +145,49 @@ function FixtureDetailsModal({ item, onClose }) {
     : 'League'
 
   return (
-    <div className="fixture-modal-overlay" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(2,6,23,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div className="fixture-modal-shell" onClick={e => e.stopPropagation()} style={{ width: 'min(920px, 100%)', maxHeight: '92vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', boxShadow: '0 20px 60px rgba(2,6,23,0.7)' }}>
-        <div className="fixture-modal-topbar" style={{ padding: '10px 14px', borderBottom: '1px solid var(--sw-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', minWidth: 0, overflowWrap: 'anywhere' }}>{leagueLabel}</div>
-          <div className="fixture-modal-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <button onClick={onClose} style={{ minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#94a3b8', cursor: 'pointer' }}>Close</button>
-          </div>
+    <div className="fixture-modal-overlay" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(2,6,23,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}>
+      <div className="fixture-modal-shell" onClick={e => e.stopPropagation()} style={{ width: 'min(460px, 100%)', maxHeight: '92vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', boxShadow: '0 20px 60px rgba(2,6,23,0.7)' }}>
+        {/* Header bar */}
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--sw-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ color: '#94a3b8', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{leagueLabel}</div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#94a3b8', cursor: 'pointer', fontSize: 16, lineHeight: 1, display: 'grid', placeItems: 'center' }}>&times;</button>
         </div>
 
-        <div className="fixture-modal-body" style={{ padding: 16 }}>
-          <div className="fixture-modal-head-grid" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-            <TeamBadge name={homeName} logo={homeLogo} align="flex-end" />
-            <div className="fixture-modal-score-box" style={{ textAlign: 'center', minWidth: 0 }}>
-              <div style={{ fontSize: 28, fontWeight: 900, color: '#f8fafc', fontFamily: 'monospace', lineHeight: 1.05 }}>{score}</div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: outcomeColor, marginTop: 2 }}>{outcome}</div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, overflowWrap: 'anywhere' }}>{dateLabel} - {timeLabel}</div>
+        {/* Score + Teams */}
+        <div style={{ padding: '20px 16px 16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'start', gap: 8, marginBottom: 20 }}>
+            <TeamBadge name={homeName} logo={homeLogo} />
+            <div style={{ textAlign: 'center', paddingTop: 4 }}>
+              <div style={{ fontSize: 32, fontWeight: 900, color: '#f8fafc', fontFamily: 'monospace', lineHeight: 1 }}>{score}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: outcomeColor, marginTop: 4 }}>{outcome}</div>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{dateLabel}</div>
+              <div style={{ fontSize: 10, color: '#4b5563' }}>{timeLabel}</div>
             </div>
-            <TeamBadge name={awayName} logo={awayLogo} align="flex-start" />
+            <TeamBadge name={awayName} logo={awayLogo} />
           </div>
 
-          <div style={{ border: '1px solid var(--sw-border)', borderRadius: 10, overflow: 'hidden' }}>
-            <div className="fixture-modal-stats-head" style={{ display: 'grid', gridTemplateColumns: '92px 1fr 92px', gap: 8, padding: '9px 10px', background: 'var(--sw-surface-1)', borderBottom: '1px solid var(--sw-border)' }}>
-              <div style={{ color: '#e5e7eb', fontSize: 11, fontWeight: 800, textAlign: 'right' }}>HOME</div>
-              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 800, textAlign: 'center', letterSpacing: '0.06em' }}>MATCH STATS</div>
-              <div style={{ color: '#c4b5fd', fontSize: 11, fontWeight: 800, textAlign: 'left' }}>AWAY</div>
+          {/* Stats table */}
+          <div style={{ border: '1px solid var(--sw-border)', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', padding: '10px 16px', background: 'var(--sw-surface-1)', borderBottom: '1px solid var(--sw-border)' }}>
+              <div style={{ color: '#e5e7eb', fontSize: 11, fontWeight: 800, textAlign: 'center' }}>HOME</div>
+              <div style={{ color: '#4b5563', fontSize: 10, fontWeight: 700, textAlign: 'center', letterSpacing: '0.06em', minWidth: 90 }}>MATCH STATS</div>
+              <div style={{ color: '#c4b5fd', fontSize: 11, fontWeight: 800, textAlign: 'center' }}>AWAY</div>
             </div>
             {statsRows.length ? statsRows.map((itemRow, idx) => (
-              <div key={itemRow.label} className="fixture-modal-stats-row" style={{ display: 'grid', gridTemplateColumns: '92px 1fr 92px', gap: 8, padding: '9px 10px', borderBottom: idx === statsRows.length - 1 ? 'none' : '1px solid #172133', background: idx % 2 ? '#0b1424' : 'transparent' }}>
-                <div style={{ color: '#e2e8f0', fontSize: 13, fontWeight: 800, textAlign: 'right' }}>{itemRow.pair.home ?? '-'}</div>
-                <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center' }}>{itemRow.label}</div>
-                <div style={{ color: '#e2e8f0', fontSize: 13, fontWeight: 800, textAlign: 'left' }}>{itemRow.pair.away ?? '-'}</div>
+              <div key={itemRow.label} style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', padding: '10px 16px', borderBottom: idx === statsRows.length - 1 ? 'none' : '1px solid #172133', background: idx % 2 ? 'rgba(11,20,36,0.5)' : 'transparent' }}>
+                <div style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 800, textAlign: 'center' }}>{itemRow.pair.home ?? '-'}</div>
+                <div style={{ color: '#94a3b8', fontSize: 12, fontWeight: 600, textAlign: 'center', minWidth: 90 }}>{itemRow.label}</div>
+                <div style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 800, textAlign: 'center' }}>{itemRow.pair.away ?? '-'}</div>
               </div>
             )) : (
-              <div style={{ padding: '12px 10px', color: '#64748b', fontSize: 12, textAlign: 'center' }}>No detailed stats stored for this fixture.</div>
+              <div style={{ padding: '16px', color: '#64748b', fontSize: 12, textAlign: 'center' }}>No detailed stats for this fixture.</div>
             )}
           </div>
         </div>
 
-        <div className="fixture-modal-footer" style={{ padding: '10px 14px', borderTop: '1px solid var(--sw-border)', display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', color: '#cbd5e1', fontWeight: 700, cursor: 'pointer' }}>
+        {/* Footer */}
+        <div style={{ padding: '12px 16px 16px' }}>
+          <button onClick={onClose} style={{ width: '100%', minHeight: 44, borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#cbd5e1', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
             Back to Match Details
           </button>
         </div>
