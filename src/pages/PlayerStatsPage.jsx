@@ -141,20 +141,30 @@ function generateGameHistory(stats, n = 20) {
 // ─── Player Profile (shows stats + prop analysis for one player) ─────────────
 
 function PlayerProfile({ player }) {
-  const s = player.stats
+  const s = player.stats || {}
+  const teamName = player.team || player.squad || ''
+  const nationality = player.nationality || player.nation || ''
   const gameHistory = useMemo(() => generateGameHistory(s), [player.id])
   const gamesPlayed = Number(s.appearances || s.games || s.played || s.matches || 1) || 1
 
+  const v = (key) => Number(s[key] || 0)
   const seasonStats = [
-    { label: 'Shots', value: s.shots, max: Math.max(s.shots, 10) },
-    { label: 'Shots on Target', value: s.shotsOnTarget, max: Math.max(s.shotsOnTarget, 6) },
-    { label: 'Goals', value: s.goals, max: Math.max(s.goals, 4) },
-    { label: 'Assists', value: s.assists, max: Math.max(s.assists, 4) },
-    { label: 'Fouls Committed', value: s.foulsCommitted, max: Math.max(s.foulsCommitted, 6) },
-    { label: 'Fouls Drawn', value: s.foulsDrawn, max: Math.max(s.foulsDrawn, 6) },
-    { label: 'Offsides', value: s.offsides, max: Math.max(s.offsides, 4) },
-    { label: 'Cards', value: (s.yellowCards || 0) + (s.redCards || 0), max: Math.max((s.yellowCards || 0) + (s.redCards || 0), 4) },
+    { label: 'Goals', value: v('goals'), max: Math.max(v('goals'), 4) },
+    { label: 'Assists', value: v('assists'), max: Math.max(v('assists'), 4) },
+    { label: 'Shots', value: v('shots') || v('shotsTotal'), max: Math.max(v('shots') || v('shotsTotal'), 10) },
+    { label: 'Shots on Target', value: v('shotsOnTarget'), max: Math.max(v('shotsOnTarget'), 6) },
+    { label: 'Key Passes', value: v('keyPasses'), max: Math.max(v('keyPasses'), 10) },
+    { label: 'xG', value: Number(s.xg || 0).toFixed(1), max: Math.max(Number(s.xg || 0), 4) },
+    { label: 'xAG', value: Number(s.xag || 0).toFixed(1), max: Math.max(Number(s.xag || 0), 4) },
+    { label: 'Tackles', value: v('tackles'), max: Math.max(v('tackles'), 10) },
+    { label: 'Interceptions', value: v('interceptions'), max: Math.max(v('interceptions'), 10) },
+    { label: 'Fouls Committed', value: v('foulsCommitted'), max: Math.max(v('foulsCommitted'), 6) },
+    { label: 'Fouls Drawn', value: v('foulsDrawn'), max: Math.max(v('foulsDrawn'), 6) },
+    { label: 'Cards', value: v('yellowCards') + v('redCards'), max: Math.max(v('yellowCards') + v('redCards'), 4) },
   ]
+
+  const perfScore = Number(s.performanceScore || s.performance_score || 0)
+  const rating = Number(s.rating || 0) || (perfScore ? perfScore / 10 : 0)
 
   return (
     <div className="player-profile" style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center' }}>
@@ -166,13 +176,47 @@ function PlayerProfile({ player }) {
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 20, fontWeight: 900, color: '#f1f5f9' }}>{player.name}</div>
-          <div style={{ fontSize: 13, color: 'var(--sw-muted)', marginTop: 2 }}>{player.team} - {player.position} - {player.nationality}</div>
+          <div style={{ fontSize: 13, color: 'var(--sw-muted)', marginTop: 2 }}>{teamName}{player.position ? ` - ${player.position}` : ''}{nationality ? ` - ${nationality}` : ''}</div>
+          {player.league && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{player.league}{s.appearances ? ` · ${s.appearances} apps · ${s.minutes || 0} min` : ''}</div>}
         </div>
-        {s.rating > 0 && <RatingRing rating={s.rating} />}
+        {rating > 0 && <RatingRing rating={Math.min(10, Math.round(rating * 10) / 10)} />}
       </div>
 
+      {perfScore > 0 && (
+        <div style={{ width: 'min(100%, 920px)', padding: '14px 20px', background: 'var(--sw-surface-0)', borderRadius: 12, border: '1px solid var(--sw-border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 11, color: 'var(--sw-muted)', fontWeight: 700, letterSpacing: '0.08em' }}>BETWISE SCORE</div>
+          <div style={{ flex: 1, height: 8, background: 'var(--sw-surface-2)', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(perfScore, 100)}%`, height: '100%', background: perfScore >= 60 ? '#22c55e' : perfScore >= 40 ? '#f59e0b' : '#ef4444', borderRadius: 4 }} />
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: perfScore >= 60 ? '#22c55e' : perfScore >= 40 ? '#f59e0b' : '#ef4444' }}>{perfScore.toFixed(1)}</div>
+        </div>
+      )}
+
+      {s.goalsPer90 != null && (
+        <div style={{ width: 'min(100%, 920px)', padding: '14px 20px', background: 'var(--sw-surface-0)', borderRadius: 12, border: '1px solid var(--sw-border)' }}>
+          <div style={{ fontSize: 11, color: 'var(--sw-muted)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 10 }}>PER 90 MINUTES</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            {[
+              { label: 'Goals', val: s.goalsPer90 },
+              { label: 'Assists', val: s.assistsPer90 },
+              { label: 'xG', val: s.xgPer90 },
+              { label: 'xAG', val: s.xagPer90 },
+              { label: 'Shots', val: s.shotsPer90 },
+              { label: 'Key Passes', val: s.keyPassesPer90 },
+              { label: 'Tackles', val: s.tacklesPer90 },
+              { label: 'Int', val: s.interceptionsPer90 },
+            ].filter(x => x.val != null).map(({ label, val }) => (
+              <div key={label} style={{ padding: '6px 12px', background: 'var(--sw-surface-2)', borderRadius: 8, textAlign: 'center', minWidth: 70 }}>
+                <div style={{ fontSize: 15, fontWeight: 900, color: '#f8fafc' }}>{Number(val).toFixed(2)}</div>
+                <div style={{ fontSize: 10, color: '#6b7280', fontWeight: 600 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ width: 'min(100%, 920px)' }}>
-        <LastNSection gameHistory={gameHistory} playerName={player.name} playerTeam={player.team} />
+        <LastNSection gameHistory={gameHistory} playerName={player.name} playerTeam={teamName} />
       </div>
 
       <div className="player-profile-season" style={{ width: 'min(100%, 920px)', padding: '20px', background: 'var(--sw-surface-0)', borderRadius: 14, border: '1px solid var(--sw-border)', boxSizing: 'border-box' }}>
@@ -459,8 +503,12 @@ const STAT_RANK_OPTIONS = [
 ]
 
 function getRankStatValue(player, statKey) {
-  const s = player?.stats || {}
-  if (statKey === 'cards') return Number(s.yellowCards || 0) + Number(s.redCards || 0)
+  const s = player?.stats || player || {}
+  if (statKey === 'cards') return Number(s.yellowCards || s.yellow_cards || 0) + Number(s.redCards || s.red_cards || 0)
+  if (statKey === 'shotsOnTarget') return Number(s.shotsOnTarget || s.shots_on_target || 0)
+  if (statKey === 'foulsCommitted') return Number(s.foulsCommitted || s.fouls_committed || 0)
+  if (statKey === 'foulsDrawn') return Number(s.foulsDrawn || s.fouls_drawn || 0)
+  if (statKey === 'rating') return Number(s.rating || 0) || (Number(s.performanceScore || s.performance_score || 0) / 10)
   return Number(s?.[statKey] || 0)
 }
 
@@ -565,7 +613,7 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
     let cancelled = false
     setTopPlayersLoading(true)
 
-    fetchTopPlayers({ sort: activeStat === 'cards' ? 'yellowCards' : activeStat, league: topLeagueFilter, limit: 30 })
+    fetchTopPlayers({ sort: activeStat === 'cards' ? 'yellowCards' : activeStat, league: topLeagueFilter, limit: 50 })
       .then(data => {
         if (cancelled) return
         setTopPlayers(Array.isArray(data) ? data : [])

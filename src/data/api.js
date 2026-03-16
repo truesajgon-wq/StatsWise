@@ -140,7 +140,29 @@ export async function fetchTopPlayers(options = {}) {
   if (options.league) params.league = options.league
   if (options.sort) params.sort = options.sort
   if (options.limit) params.limit = options.limit
+  if (options.position) params.position = options.position
+  if (options.offset) params.offset = options.offset
+  if (options.season) params.season = options.season
   return apiFetch('/api/players/top', params)
+}
+
+export async function fetchPlayerProfile(id) {
+  return apiFetch(`/api/players/${id}`)
+}
+
+export async function fetchSquadPlayers(teamName, options = {}) {
+  const params = {}
+  if (options.sort) params.sort = options.sort
+  if (options.season) params.season = options.season
+  return apiFetch(`/api/squad/${encodeURIComponent(teamName)}/players`, params)
+}
+
+export async function fetchLeaguePlayers(leagueName, options = {}) {
+  const params = {}
+  if (options.sort) params.sort = options.sort
+  if (options.limit) params.limit = options.limit
+  if (options.season) params.season = options.season
+  return apiFetch(`/api/leagues/${encodeURIComponent(leagueName)}/players`, params)
 }
 
 export async function fetchCountries() {

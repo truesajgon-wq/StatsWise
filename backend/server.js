@@ -1491,58 +1491,147 @@ app.get('/api/match/:id/players', async (req, res) => {
   }
 })
 
+// ─── Player Stats DB Helpers ──────────────────────────────────────────────────
+
+function mapPlayerRow(pp, ss) {
+  return {
+    id: pp.id,
+    name: pp.name,
+    nation: pp.nation,
+    position: pp.position,
+    squad: pp.squad,
+    league: pp.league || ss?.league,
+    age: pp.age,
+    photo: pp.photo_local || pp.photo_url || null,
+    stats: ss ? {
+      season: ss.season,
+      appearances: ss.matches_played,
+      starts: ss.starts,
+      minutes: ss.minutes,
+      goals: ss.goals,
+      assists: ss.assists,
+      goalsAssists: ss.goals_assists,
+      xg: Number(ss.xg) || 0,
+      xag: Number(ss.xag) || 0,
+      npxg: Number(ss.npxg) || 0,
+      shots: ss.shots_total,
+      shotsOnTarget: ss.shots_on_target,
+      keyPasses: ss.key_passes,
+      passCompletion: ss.pass_completion ? Number(ss.pass_completion) : null,
+      progressivePasses: ss.progressive_passes,
+      progressiveCarries: ss.progressive_carries,
+      tackles: ss.tackles,
+      tacklesWon: ss.tackles_won,
+      interceptions: ss.interceptions,
+      blocks: ss.blocks,
+      clearances: ss.clearances,
+      recoveries: ss.recoveries,
+      yellowCards: ss.yellow_cards,
+      redCards: ss.red_cards,
+      foulsCommitted: ss.fouls_committed,
+      foulsDrawn: ss.fouls_drawn,
+      touches: ss.touches,
+      carries: ss.carries,
+      goalsPer90: ss.goals_per90 ? Number(ss.goals_per90) : null,
+      assistsPer90: ss.assists_per90 ? Number(ss.assists_per90) : null,
+      xgPer90: ss.xg_per90 ? Number(ss.xg_per90) : null,
+      xagPer90: ss.xag_per90 ? Number(ss.xag_per90) : null,
+      shotsPer90: ss.shots_per90 ? Number(ss.shots_per90) : null,
+      keyPassesPer90: ss.key_passes_per90 ? Number(ss.key_passes_per90) : null,
+      tacklesPer90: ss.tackles_per90 ? Number(ss.tackles_per90) : null,
+      interceptionsPer90: ss.interceptions_per90 ? Number(ss.interceptions_per90) : null,
+      performanceScore: ss.performance_score ? Number(ss.performance_score) : null,
+      rating: ss.performance_score ? Number(ss.performance_score) / 10 : null,
+    } : null,
+  }
+}
+
+const VALID_SORT_COLS = {
+  goals: 's.goals', assists: 's.assists', xg: 's.xg', xag: 's.xag',
+  shots: 's.shots_total', shotsOnTarget: 's.shots_on_target',
+  keyPasses: 's.key_passes', tackles: 's.tackles', interceptions: 's.interceptions',
+  yellowCards: 's.yellow_cards', foulsCommitted: 's.fouls_committed',
+  foulsDrawn: 's.fouls_drawn', appearances: 's.matches_played',
+  minutes: 's.minutes', performance: 's.performance_score',
+  goalsPer90: 's.goals_per90', xgPer90: 's.xg_per90',
+}
+
 /**
  * GET /api/players/top
- * Returns seeded top player stats (from seed-player-stats.js output).
- * Query: ?search=name&league=Premier+League&sort=goals&limit=30
+ * Top players from the database (Kaggle/FBref data).
+ * Query: ?search=name&league=Premier+League&sort=goals&limit=30&position=Forward&season=2025-2026
  */
 app.get('/api/players/top', async (req, res) => {
   try {
-    const seedPath = path.join(__dirname, 'data', 'player-stats-seed.json')
-    if (!existsSync(seedPath)) {
-      return res.json({ success: true, data: [], message: 'No player seed data. Run: node backend/scripts/seed-player-stats.js' })
-    }
-    const raw = JSON.parse(await fs.readFile(seedPath, 'utf-8'))
-    let players = raw.players || []
-
-    // Search filter
-    const search = String(req.query.search || '').trim().toLowerCase()
-    if (search) {
-      players = players.filter(p =>
-        (p.name || '').toLowerCase().includes(search) ||
-        (p.team || '').toLowerCase().includes(search) ||
-        (p.nationality || '').toLowerCase().includes(search) ||
-        (p.league || '').toLowerCase().includes(search)
-      )
+    if (DATA_MODE !== 'db' || !dbPool) {
+      // Fallback to seed JSON file
+      const seedPath = path.join(__dirname, 'data', 'player-stats-seed.json')
+      if (existsSync(seedPath)) {
+        const raw = JSON.parse(await fs.readFile(seedPath, 'utf-8'))
+        return res.json({ success: true, data: raw.players || [], source: 'seed' })
+      }
+      return res.json({ success: true, data: [], message: 'No player data available' })
     }
 
-    // League filter
+    const search = String(req.query.search || '').trim()
     const league = String(req.query.league || '').trim()
+    const position = String(req.query.position || '').trim()
+    const season = String(req.query.season || '2025-2026').trim()
+    const sortKey = String(req.query.sort || 'goals').trim()
+    const sortCol = VALID_SORT_COLS[sortKey] || 's.goals'
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200)
+    const offset = Math.max(Number(req.query.offset) || 0, 0)
+
+    const conditions = ['s.season = $1']
+    const params = [season]
+    let idx = 2
+
     if (league) {
-      players = players.filter(p => (p.league || '').toLowerCase() === league.toLowerCase())
+      conditions.push(`p.league = $${idx}`)
+      params.push(league)
+      idx++
+    }
+    if (position) {
+      conditions.push(`p.position = $${idx}`)
+      params.push(position)
+      idx++
+    }
+    if (search) {
+      conditions.push(`(p.name_normalized ILIKE $${idx} OR p.squad_normalized ILIKE $${idx} OR p.nation ILIKE $${idx})`)
+      params.push(`%${search.toLowerCase()}%`)
+      idx++
     }
 
-    // Sort
-    const sortKey = String(req.query.sort || 'goals').trim()
-    const validSorts = ['goals', 'assists', 'shots', 'shotsOnTarget', 'foulsCommitted', 'foulsDrawn', 'yellowCards', 'rating', 'appearances']
-    const actualSort = validSorts.includes(sortKey) ? sortKey : 'goals'
-    players.sort((a, b) => {
-      const aVal = actualSort === 'rating' ? (a.rating || 0) : (a.stats?.[actualSort] || 0)
-      const bVal = actualSort === 'rating' ? (b.rating || 0) : (b.stats?.[actualSort] || 0)
-      return bVal - aVal
+    const where = conditions.join(' AND ')
+    params.push(limit, offset)
+
+    const sql = `
+      SELECT p.*, s.*,
+             p.id AS profile_id
+      FROM player_profiles p
+      JOIN player_season_stats s ON s.player_id = p.id
+      WHERE ${where}
+      ORDER BY ${sortCol} DESC NULLS LAST
+      LIMIT $${idx} OFFSET $${idx + 1}
+    `
+
+    const countSql = `
+      SELECT COUNT(*) FROM player_profiles p
+      JOIN player_season_stats s ON s.player_id = p.id
+      WHERE ${where}
+    `
+
+    const [dataRes, countRes] = await Promise.all([
+      dbPool.query(sql, params),
+      dbPool.query(countSql, params.slice(0, -2)),
+    ])
+
+    const data = dataRes.rows.map(row => {
+      const pp = { id: row.profile_id, name: row.name, nation: row.nation, position: row.position, squad: row.squad, league: row.league, age: row.age, photo_local: row.photo_local, photo_url: row.photo_url }
+      return mapPlayerRow(pp, row)
     })
 
-    // Limit
-    const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100)
-    players = players.slice(0, limit)
-
-    // Use local photos if available
-    players = players.map(p => ({
-      ...p,
-      photo: p.photoLocal || p.photo,
-    }))
-
-    res.json({ success: true, data: players, season: raw.season, fetchedAt: raw.fetchedAt })
+    res.json({ success: true, data, total: Number(countRes.rows[0].count), season })
   } catch (err) {
     console.error('[/api/players/top]', err.message)
     res.status(500).json({ success: false, error: err.message })
@@ -1551,30 +1640,171 @@ app.get('/api/players/top', async (req, res) => {
 
 /**
  * GET /api/players/search?q=haaland
- * Searches seeded player data by name/team/nationality.
+ * Search players by name, team, or nationality.
  */
 app.get('/api/players/search', async (req, res) => {
   try {
-    const seedPath = path.join(__dirname, 'data', 'player-stats-seed.json')
-    if (!existsSync(seedPath)) {
-      return res.json({ success: true, data: [] })
-    }
-    const raw = JSON.parse(await fs.readFile(seedPath, 'utf-8'))
-    const q = String(req.query.q || '').trim().toLowerCase()
+    const q = String(req.query.q || '').trim()
     if (!q) return res.json({ success: true, data: [] })
 
-    const results = (raw.players || []).filter(p =>
-      (p.name || '').toLowerCase().includes(q) ||
-      (p.team || '').toLowerCase().includes(q) ||
-      (p.nationality || '').toLowerCase().includes(q)
-    ).slice(0, 20).map(p => ({
-      ...p,
-      photo: p.photoLocal || p.photo,
-    }))
+    if (DATA_MODE !== 'db' || !dbPool) {
+      return res.json({ success: true, data: [] })
+    }
 
-    res.json({ success: true, data: results })
+    const sql = `
+      SELECT p.*, s.*,
+             p.id AS profile_id
+      FROM player_profiles p
+      LEFT JOIN player_season_stats s ON s.player_id = p.id AND s.season = '2025-2026'
+      WHERE p.name_normalized ILIKE $1
+         OR p.squad_normalized ILIKE $1
+         OR p.nation ILIKE $1
+      ORDER BY s.goals DESC NULLS LAST
+      LIMIT 30
+    `
+    const { rows } = await dbPool.query(sql, [`%${q.toLowerCase()}%`])
+    const data = rows.map(row => {
+      const pp = { id: row.profile_id, name: row.name, nation: row.nation, position: row.position, squad: row.squad, league: row.league, age: row.age, photo_local: row.photo_local, photo_url: row.photo_url }
+      return mapPlayerRow(pp, row.goals !== undefined ? row : null)
+    })
+
+    res.json({ success: true, data })
   } catch (err) {
     console.error('[/api/players/search]', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+/**
+ * GET /api/players/:id
+ * Single player profile with current season stats.
+ */
+app.get('/api/players/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, error: 'Invalid player id' })
+
+    if (DATA_MODE !== 'db' || !dbPool) {
+      return res.status(404).json({ success: false, error: 'Not found' })
+    }
+
+    const { rows } = await dbPool.query(`
+      SELECT p.*, s.*,
+             p.id AS profile_id
+      FROM player_profiles p
+      LEFT JOIN player_season_stats s ON s.player_id = p.id
+      WHERE p.id = $1
+      ORDER BY s.season DESC NULLS LAST
+      LIMIT 1
+    `, [id])
+
+    if (!rows.length) return res.status(404).json({ success: false, error: 'Player not found' })
+
+    const row = rows[0]
+    const pp = { id: row.profile_id, name: row.name, nation: row.nation, position: row.position, squad: row.squad, league: row.league, age: row.age, birth_year: row.birth_year, photo_local: row.photo_local, photo_url: row.photo_url }
+    const player = mapPlayerRow(pp, row.goals !== undefined ? row : null)
+    player.birthYear = row.birth_year
+
+    res.json({ success: true, data: player })
+  } catch (err) {
+    console.error('[/api/players/:id]', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+/**
+ * GET /api/players/:id/stats
+ * All season stats for a player (multiple seasons if available).
+ */
+app.get('/api/players/:id/stats', async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, error: 'Invalid player id' })
+    if (DATA_MODE !== 'db' || !dbPool) return res.json({ success: true, data: [] })
+
+    const { rows } = await dbPool.query(`
+      SELECT s.* FROM player_season_stats s
+      WHERE s.player_id = $1
+      ORDER BY s.season DESC
+    `, [id])
+
+    res.json({ success: true, data: rows })
+  } catch (err) {
+    console.error('[/api/players/:id/stats]', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+/**
+ * GET /api/teams/:teamName/players
+ * All players in a squad. teamName is the squad name (URL-encoded).
+ * Query: ?season=2025-2026&sort=goals
+ */
+app.get('/api/squad/:teamName/players', async (req, res) => {
+  try {
+    const teamName = decodeURIComponent(req.params.teamName).trim()
+    if (!teamName) return res.status(400).json({ success: false, error: 'Team name required' })
+    if (DATA_MODE !== 'db' || !dbPool) return res.json({ success: true, data: [] })
+
+    const season = String(req.query.season || '2025-2026').trim()
+    const sortKey = String(req.query.sort || 'goals').trim()
+    const sortCol = VALID_SORT_COLS[sortKey] || 's.goals'
+
+    const { rows } = await dbPool.query(`
+      SELECT p.*, s.*,
+             p.id AS profile_id
+      FROM player_profiles p
+      JOIN player_season_stats s ON s.player_id = p.id AND s.season = $2
+      WHERE p.squad_normalized = lower($1)
+      ORDER BY ${sortCol} DESC NULLS LAST
+    `, [teamName, season])
+
+    const data = rows.map(row => {
+      const pp = { id: row.profile_id, name: row.name, nation: row.nation, position: row.position, squad: row.squad, league: row.league, age: row.age, photo_local: row.photo_local, photo_url: row.photo_url }
+      return mapPlayerRow(pp, row)
+    })
+
+    res.json({ success: true, data, squad: teamName })
+  } catch (err) {
+    console.error('[/api/squad/players]', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+/**
+ * GET /api/leagues/:leagueName/players
+ * Top players in a league. leagueName: "Premier League", "La Liga", etc.
+ * Query: ?season=2025-2026&sort=goals&limit=50
+ */
+app.get('/api/leagues/:leagueName/players', async (req, res) => {
+  try {
+    const leagueName = decodeURIComponent(req.params.leagueName).trim()
+    if (!leagueName) return res.status(400).json({ success: false, error: 'League name required' })
+    if (DATA_MODE !== 'db' || !dbPool) return res.json({ success: true, data: [] })
+
+    const season = String(req.query.season || '2025-2026').trim()
+    const sortKey = String(req.query.sort || 'goals').trim()
+    const sortCol = VALID_SORT_COLS[sortKey] || 's.goals'
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200)
+
+    const { rows } = await dbPool.query(`
+      SELECT p.*, s.*,
+             p.id AS profile_id
+      FROM player_profiles p
+      JOIN player_season_stats s ON s.player_id = p.id AND s.season = $2
+      WHERE p.league = $1
+      ORDER BY ${sortCol} DESC NULLS LAST
+      LIMIT $3
+    `, [leagueName, season, limit])
+
+    const data = rows.map(row => {
+      const pp = { id: row.profile_id, name: row.name, nation: row.nation, position: row.position, squad: row.squad, league: row.league, age: row.age, photo_local: row.photo_local, photo_url: row.photo_url }
+      return mapPlayerRow(pp, row)
+    })
+
+    res.json({ success: true, data, league: leagueName })
+  } catch (err) {
+    console.error('[/api/leagues/players]', err.message)
     res.status(500).json({ success: false, error: err.message })
   }
 })
