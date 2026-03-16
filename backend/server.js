@@ -115,6 +115,12 @@ if (DATA_MODE === 'api' && !API_KEY) {
   console.error('    API_FOOTBALL_KEY=your_key_here\n')
   process.exit(1)
 }
+if (DATA_MODE === 'fdo' && !FDO_API_KEY) {
+  console.error('\n❌  FOOTBALL_DATA_ORG_KEY is not set!')
+  console.error('    Get a free key at https://www.football-data.org/client/register')
+  console.error('    Then add to backend/.env:  FOOTBALL_DATA_ORG_KEY=your_key_here\n')
+  process.exit(1)
+}
 
 const { Pool } = pg
 if (DATA_MODE === 'db' && !process.env.DATABASE_URL) {
@@ -1374,6 +1380,13 @@ app.get('/api/matches/:date', async (req, res) => {
   const { date } = req.params
   const tz = req.query.tz || 'Europe/Warsaw'
   try {
+    // football-data.org mode
+    if (DATA_MODE === 'fdo') {
+      if (!fdo) return res.status(503).json({ success: false, error: 'FOOTBALL_DATA_ORG_KEY not set' })
+      const data = await fdo.getMatchesByDate(date)
+      return res.json({ success: true, fromCache: false, data })
+    }
+
     if (DATA_MODE === 'db') {
       const sql = `
         ${FIXTURE_SELECT}
