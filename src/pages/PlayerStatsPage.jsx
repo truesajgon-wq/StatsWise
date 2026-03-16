@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
-import { fetchMatchDetails } from '../data/api.js'
+import { fetchMatchDetails, fetchTopPlayers } from '../data/api.js'
 import MatchPropAnalysis from '../components/MatchPropAnalysis.jsx'
 import { buildFormationPitchSlots } from '../utils/pitchLayout.js'
 
@@ -537,10 +537,16 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
   // Global mode with fixture selector (fixtures array from HomePage)
   const isFixtureSelectorMode = !isDirectFixtureMode && Array.isArray(fixtures)
 
+  const [activeTab, setActiveTab] = useState('fixtures') // 'fixtures' | 'topPlayers'
   const [selectedFixtureId, setSelectedFixtureId] = useState(null)
   const [matchData, setMatchData] = useState(null)
   const [matchLoading, setMatchLoading] = useState(false)
   const [matchError, setMatchError] = useState(null)
+
+  // Top players from seed data
+  const [topPlayers, setTopPlayers] = useState([])
+  const [topPlayersLoading, setTopPlayersLoading] = useState(false)
+  const [topLeagueFilter, setTopLeagueFilter] = useState('')
 
   const isNarrowRankList = viewportWidth <= 480
   const useExternalSearch = typeof searchQuery === 'string' && typeof onSearchChange === 'function'
@@ -552,6 +558,27 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
+
+  // Fetch top players when tab is active
+  useEffect(() => {
+    if (activeTab !== 'topPlayers' || isDirectFixtureMode) return
+    let cancelled = false
+    setTopPlayersLoading(true)
+
+    fetchTopPlayers({ sort: activeStat === 'cards' ? 'yellowCards' : activeStat, league: topLeagueFilter, limit: 30 })
+      .then(data => {
+        if (cancelled) return
+        setTopPlayers(Array.isArray(data) ? data : [])
+      })
+      .catch(() => {
+        if (!cancelled) setTopPlayers([])
+      })
+      .finally(() => {
+        if (!cancelled) setTopPlayersLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [activeTab, activeStat, topLeagueFilter, isDirectFixtureMode])
 
   // Fetch match details when a fixture is selected in selector mode
   useEffect(() => {
@@ -662,28 +689,205 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
   if (isFixtureSelectorMode) {
     const hasPlayers = selectorPlayers.length > 0
 
+    const TAB_STYLE = (active) => ({
+      padding: '8px 16px',
+      borderRadius: 8,
+      border: active ? '1px solid rgba(255,74,31,0.5)' : '1px solid var(--sw-border)',
+      background: active ? 'rgba(255,74,31,0.16)' : 'var(--sw-surface-1)',
+      color: active ? '#fdba74' : '#9ca3af',
+      fontWeight: 700,
+      fontSize: 13,
+      cursor: 'pointer',
+    })
+
+    const LEAGUE_OPTIONS = [
+      { value: '', label: 'All Leagues' },
+      { value: 'Premier League', label: 'Premier League' },
+      { value: 'La Liga', label: 'La Liga' },
+      { value: 'Bundesliga', label: 'Bundesliga' },
+      { value: 'Serie A', label: 'Serie A' },
+      { value: 'Ligue 1', label: 'Ligue 1' },
+    ]
+
     return (
       <div className="player-stats-page selector-mode" style={{ padding: '16px 18px 20px', overflowY: 'auto', overflowX: 'hidden' }}>
         <div style={{ marginBottom: 10, fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>{title}</div>
 
-        <FixtureSelector
-          fixtures={fixtures}
-          selectedId={selectedFixtureId}
-          onSelect={setSelectedFixtureId}
-          loading={fixturesLoading}
-        />
+        {/* Tab toggle */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button type="button" onClick={() => setActiveTab('fixtures')} style={TAB_STYLE(activeTab === 'fixtures')}>Today's Fixtures</button>
+          <button type="button" onClick={() => setActiveTab('topPlayers')} style={TAB_STYLE(activeTab === 'topPlayers')}>Top Players</button>
+        </div>
 
-        {!selectedFixtureId && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#4b5563', padding: '40px 12px' }}>
-            <div style={{ width: 'min(100%, 520px)', padding: '24px 20px', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', textAlign: 'center' }}>
-              <div style={{ fontSize: 28, marginBottom: 12 }}>&#9917;</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>Player Statistics</div>
-              <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.6, color: '#6b7280' }}>Select a fixture above to view player stats, formation pitch, and individual prop analysis.</div>
+        {/* ─── Top Players tab ─── */}
+        {activeTab === 'topPlayers' && (
+          <>
+            {/* League filter */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              {LEAGUE_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setTopLeagueFilter(opt.value)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 999,
+                    border: topLeagueFilter === opt.value ? '1px solid rgba(255,74,31,0.5)' : '1px solid var(--sw-border)',
+                    background: topLeagueFilter === opt.value ? 'rgba(255,74,31,0.16)' : 'var(--sw-surface-1)',
+                    color: topLeagueFilter === opt.value ? '#fdba74' : '#9ca3af',
+                    fontWeight: 600,
+                    fontSize: 11,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
-          </div>
+
+            {/* Stat sort pills */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              {STAT_RANK_OPTIONS.map(opt => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setActiveStat(opt.key)}
+                  style={{
+                    minHeight: 32,
+                    padding: '0 10px',
+                    borderRadius: 999,
+                    border: activeStat === opt.key ? '1px solid rgba(255,74,31,0.5)' : '1px solid var(--sw-border)',
+                    background: activeStat === opt.key ? 'rgba(255,74,31,0.16)' : 'var(--sw-surface-1)',
+                    color: activeStat === opt.key ? '#fdba74' : '#9ca3af',
+                    fontWeight: 700,
+                    fontSize: 11,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {topPlayersLoading && (
+              <div style={{ padding: '30px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>Loading top players...</div>
+              </div>
+            )}
+
+            {!topPlayersLoading && topPlayers.length === 0 && (
+              <div style={{ padding: '24px 16px', background: 'var(--sw-surface-0)', borderRadius: 12, border: '1px solid var(--sw-border)', textAlign: 'center' }}>
+                <div style={{ fontSize: 13, color: '#6b7280' }}>No player data available. Run the seed script: <code style={{ fontSize: 12, color: '#94a3b8' }}>node backend/scripts/seed-player-stats.js</code></div>
+              </div>
+            )}
+
+            {!topPlayersLoading && topPlayers.length > 0 && (() => {
+              const activeLabel = STAT_RANK_OPTIONS.find(s => s.key === activeStat)?.label || activeStat
+              const ranked = [...topPlayers].sort((a, b) => getRankStatValue(b, activeStat) - getRankStatValue(a, activeStat))
+
+              return (
+                <>
+                  <div style={{ marginBottom: 8, fontSize: 12, color: '#94a3b8' }}>
+                    Top players ranked by <strong style={{ color: '#f8fafc' }}>{activeLabel}</strong>{topLeagueFilter ? ` in ${topLeagueFilter}` : ' across top 5 leagues'}. Season 2025/26.
+                  </div>
+                  <div style={{ border: '1px solid var(--sw-border)', borderRadius: 12, overflow: 'hidden', background: 'var(--sw-surface-0)', marginBottom: 14 }}>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: isNarrowRankList ? '36px minmax(0,1fr)' : '42px minmax(0,1fr) 70px 90px 90px',
+                        padding: '10px 12px',
+                        borderBottom: '1px solid var(--sw-border)',
+                        color: '#64748b',
+                        fontSize: 11,
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
+                        gap: isNarrowRankList ? 8 : 0,
+                      }}
+                    >
+                      <div>#</div>
+                      <div>Player</div>
+                      {!isNarrowRankList && <div>{activeLabel}</div>}
+                      {!isNarrowRankList && <div>Team</div>}
+                      {!isNarrowRankList && <div>League</div>}
+                    </div>
+                    {ranked.map((p, idx) => {
+                      const total = getRankStatValue(p, activeStat)
+                      return (
+                        <button
+                          key={p.id || `${p.teamId}-${p.name}`}
+                          type="button"
+                          onClick={() => setSelected(p)}
+                          style={{
+                            width: '100%',
+                            display: 'grid',
+                            gridTemplateColumns: isNarrowRankList ? '36px minmax(0,1fr)' : '42px minmax(0,1fr) 70px 90px 90px',
+                            gap: isNarrowRankList ? 8 : 0,
+                            padding: '10px 12px',
+                            border: 'none',
+                            borderBottom: idx === ranked.length - 1 ? 'none' : '1px solid #1d2939',
+                            background: selected?.id === p.id ? 'rgba(255,74,31,0.13)' : 'transparent',
+                            color: '#dbe7f8',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <div style={{ fontWeight: 900, color: idx < 3 ? '#f97316' : '#93a4be', fontSize: 12 }}>#{idx + 1}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              {p.photo ? (
+                                <img src={p.photo} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                              ) : (
+                                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #f97316, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{(p.name || '').split(' ').map(w => w[0]).join('').slice(0, 2)}</div>
+                              )}
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                                <div style={{ fontSize: 10, color: '#6b7280' }}>{p.position}{p.nationality ? ` · ${p.nationality}` : ''}{p.appearances ? ` · ${p.appearances} apps` : ''}</div>
+                              </div>
+                            </div>
+                            {isNarrowRankList && (
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                                <span style={{ fontSize: 11, color: '#f97316', fontWeight: 700 }}>{Number.isInteger(total) ? total : total.toFixed(1)} {activeLabel}</span>
+                                <span style={{ fontSize: 10, color: '#6b7280' }}>{p.team}</span>
+                              </div>
+                            )}
+                          </div>
+                          {!isNarrowRankList && <div style={{ fontSize: 14, fontWeight: 900, color: '#f8fafc' }}>{Number.isInteger(total) ? total : total.toFixed(1)}</div>}
+                          {!isNarrowRankList && <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.team}</div>}
+                          {!isNarrowRankList && <div style={{ fontSize: 10, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.league}</div>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )
+            })()}
+
+            {selected && <PlayerProfile player={selected} />}
+          </>
         )}
 
-        {selectedFixtureId && matchLoading && (
+        {/* ─── Fixtures tab ─── */}
+        {activeTab === 'fixtures' && (
+          <>
+            <FixtureSelector
+              fixtures={fixtures}
+              selectedId={selectedFixtureId}
+              onSelect={setSelectedFixtureId}
+              loading={fixturesLoading}
+            />
+
+            {!selectedFixtureId && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#4b5563', padding: '40px 12px' }}>
+                <div style={{ width: 'min(100%, 520px)', padding: '24px 20px', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, marginBottom: 12 }}>&#9917;</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>Player Statistics</div>
+                  <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.6, color: '#6b7280' }}>Select a fixture above to view player stats, formation pitch, and individual prop analysis.</div>
+                </div>
+              </div>
+            )}
+
+            {selectedFixtureId && matchLoading && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 12px' }}>
             <div style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>Loading player data...</div>
           </div>
@@ -824,6 +1028,8 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
             </div>
 
             {selected && <PlayerProfile player={selected} />}
+          </>
+        )}
           </>
         )}
       </div>

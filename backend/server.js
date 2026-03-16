@@ -1492,6 +1492,94 @@ app.get('/api/match/:id/players', async (req, res) => {
 })
 
 /**
+ * GET /api/players/top
+ * Returns seeded top player stats (from seed-player-stats.js output).
+ * Query: ?search=name&league=Premier+League&sort=goals&limit=30
+ */
+app.get('/api/players/top', async (req, res) => {
+  try {
+    const seedPath = path.join(__dirname, 'data', 'player-stats-seed.json')
+    if (!existsSync(seedPath)) {
+      return res.json({ success: true, data: [], message: 'No player seed data. Run: node backend/scripts/seed-player-stats.js' })
+    }
+    const raw = JSON.parse(await fs.readFile(seedPath, 'utf-8'))
+    let players = raw.players || []
+
+    // Search filter
+    const search = String(req.query.search || '').trim().toLowerCase()
+    if (search) {
+      players = players.filter(p =>
+        (p.name || '').toLowerCase().includes(search) ||
+        (p.team || '').toLowerCase().includes(search) ||
+        (p.nationality || '').toLowerCase().includes(search) ||
+        (p.league || '').toLowerCase().includes(search)
+      )
+    }
+
+    // League filter
+    const league = String(req.query.league || '').trim()
+    if (league) {
+      players = players.filter(p => (p.league || '').toLowerCase() === league.toLowerCase())
+    }
+
+    // Sort
+    const sortKey = String(req.query.sort || 'goals').trim()
+    const validSorts = ['goals', 'assists', 'shots', 'shotsOnTarget', 'foulsCommitted', 'foulsDrawn', 'yellowCards', 'rating', 'appearances']
+    const actualSort = validSorts.includes(sortKey) ? sortKey : 'goals'
+    players.sort((a, b) => {
+      const aVal = actualSort === 'rating' ? (a.rating || 0) : (a.stats?.[actualSort] || 0)
+      const bVal = actualSort === 'rating' ? (b.rating || 0) : (b.stats?.[actualSort] || 0)
+      return bVal - aVal
+    })
+
+    // Limit
+    const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100)
+    players = players.slice(0, limit)
+
+    // Use local photos if available
+    players = players.map(p => ({
+      ...p,
+      photo: p.photoLocal || p.photo,
+    }))
+
+    res.json({ success: true, data: players, season: raw.season, fetchedAt: raw.fetchedAt })
+  } catch (err) {
+    console.error('[/api/players/top]', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+/**
+ * GET /api/players/search?q=haaland
+ * Searches seeded player data by name/team/nationality.
+ */
+app.get('/api/players/search', async (req, res) => {
+  try {
+    const seedPath = path.join(__dirname, 'data', 'player-stats-seed.json')
+    if (!existsSync(seedPath)) {
+      return res.json({ success: true, data: [] })
+    }
+    const raw = JSON.parse(await fs.readFile(seedPath, 'utf-8'))
+    const q = String(req.query.q || '').trim().toLowerCase()
+    if (!q) return res.json({ success: true, data: [] })
+
+    const results = (raw.players || []).filter(p =>
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.team || '').toLowerCase().includes(q) ||
+      (p.nationality || '').toLowerCase().includes(q)
+    ).slice(0, 20).map(p => ({
+      ...p,
+      photo: p.photoLocal || p.photo,
+    }))
+
+    res.json({ success: true, data: results })
+  } catch (err) {
+    console.error('[/api/players/search]', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+/**
  * GET /api/teams/:id/last-matches?count=10
  * Last N fixtures for a team (history entries).
  */

@@ -131,7 +131,16 @@ export async function fetchHistoricalStats(fixtureId, options = {}) {
 }
 
 export async function searchPlayersApi(search) {
-  return apiFetch('/api/players/search', { search })
+  return apiFetch('/api/players/search', { q: search })
+}
+
+export async function fetchTopPlayers(options = {}) {
+  const params = {}
+  if (options.search) params.search = options.search
+  if (options.league) params.league = options.league
+  if (options.sort) params.sort = options.sort
+  if (options.limit) params.limit = options.limit
+  return apiFetch('/api/players/top', params)
 }
 
 export async function fetchCountries() {
