@@ -181,24 +181,6 @@ export async function fetchTeamPlayers(teamId) {
   return apiFetch(`/api/teams/${teamId}/players`)
 }
 
-export async function fetchChoiStartingLineup(matchId) {
-  return apiFetch(`/api/choistats/starting-lineup/${matchId}`)
-}
-
-export async function fetchChoiMatchPlayers(matchId, options = {}) {
-  const { clflc = 'abc', isOverall = true } = options || {}
-  return apiFetch(`/api/choistats/match/${matchId}/players`, { clflc, isOverall })
-}
-
-export async function fetchChoiPlayerStreaks(playerId, options = {}) {
-  const { clflc = 'abc' } = options || {}
-  return apiFetch(`/api/choistats/player-streaks/${playerId}`, { clflc })
-}
-
-export async function fetchChoiPlayerQuickStats(a, b, c, d, options = {}) {
-  const { clflc = 'abc' } = options || {}
-  return apiFetch(`/api/choistats/player-quick-stats/${a}/${b}/${c}/${d}`, { clflc })
-}
 
 export async function fetchEspnNews(limit = 8) {
   if (USE_MOCK_DATA) {

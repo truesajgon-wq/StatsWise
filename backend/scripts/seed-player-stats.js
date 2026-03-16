@@ -52,8 +52,7 @@ async function apiFetch(endpoint, params = {}) {
 
   const res = await fetch(url.toString(), {
     headers: {
-      'x-rapidapi-key': API_KEY,
-      'x-rapidapi-host': 'v3.football.api-sports.io',
+      'x-apisports-key': API_KEY,
     },
   })
 

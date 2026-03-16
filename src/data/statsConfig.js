@@ -18,7 +18,7 @@ function normalizeSummaryAltKey(value) {
 
 function firstSummary(history = []) {
   return Array.isArray(history)
-    ? history.find(entry => entry?.adamChoiSummary)?.adamChoiSummary || null
+    ? history.find(entry => entry?.summary)?.summary || null
     : null
 }
 
@@ -59,7 +59,7 @@ export function getHistorySummarySnapshot(history, key, alt, isHome = true, opti
     hits: Number.isFinite(Number(side.hits)) ? Number(side.hits) : null,
     total: Number.isFinite(Number(side.total)) ? Number(side.total) : null,
     rate: Number(side.rate) || 0,
-    source: 'adamchoi-summary',
+    source: 'history-summary',
   }
 }
 

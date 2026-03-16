@@ -30,7 +30,6 @@ import {
   trialStatus,
   applyCancelAtPeriodEnd,
 } from './billingUtils.js'
-import { FootballDataOrg } from './footballDataOrg.js'
 
 // ─── Load .env ─────────────────────────────────────────────────────────────
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -64,7 +63,6 @@ const ODDS_BOOKMAKERS = String(process.env.ODDS_BOOKMAKERS || 'bet365,superbet')
   .split(',')
   .map(x => x.trim().toLowerCase())
   .filter(Boolean)
-const FDO_API_KEY = process.env.FOOTBALL_DATA_ORG_KEY || ''
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''
 const STRIPE_PRICE_PREMIUM_MONTHLY = process.env.STRIPE_PRICE_PREMIUM_MONTHLY || ''
@@ -113,12 +111,6 @@ if (DATA_MODE === 'api' && !API_KEY) {
   console.error('\n❌  API_FOOTBALL_KEY is not set!')
   console.error('    Create the file  backend/.env  with this content:')
   console.error('    API_FOOTBALL_KEY=your_key_here\n')
-  process.exit(1)
-}
-if (DATA_MODE === 'fdo' && !FDO_API_KEY) {
-  console.error('\n❌  FOOTBALL_DATA_ORG_KEY is not set!')
-  console.error('    Get a free key at https://www.football-data.org/client/register')
-  console.error('    Then add to backend/.env:  FOOTBALL_DATA_ORG_KEY=your_key_here\n')
   process.exit(1)
 }
 
@@ -193,10 +185,6 @@ const TTL = {
   odds:        180,   // 3 min
 }
 
-// ─── football-data.org adapter ────────────────────────────────────────────────
-const fdo = FDO_API_KEY ? new FootballDataOrg(FDO_API_KEY, cache) : null
-if (FDO_API_KEY) console.log('  football-data.org API configured')
-
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({
   origin(origin, callback) {
@@ -232,8 +220,7 @@ async function apiFetch(endpoint, params = {}, ttl = 300) {
   const run = (async () => {
     const res = await fetch(url.toString(), {
       headers: {
-        'x-rapidapi-key':  API_KEY,
-        'x-rapidapi-host': 'v3.football.api-sports.io',
+        'x-apisports-key': API_KEY,
       },
     })
 
@@ -1380,13 +1367,6 @@ app.get('/api/matches/:date', async (req, res) => {
   const { date } = req.params
   const tz = req.query.tz || 'Europe/Warsaw'
   try {
-    // football-data.org mode
-    if (DATA_MODE === 'fdo') {
-      if (!fdo) return res.status(503).json({ success: false, error: 'FOOTBALL_DATA_ORG_KEY not set' })
-      const data = await fdo.getMatchesByDate(date)
-      return res.json({ success: true, fromCache: false, data })
-    }
-
     if (DATA_MODE === 'db') {
       const sql = `
         ${FIXTURE_SELECT}
@@ -2427,129 +2407,6 @@ app.get('/api/news/article', async (req, res) => {
   } catch (err) {
     console.error('[/api/news/article]', err.message)
     return res.status(500).json({ success: false, error: err.message })
-  }
-})
-
-// ─── football-data.org endpoints ─────────────────────────────────────────────
-
-function requireFdo(_req, res, next) {
-  if (!fdo) return res.status(503).json({ success: false, error: 'football-data.org not configured. Set FOOTBALL_DATA_ORG_KEY in .env' })
-  next()
-}
-
-/**
- * GET /api/fdo/matches/:date
- * Fixtures from football-data.org for a given date (YYYY-MM-DD).
- */
-app.get('/api/fdo/matches/:date', requireFdo, async (req, res) => {
-  try {
-    const data = await fdo.getMatchesByDate(req.params.date)
-    res.json({ success: true, data })
-  } catch (err) {
-    console.error('[/api/fdo/matches]', err.message)
-    res.status(err.message.includes('rate limit') ? 429 : 500).json({ success: false, error: err.message })
-  }
-})
-
-/**
- * GET /api/fdo/match/:id
- * Single match details.
- */
-app.get('/api/fdo/match/:id', requireFdo, async (req, res) => {
-  try {
-    const data = await fdo.getMatch(req.params.id)
-    res.json({ success: true, data })
-  } catch (err) {
-    console.error('[/api/fdo/match]', err.message)
-    res.status(500).json({ success: false, error: err.message })
-  }
-})
-
-/**
- * GET /api/fdo/match/:id/h2h
- * Head-to-head for a match.
- */
-app.get('/api/fdo/match/:id/h2h', requireFdo, async (req, res) => {
-  try {
-    const limit = Math.min(Number(req.query.limit) || 10, 50)
-    const data = await fdo.getH2H(req.params.id, limit)
-    res.json({ success: true, data })
-  } catch (err) {
-    console.error('[/api/fdo/h2h]', err.message)
-    res.status(500).json({ success: false, error: err.message })
-  }
-})
-
-/**
- * GET /api/fdo/teams/:id/matches
- * Recent matches for a team.
- */
-app.get('/api/fdo/teams/:id/matches', requireFdo, async (req, res) => {
-  try {
-    const limit = Math.min(Number(req.query.limit) || 10, 50)
-    const status = req.query.status || 'FINISHED'
-    const data = await fdo.getTeamMatches(req.params.id, { status, limit })
-    res.json({ success: true, data })
-  } catch (err) {
-    console.error('[/api/fdo/teams/matches]', err.message)
-    res.status(500).json({ success: false, error: err.message })
-  }
-})
-
-/**
- * GET /api/fdo/teams/:id
- * Team details + squad.
- */
-app.get('/api/fdo/teams/:id', requireFdo, async (req, res) => {
-  try {
-    const data = await fdo.getTeam(req.params.id)
-    res.json({ success: true, data })
-  } catch (err) {
-    console.error('[/api/fdo/teams]', err.message)
-    res.status(500).json({ success: false, error: err.message })
-  }
-})
-
-/**
- * GET /api/fdo/competitions/:code/standings
- * League table.
- */
-app.get('/api/fdo/competitions/:code/standings', requireFdo, async (req, res) => {
-  try {
-    const data = await fdo.getStandings(req.params.code)
-    res.json({ success: true, data })
-  } catch (err) {
-    console.error('[/api/fdo/standings]', err.message)
-    res.status(500).json({ success: false, error: err.message })
-  }
-})
-
-/**
- * GET /api/fdo/competitions/:code/scorers
- * Top scorers for a competition.
- */
-app.get('/api/fdo/competitions/:code/scorers', requireFdo, async (req, res) => {
-  try {
-    const limit = Math.min(Number(req.query.limit) || 20, 100)
-    const data = await fdo.getTopScorers(req.params.code, limit)
-    res.json({ success: true, data })
-  } catch (err) {
-    console.error('[/api/fdo/scorers]', err.message)
-    res.status(500).json({ success: false, error: err.message })
-  }
-})
-
-/**
- * GET /api/fdo/competitions
- * List all available competitions.
- */
-app.get('/api/fdo/competitions', requireFdo, async (req, res) => {
-  try {
-    const data = await fdo.getCompetitions()
-    res.json({ success: true, data })
-  } catch (err) {
-    console.error('[/api/fdo/competitions]', err.message)
-    res.status(500).json({ success: false, error: err.message })
   }
 })
 
