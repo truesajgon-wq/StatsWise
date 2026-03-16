@@ -694,9 +694,12 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
   }, [activePlayers, search])
 
   useEffect(() => {
-    if (!selected || results.find(r => r.id === selected.id)) return
+    if (!selected) return
+    // Don't clear selection on the Top Players tab — those players aren't in fixture results
+    if (activeTab === 'topPlayers') return
+    if (results.find(r => r.id === selected.id)) return
     setSelected(null)
-  }, [results, selected])
+  }, [results, selected, activeTab])
 
   useEffect(() => {
     setVisibleCount(10)
