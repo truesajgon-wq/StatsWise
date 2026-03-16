@@ -773,51 +773,32 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
         {/* ─── Top Players tab ─── */}
         {activeTab === 'topPlayers' && (
           <>
-            {/* League filter */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-              {LEAGUE_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setTopLeagueFilter(opt.value)}
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: 999,
-                    border: topLeagueFilter === opt.value ? '1px solid rgba(255,74,31,0.5)' : '1px solid var(--sw-border)',
-                    background: topLeagueFilter === opt.value ? 'rgba(255,74,31,0.16)' : 'var(--sw-surface-1)',
-                    color: topLeagueFilter === opt.value ? '#fdba74' : '#9ca3af',
-                    fontWeight: 600,
-                    fontSize: 11,
-                    cursor: 'pointer',
-                  }}
+            {/* Filter row */}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flex: '1 1 140px', maxWidth: 220 }}>
+                <label style={{ position: 'absolute', top: -7, left: 10, fontSize: 9, fontWeight: 700, color: '#64748b', background: 'var(--sw-surface-0)', padding: '0 4px', letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 1 }}>League</label>
+                <select
+                  value={topLeagueFilter}
+                  onChange={e => setTopLeagueFilter(e.target.value)}
+                  style={{ width: '100%', padding: '9px 30px 9px 12px', borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#e2e8f0', fontSize: 13, fontWeight: 600, appearance: 'none', cursor: 'pointer', outline: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
                 >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Stat sort pills */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-              {STAT_RANK_OPTIONS.map(opt => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => setActiveStat(opt.key)}
-                  style={{
-                    minHeight: 32,
-                    padding: '0 10px',
-                    borderRadius: 999,
-                    border: activeStat === opt.key ? '1px solid rgba(255,74,31,0.5)' : '1px solid var(--sw-border)',
-                    background: activeStat === opt.key ? 'rgba(255,74,31,0.16)' : 'var(--sw-surface-1)',
-                    color: activeStat === opt.key ? '#fdba74' : '#9ca3af',
-                    fontWeight: 700,
-                    fontSize: 11,
-                    cursor: 'pointer',
-                  }}
+                  {LEAGUE_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ position: 'relative', flex: '1 1 140px', maxWidth: 220 }}>
+                <label style={{ position: 'absolute', top: -7, left: 10, fontSize: 9, fontWeight: 700, color: '#64748b', background: 'var(--sw-surface-0)', padding: '0 4px', letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 1 }}>Sort by</label>
+                <select
+                  value={activeStat}
+                  onChange={e => setActiveStat(e.target.value)}
+                  style={{ width: '100%', padding: '9px 30px 9px 12px', borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#e2e8f0', fontSize: 13, fontWeight: 600, appearance: 'none', cursor: 'pointer', outline: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
                 >
-                  {opt.label}
-                </button>
-              ))}
+                  {STAT_RANK_OPTIONS.map(opt => (
+                    <option key={opt.key} value={opt.key}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {topPlayersLoading && (
@@ -974,27 +955,19 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
 
             {/* Player ranking table */}
             <div style={{ marginBottom: 12 }}>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                {STAT_RANK_OPTIONS.map(opt => (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    onClick={() => setActiveStat(opt.key)}
-                    style={{
-                      minHeight: 36,
-                      padding: '0 10px',
-                      borderRadius: 999,
-                      border: activeStat === opt.key ? '1px solid rgba(255,74,31,0.5)' : '1px solid var(--sw-border)',
-                      background: activeStat === opt.key ? 'rgba(255,74,31,0.16)' : 'var(--sw-surface-1)',
-                      color: activeStat === opt.key ? '#fdba74' : '#9ca3af',
-                      fontWeight: 700,
-                      fontSize: 11,
-                      cursor: 'pointer',
-                    }}
+              <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                <div style={{ position: 'relative', flex: '0 1 200px' }}>
+                  <label style={{ position: 'absolute', top: -7, left: 10, fontSize: 9, fontWeight: 700, color: '#64748b', background: 'var(--sw-surface-0)', padding: '0 4px', letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 1 }}>Sort by</label>
+                  <select
+                    value={activeStat}
+                    onChange={e => setActiveStat(e.target.value)}
+                    style={{ width: '100%', padding: '9px 30px 9px 12px', borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#e2e8f0', fontSize: 13, fontWeight: 600, appearance: 'none', cursor: 'pointer', outline: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
                   >
-                    {opt.label}
-                  </button>
-                ))}
+                    {STAT_RANK_OPTIONS.map(opt => (
+                      <option key={opt.key} value={opt.key}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {(() => {
