@@ -842,7 +842,7 @@ function handleViewChange(key) {
             {isPlayerStatsView && (
               <div className="home-mobile-shell home-shell-section" style={{ padding: '16px 20px' }}>
                 <div className="desktop-global-center-shift" style={{ maxWidth: CONTENT_MAX_WIDTH, margin: '0 auto' }}>
-                  <PlayerStatsPage title="Player Rankings" searchQuery={search} onSearchChange={setSearch} />
+                  <PlayerStatsPage title="Player Statistics" fixtures={fixtures} fixturesLoading={loading} searchQuery={search} onSearchChange={setSearch} />
                 </div>
               </div>
             )}

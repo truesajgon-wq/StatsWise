@@ -1,7 +1,9 @@
-import { useState, useMemo, useEffect } from 'react'
-import { searchPlayers } from '../data/mockPlayerData.js'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import { fetchMatchDetails } from '../data/api.js'
 import MatchPropAnalysis from '../components/MatchPropAnalysis.jsx'
 import { buildFormationPitchSlots } from '../utils/pitchLayout.js'
+
+// ─── Shared small components ────────────────────────────────────────────────────
 
 function RatingRing({ rating }) {
   const r = 28
@@ -34,6 +36,8 @@ function SeasonBar({ label, value, max, avgPerGame }) {
     </div>
   )
 }
+
+// ─── Player Prop Analysis (last N games) ────────────────────────────────────────
 
 function LastNSection({ gameHistory, playerName, playerTeam }) {
   const [range, setRange] = useState('L10')
@@ -103,6 +107,8 @@ function LastNSection({ gameHistory, playerName, playerTeam }) {
   )
 }
 
+// ─── Generate fake game history (used when no real data available) ───────────
+
 function generateGameHistory(stats, n = 20) {
   const games = []
   const keys = ['shots', 'shotsOnTarget', 'goals', 'assists', 'foulsCommitted', 'foulsDrawn', 'offsides', 'cards']
@@ -132,20 +138,22 @@ function generateGameHistory(stats, n = 20) {
   return games
 }
 
+// ─── Player Profile (shows stats + prop analysis for one player) ─────────────
+
 function PlayerProfile({ player }) {
   const s = player.stats
   const gameHistory = useMemo(() => generateGameHistory(s), [player.id])
-  const gamesPlayed = Number(s.appearances || s.games || s.played || s.matches || 34) || 34
+  const gamesPlayed = Number(s.appearances || s.games || s.played || s.matches || 1) || 1
 
   const seasonStats = [
-    { label: 'Shots', value: s.shots, max: 120 },
-    { label: 'Shots on Target', value: s.shotsOnTarget, max: 80 },
-    { label: 'Goals', value: s.goals, max: 40 },
-    { label: 'Assists', value: s.assists, max: 25 },
-    { label: 'Fouls Committed', value: s.foulsCommitted, max: 80 },
-    { label: 'Fouls Drawn', value: s.foulsDrawn, max: 80 },
-    { label: 'Offsides', value: s.offsides, max: 35 },
-    { label: 'Cards', value: (s.yellowCards || 0) + (s.redCards || 0), max: 20 },
+    { label: 'Shots', value: s.shots, max: Math.max(s.shots, 10) },
+    { label: 'Shots on Target', value: s.shotsOnTarget, max: Math.max(s.shotsOnTarget, 6) },
+    { label: 'Goals', value: s.goals, max: Math.max(s.goals, 4) },
+    { label: 'Assists', value: s.assists, max: Math.max(s.assists, 4) },
+    { label: 'Fouls Committed', value: s.foulsCommitted, max: Math.max(s.foulsCommitted, 6) },
+    { label: 'Fouls Drawn', value: s.foulsDrawn, max: Math.max(s.foulsDrawn, 6) },
+    { label: 'Offsides', value: s.offsides, max: Math.max(s.offsides, 4) },
+    { label: 'Cards', value: (s.yellowCards || 0) + (s.redCards || 0), max: Math.max((s.yellowCards || 0) + (s.redCards || 0), 4) },
   ]
 
   return (
@@ -160,7 +168,7 @@ function PlayerProfile({ player }) {
           <div style={{ fontSize: 20, fontWeight: 900, color: '#f1f5f9' }}>{player.name}</div>
           <div style={{ fontSize: 13, color: 'var(--sw-muted)', marginTop: 2 }}>{player.team} - {player.position} - {player.nationality}</div>
         </div>
-        <RatingRing rating={s.rating} />
+        {s.rating > 0 && <RatingRing rating={s.rating} />}
       </div>
 
       <div style={{ width: 'min(100%, 920px)' }}>
@@ -168,7 +176,7 @@ function PlayerProfile({ player }) {
       </div>
 
       <div className="player-profile-season" style={{ width: 'min(100%, 920px)', padding: '20px', background: 'var(--sw-surface-0)', borderRadius: 14, border: '1px solid var(--sw-border)', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: 11, color: 'var(--sw-muted)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 16 }}>SEASON STATS</div>
+        <div style={{ fontSize: 11, color: 'var(--sw-muted)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 16 }}>MATCH STATS</div>
         {seasonStats.map(({ label, value, max }) => (
           <SeasonBar
             key={label}
@@ -182,6 +190,8 @@ function PlayerProfile({ player }) {
     </div>
   )
 }
+
+// ─── Pitch visualization components ──────────────────────────────────────────
 
 function PlayerNode({ item, active, onClick, compact = false }) {
   const last = String(item.name || '').split(' ').slice(-1)[0]
@@ -311,7 +321,7 @@ function FixturePitchSelector({ lineups = [], players = [], selected, onSelect, 
         offsides: 0,
         yellowCards: 0,
         redCards: 0,
-        rating: 6,
+        rating: 0,
       },
       isHome,
     }
@@ -411,6 +421,8 @@ function FixturePitchSelector({ lineups = [], players = [], selected, onSelect, 
   )
 }
 
+// ─── Player list card (for ranked list or sub list) ──────────────────────────
+
 function PlayerCard({ player, onSelect, selected }) {
   const s = player.stats
   return (
@@ -432,6 +444,8 @@ function PlayerCard({ player, onSelect, selected }) {
   )
 }
 
+// ─── Stat ranking options ────────────────────────────────────────────────────
+
 const STAT_RANK_OPTIONS = [
   { key: 'goals', label: 'Goals' },
   { key: 'assists', label: 'Assists' },
@@ -450,13 +464,84 @@ function getRankStatValue(player, statKey) {
   return Number(s?.[statKey] || 0)
 }
 
-export default function PlayerStatsPage({ players = null, lineups = null, title = 'Player Statistics', searchQuery, onSearchChange }) {
+// ─── Fixture selector dropdown ───────────────────────────────────────────────
+
+function FixtureSelector({ fixtures, selectedId, onSelect, loading }) {
+  if (loading) {
+    return (
+      <div style={{ padding: '14px 16px', background: 'var(--sw-surface-0)', borderRadius: 12, border: '1px solid var(--sw-border)', marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: 'var(--sw-muted)', fontWeight: 700 }}>Loading fixtures...</div>
+      </div>
+    )
+  }
+
+  if (!fixtures?.length) {
+    return (
+      <div style={{ padding: '14px 16px', background: 'var(--sw-surface-0)', borderRadius: 12, border: '1px solid var(--sw-border)', marginBottom: 16 }}>
+        <div style={{ fontSize: 13, color: '#6b7280' }}>No fixtures available for today.</div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 11, color: 'var(--sw-muted)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 8 }}>SELECT FIXTURE</div>
+      <select
+        value={selectedId || ''}
+        onChange={e => onSelect(e.target.value ? Number(e.target.value) : null)}
+        style={{
+          width: '100%',
+          maxWidth: 520,
+          padding: '10px 14px',
+          borderRadius: 10,
+          border: '1px solid var(--sw-border)',
+          background: 'var(--sw-surface-1)',
+          color: '#f1f5f9',
+          fontSize: 13,
+          fontWeight: 600,
+          outline: 'none',
+          cursor: 'pointer',
+          boxSizing: 'border-box',
+        }}
+      >
+        <option value="">-- Choose a match --</option>
+        {fixtures.map(f => {
+          const homeName = f.homeTeam?.name || f.home || '?'
+          const awayName = f.awayTeam?.name || f.away || '?'
+          const time = f.time || ''
+          const league = f.league?.name || ''
+          return (
+            <option key={f.id} value={f.id}>
+              {homeName} vs {awayName}{time ? ` (${time})` : ''}{league ? ` — ${league}` : ''}
+            </option>
+          )
+        })}
+      </select>
+    </div>
+  )
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
+
+const detailsCache = new Map()
+
+export default function PlayerStatsPage({ players = null, lineups = null, fixtures = null, fixturesLoading = false, title = 'Player Statistics', searchQuery, onSearchChange }) {
   const [internalSearch, setInternalSearch] = useState('')
   const [selected, setSelected] = useState(null)
   const [activeStat, setActiveStat] = useState('goals')
   const [visibleCount, setVisibleCount] = useState(10)
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth)
-  const isFixtureMode = Array.isArray(players)
+
+  // Fixture-mode from MatchDetails (players array passed directly)
+  const isDirectFixtureMode = Array.isArray(players)
+  // Global mode with fixture selector (fixtures array from HomePage)
+  const isFixtureSelectorMode = !isDirectFixtureMode && Array.isArray(fixtures)
+
+  const [selectedFixtureId, setSelectedFixtureId] = useState(null)
+  const [matchData, setMatchData] = useState(null)
+  const [matchLoading, setMatchLoading] = useState(false)
+  const [matchError, setMatchError] = useState(null)
+
   const isNarrowRankList = viewportWidth <= 480
   const useExternalSearch = typeof searchQuery === 'string' && typeof onSearchChange === 'function'
   const search = useExternalSearch ? searchQuery : internalSearch
@@ -468,13 +553,70 @@ export default function PlayerStatsPage({ players = null, lineups = null, title 
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  // Fetch match details when a fixture is selected in selector mode
+  useEffect(() => {
+    if (!selectedFixtureId) {
+      setMatchData(null)
+      return
+    }
+
+    const cached = detailsCache.get(selectedFixtureId)
+    if (cached) {
+      setMatchData(cached)
+      return
+    }
+
+    let cancelled = false
+    setMatchLoading(true)
+    setMatchError(null)
+
+    fetchMatchDetails(selectedFixtureId)
+      .then(result => {
+        if (cancelled) return
+        detailsCache.set(selectedFixtureId, result)
+        setMatchData(result)
+      })
+      .catch(err => {
+        if (cancelled) return
+        console.warn('[PlayerStats] Failed to load match details:', err.message)
+        setMatchError(err.message || 'Failed to load match details')
+      })
+      .finally(() => {
+        if (!cancelled) setMatchLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [selectedFixtureId])
+
+  // Reset selected player when fixture changes
+  useEffect(() => {
+    setSelected(null)
+  }, [selectedFixtureId])
+
+  // Derive players and lineups from match data in selector mode
+  const selectorPlayers = useMemo(() => {
+    if (!matchData) return []
+    // Combine fixture players and squad players, preferring fixture players (which have match stats)
+    const fixtPlayers = matchData.players || []
+    const squadPlayers = matchData.squadPlayers || []
+    if (fixtPlayers.length > 0) return fixtPlayers
+    return squadPlayers
+  }, [matchData])
+
+  const selectorLineups = useMemo(() => {
+    return matchData?.lineups || []
+  }, [matchData])
+
+  // Which player list and lineups to use
+  const activePlayers = isDirectFixtureMode ? players : selectorPlayers
+  const activeLineups = isDirectFixtureMode ? lineups : selectorLineups
+
   const results = useMemo(() => {
-    if (!isFixtureMode) return searchPlayers(search)
-    const list = players || []
+    const list = activePlayers || []
     if (!search.trim()) return list
     const q = search.toLowerCase()
     return list.filter(p => (p.name || '').toLowerCase().includes(q) || (p.team || '').toLowerCase().includes(q) || (p.position || '').toLowerCase().includes(q))
-  }, [isFixtureMode, players, search])
+  }, [activePlayers, search])
 
   useEffect(() => {
     if (!selected || results.find(r => r.id === selected.id)) return
@@ -485,7 +627,8 @@ export default function PlayerStatsPage({ players = null, lineups = null, title 
     setVisibleCount(10)
   }, [activeStat, search])
 
-  if (isFixtureMode) {
+  // ─── Direct fixture mode (from MatchDetails tab) ────────────────────────
+  if (isDirectFixtureMode) {
     return (
       <div className="player-stats-page fixture-mode" style={{ padding: '16px 18px 20px', overflowY: 'auto', overflowX: 'hidden' }}>
         <div style={{ marginBottom: 10, fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>{title}</div>
@@ -507,7 +650,7 @@ export default function PlayerStatsPage({ players = null, lineups = null, title 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#4b5563', padding: '26px 12px' }}>
             <div style={{ width: 'min(100%, 520px)', padding: '18px 20px', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', textAlign: 'center' }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>Select a player to analyze</div>
-              <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.6 }}>Choose a player from the pitch above to open player statistics, recent form, and prop analysis.</div>
+              <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.6, color: '#6b7280' }}>Choose a player from the pitch above to open player statistics, recent form, and prop analysis.</div>
             </div>
           </div>
         )}
@@ -515,116 +658,185 @@ export default function PlayerStatsPage({ players = null, lineups = null, title 
     )
   }
 
-  const ranked = [...results].sort((a, b) => getRankStatValue(b, activeStat) - getRankStatValue(a, activeStat))
-  const activeLabel = STAT_RANK_OPTIONS.find(s => s.key === activeStat)?.label || activeStat
-  const shown = ranked.slice(0, visibleCount)
+  // ─── Fixture selector mode (from sidebar / HomePage) ────────────────────
+  if (isFixtureSelectorMode) {
+    const hasPlayers = selectorPlayers.length > 0
 
-  return (
-    <div className="player-stats-page" style={{ padding: '16px 18px 20px', overflowY: 'auto', overflowX: 'hidden' }}>
-      <div style={{ marginBottom: 10, fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>{title}</div>
-      {!useExternalSearch && <div style={{ marginBottom: 12 }}>
-        <input
-          type="text"
-          placeholder="Search player..."
-          value={search}
-          onChange={e => setSearchValue(e.target.value)}
-          style={{ width: '100%', maxWidth: 420, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#f1f5f9', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+    return (
+      <div className="player-stats-page selector-mode" style={{ padding: '16px 18px 20px', overflowY: 'auto', overflowX: 'hidden' }}>
+        <div style={{ marginBottom: 10, fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>{title}</div>
+
+        <FixtureSelector
+          fixtures={fixtures}
+          selectedId={selectedFixtureId}
+          onSelect={setSelectedFixtureId}
+          loading={fixturesLoading}
         />
-      </div>}
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-        {STAT_RANK_OPTIONS.map(opt => (
-          <button
-            key={opt.key}
-            type="button"
-            onClick={() => setActiveStat(opt.key)}
-            style={{
-              minHeight: 44,
-              padding: '0 12px',
-              borderRadius: 999,
-              border: activeStat === opt.key ? '1px solid rgba(255,74,31,0.5)' : '1px solid var(--sw-border)',
-              background: activeStat === opt.key ? 'rgba(255,74,31,0.16)' : 'var(--sw-surface-1)',
-              color: activeStat === opt.key ? '#fdba74' : '#9ca3af',
-              fontWeight: 700,
-              fontSize: 12,
-              cursor: 'pointer',
-            }}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+        {!selectedFixtureId && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#4b5563', padding: '40px 12px' }}>
+            <div style={{ width: 'min(100%, 520px)', padding: '24px 20px', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', textAlign: 'center' }}>
+              <div style={{ fontSize: 28, marginBottom: 12 }}>&#9917;</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>Player Statistics</div>
+              <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.6, color: '#6b7280' }}>Select a fixture above to view player stats, formation pitch, and individual prop analysis.</div>
+            </div>
+          </div>
+        )}
 
-      <div style={{ marginBottom: 12, fontSize: 12, color: '#94a3b8' }}>
-        Top players by <strong style={{ color: '#f8fafc' }}>{activeLabel}</strong>. Season totals + per game averages shown.
-      </div>
+        {selectedFixtureId && matchLoading && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 12px' }}>
+            <div style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>Loading player data...</div>
+          </div>
+        )}
 
-      <div style={{ border: '1px solid var(--sw-border)', borderRadius: 12, overflow: 'hidden', background: 'var(--sw-surface-0)', marginBottom: 14 }}>
-        <div
-          className="player-ranking-header"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: isNarrowRankList ? '44px minmax(0,1fr)' : '52px minmax(0,1fr) 86px 76px',
-            padding: '10px 12px',
-            borderBottom: '1px solid var(--sw-border)',
-            color: '#64748b',
-            fontSize: 11,
-            fontWeight: 800,
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            gap: isNarrowRankList ? 10 : 0,
-          }}
-        >
-          <div>#</div>
-          <div>{isNarrowRankList ? 'Player / Totals' : 'Player'}</div>
-          {!isNarrowRankList && <div>Total</div>}
-          {!isNarrowRankList && <div>Per Game</div>}
-        </div>
-        {shown.map((p, idx) => {
-          const total = getRankStatValue(p, activeStat)
-          const games = Number(p?.stats?.appearances || p?.stats?.games || 34) || 34
-          const perGame = total / Math.max(1, games)
-          return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setSelected(p)}
-              className="player-ranking-row"
-              style={{ width: '100%', display: 'grid', gridTemplateColumns: isNarrowRankList ? '44px minmax(0,1fr)' : '52px minmax(0,1fr) 86px 76px', gap: isNarrowRankList ? 10 : 0, padding: '10px 12px', border: 'none', borderBottom: idx === shown.length - 1 ? 'none' : '1px solid #1d2939', background: selected?.id === p.id ? 'rgba(255,74,31,0.13)' : 'transparent', color: '#dbe7f8', textAlign: 'left', cursor: 'pointer' }}
-            >
-              <div style={{ fontWeight: 900, color: idx < 3 ? '#f97316' : '#93a4be' }}>#{idx + 1}</div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                <div style={{ fontSize: 11, color: '#6b7280' }}>{p.team} - {p.position}</div>
-                {isNarrowRankList && (
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
-                    <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 700 }}>Total: {Number.isInteger(total) ? total : total.toFixed(2)}</span>
-                    <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700 }}>Per Game: {perGame.toFixed(2)}</span>
-                  </div>
-                )}
+        {selectedFixtureId && matchError && !matchLoading && (
+          <div style={{ padding: '20px 16px', background: 'rgba(239,68,68,0.08)', borderRadius: 12, border: '1px solid rgba(239,68,68,0.3)', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, color: '#ef4444', fontWeight: 600 }}>Failed to load player data: {matchError}</div>
+          </div>
+        )}
+
+        {selectedFixtureId && !matchLoading && !matchError && !hasPlayers && (
+          <div style={{ padding: '20px 16px', background: 'var(--sw-surface-0)', borderRadius: 12, border: '1px solid var(--sw-border)', textAlign: 'center' }}>
+            <div style={{ fontSize: 13, color: '#6b7280' }}>No player data available for this fixture. Player stats are typically available for live or completed matches.</div>
+          </div>
+        )}
+
+        {selectedFixtureId && !matchLoading && hasPlayers && (
+          <>
+            {!useExternalSearch && <div style={{ marginBottom: 12 }}>
+              <input
+                type="text"
+                placeholder="Search player..."
+                value={search}
+                onChange={e => setSearchValue(e.target.value)}
+                style={{ width: '100%', maxWidth: 420, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#f1f5f9', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+              />
+            </div>}
+
+            {selectorLineups.length > 0 && (
+              <FixturePitchSelector lineups={selectorLineups} players={results} selected={selected} onSelect={setSelected} search={search} />
+            )}
+
+            {/* Player ranking table */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                {STAT_RANK_OPTIONS.map(opt => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setActiveStat(opt.key)}
+                    style={{
+                      minHeight: 36,
+                      padding: '0 10px',
+                      borderRadius: 999,
+                      border: activeStat === opt.key ? '1px solid rgba(255,74,31,0.5)' : '1px solid var(--sw-border)',
+                      background: activeStat === opt.key ? 'rgba(255,74,31,0.16)' : 'var(--sw-surface-1)',
+                      color: activeStat === opt.key ? '#fdba74' : '#9ca3af',
+                      fontWeight: 700,
+                      fontSize: 11,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
-              {!isNarrowRankList && <div style={{ fontSize: 13, fontWeight: 900, color: '#f8fafc' }}>{Number.isInteger(total) ? total : total.toFixed(2)}</div>}
-              {!isNarrowRankList && <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 700 }}>{perGame.toFixed(2)}</div>}
-            </button>
-          )
-        })}
-        {!shown.length && <div style={{ textAlign: 'center', color: '#4b5563', padding: '20px 10px', fontSize: 13 }}>No players found</div>}
+
+              {(() => {
+                const ranked = [...results].sort((a, b) => getRankStatValue(b, activeStat) - getRankStatValue(a, activeStat))
+                const activeLabel = STAT_RANK_OPTIONS.find(s => s.key === activeStat)?.label || activeStat
+                const shown = ranked.slice(0, visibleCount)
+
+                return (
+                  <>
+                    <div style={{ marginBottom: 8, fontSize: 12, color: '#94a3b8' }}>
+                      Players ranked by <strong style={{ color: '#f8fafc' }}>{activeLabel}</strong> in this match.
+                    </div>
+                    <div style={{ border: '1px solid var(--sw-border)', borderRadius: 12, overflow: 'hidden', background: 'var(--sw-surface-0)', marginBottom: 14 }}>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: isNarrowRankList ? '44px minmax(0,1fr)' : '52px minmax(0,1fr) 86px 76px',
+                          padding: '10px 12px',
+                          borderBottom: '1px solid var(--sw-border)',
+                          color: '#64748b',
+                          fontSize: 11,
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.06em',
+                          gap: isNarrowRankList ? 10 : 0,
+                        }}
+                      >
+                        <div>#</div>
+                        <div>{isNarrowRankList ? 'Player / Stats' : 'Player'}</div>
+                        {!isNarrowRankList && <div>Value</div>}
+                        {!isNarrowRankList && <div>Team</div>}
+                      </div>
+                      {shown.map((p, idx) => {
+                        const total = getRankStatValue(p, activeStat)
+                        return (
+                          <button
+                            key={p.id || `${p.teamId}-${p.name}`}
+                            type="button"
+                            onClick={() => setSelected(p)}
+                            style={{ width: '100%', display: 'grid', gridTemplateColumns: isNarrowRankList ? '44px minmax(0,1fr)' : '52px minmax(0,1fr) 86px 76px', gap: isNarrowRankList ? 10 : 0, padding: '10px 12px', border: 'none', borderBottom: idx === shown.length - 1 ? 'none' : '1px solid #1d2939', background: selected?.id === p.id ? 'rgba(255,74,31,0.13)' : 'transparent', color: '#dbe7f8', textAlign: 'left', cursor: 'pointer' }}
+                          >
+                            <div style={{ fontWeight: 900, color: idx < 3 ? '#f97316' : '#93a4be' }}>#{idx + 1}</div>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {p.photo ? (
+                                  <img src={p.photo} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                ) : (
+                                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'linear-gradient(135deg, #f97316, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{(p.name || '').split(' ').map(w => w[0]).join('').slice(0, 2)}</div>
+                                )}
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                                  <div style={{ fontSize: 10, color: '#6b7280' }}>{p.position}{p.number ? ` #${p.number}` : ''}</div>
+                                </div>
+                              </div>
+                              {isNarrowRankList && (
+                                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+                                  <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 700 }}>{Number.isInteger(total) ? total : total.toFixed(1)}</span>
+                                  <span style={{ fontSize: 11, color: '#6b7280' }}>{p.team}</span>
+                                </div>
+                              )}
+                            </div>
+                            {!isNarrowRankList && <div style={{ fontSize: 13, fontWeight: 900, color: '#f8fafc' }}>{Number.isInteger(total) ? total : total.toFixed(1)}</div>}
+                            {!isNarrowRankList && <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.team}</div>}
+                          </button>
+                        )
+                      })}
+                      {!shown.length && <div style={{ textAlign: 'center', color: '#4b5563', padding: '20px 10px', fontSize: 13 }}>No players found</div>}
+                    </div>
+
+                    {ranked.length > visibleCount && (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCount(v => v + 10)}
+                        style={{ minHeight: 36, padding: '0 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#cbd5e1', fontWeight: 700, cursor: 'pointer', marginBottom: 14 }}
+                      >
+                        Show More
+                      </button>
+                    )}
+                  </>
+                )
+              })()}
+            </div>
+
+            {selected && <PlayerProfile player={selected} />}
+          </>
+        )}
       </div>
+    )
+  }
 
-      {ranked.length > visibleCount && (
-        <div style={{ marginBottom: 14 }}>
-          <button
-            type="button"
-            onClick={() => setVisibleCount(v => v + 10)}
-            style={{ minHeight: 36, padding: '0 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#cbd5e1', fontWeight: 700, cursor: 'pointer' }}
-          >
-            Show 10 More Players
-          </button>
-        </div>
-      )}
-
-      {selected && <PlayerProfile player={selected} />}
+  // ─── Fallback: no fixtures, no players (should not normally happen) ──────
+  return (
+    <div className="player-stats-page" style={{ padding: '16px 18px 20px' }}>
+      <div style={{ marginBottom: 10, fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>{title}</div>
+      <div style={{ padding: '24px 16px', background: 'var(--sw-surface-0)', borderRadius: 12, border: '1px solid var(--sw-border)', textAlign: 'center' }}>
+        <div style={{ fontSize: 13, color: '#6b7280' }}>No fixture data available. Player statistics will appear when fixtures are loaded.</div>
+      </div>
     </div>
   )
 }
-
