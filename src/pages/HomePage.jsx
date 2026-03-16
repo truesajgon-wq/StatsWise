@@ -399,7 +399,7 @@ function handleViewChange(key) {
   const shouldEnrich = isLamakiView || isCorrectScore || isSgpView || isStatPage
   const enrichOptions = useMemo(() => {
     if (isCorrectScore) return { includeH2H: true, withStats: false, maxFixtures: 200 }
-    if (isSgpView) return { includeH2H: true, withStats: false, maxFixtures: 200 }
+    if (isSgpView) return { includeH2H: true, withStats: true, maxFixtures: 200 }
     if (isStatPage) return { includeH2H: false, withStats: true, maxFixtures: 200 }
     if (isLamakiView) return { includeH2H: false, withStats: false, maxFixtures: 200 }
     return { includeH2H: false, withStats: false, maxFixtures: 0 }

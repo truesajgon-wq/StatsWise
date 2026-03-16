@@ -10,7 +10,6 @@ const GROUP_META = {
   cards:       { label: 'Cards',   color: '#f59e0b' },
   fouls:       { label: 'Fouls',   color: '#ef4444' },
   shots:       { label: 'Shots',   color: '#a78bfa' },
-  discipline:  { label: 'Cards/Fouls', color: '#f59e0b' }, // backward compat
 }
 
 const STYLE_META = {
@@ -18,6 +17,14 @@ const STYLE_META = {
   physical:     { icon: '💪', label: 'Physical',   color: '#ef4444' },
   'wide-play':  { icon: '🚩', label: 'Wide Play',  color: '#38bdf8' },
   balanced:     { icon: '⚖️', label: 'Balanced',   color: '#94a3b8' },
+}
+
+const VALUE_META = {
+  exceptional: { label: '★★★', color: '#22c55e', text: 'Exceptional' },
+  great:       { label: '★★',  color: '#22c55e', text: 'Great Value' },
+  good:        { label: '★',   color: '#f59e0b', text: 'Good Value' },
+  fair:        { label: '',     color: '#6b7280', text: '' },
+  low:         { label: '',     color: '#374151', text: '' },
 }
 
 function strengthColor(pct) {
@@ -47,6 +54,17 @@ function GroupBadge({ group }) {
   )
 }
 
+function ValueBadge({ rating }) {
+  const meta = VALUE_META[rating]
+  if (!meta || !meta.text) return null
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 999, background: `${meta.color}15`, border: `1px solid ${meta.color}28`, color: meta.color, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>
+      {meta.label && <span>{meta.label}</span>}
+      {meta.text}
+    </span>
+  )
+}
+
 function ProbBar({ prob }) {
   const pct = Math.round(prob * 100)
   const color = pct >= 70 ? '#22c55e' : pct >= 55 ? '#f59e0b' : '#6b7280'
@@ -62,19 +80,29 @@ function ProbBar({ prob }) {
 
 function LegRow({ leg }) {
   const hitInfo = leg.rawHits != null && leg.rawTotal != null ? `${leg.rawHits}/${leg.rawTotal}` : null
+  const hasRates = leg.modelRate != null && leg.honestRate != null
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.035)' }}>
-      <div style={{ width: 5, height: 5, borderRadius: '50%', background: GROUP_META[leg.statGroup]?.color ?? '#94a3b8', flexShrink: 0 }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>
-          {leg.teamName ? <span style={{ color: '#94a3b8', fontWeight: 500 }}>{leg.teamName} — </span> : null}
-          {leg.label}
-        </span>
-        <span style={{ fontSize: 12, color: '#4b5563', marginLeft: 6 }}>{leg.threshold}</span>
-        {hitInfo && <span style={{ fontSize: 10, color: '#374151', marginLeft: 8 }}>{hitInfo} games</span>}
+    <div style={{ padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.035)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ width: 5, height: 5, borderRadius: '50%', background: GROUP_META[leg.statGroup]?.color ?? '#94a3b8', flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>
+            {leg.teamName ? <span style={{ color: '#94a3b8', fontWeight: 500 }}>{leg.teamName} — </span> : null}
+            {leg.label}
+          </span>
+          <span style={{ fontSize: 12, color: '#4b5563', marginLeft: 6 }}>{leg.threshold}</span>
+          {hitInfo && <span style={{ fontSize: 10, color: '#374151', marginLeft: 8 }}>{hitInfo} games</span>}
+        </div>
+        <ProbBar prob={leg.probability} />
+        <GroupBadge group={leg.statGroup} />
       </div>
-      <ProbBar prob={leg.probability} />
-      <GroupBadge group={leg.statGroup} />
+      {hasRates && (
+        <div style={{ marginLeft: 13, marginTop: 2, fontSize: 10, color: '#4b5563', display: 'flex', gap: 8 }}>
+          <span>Model <span style={{ color: '#64748b', fontWeight: 600 }}>{Math.round(leg.modelRate * 100)}%</span></span>
+          <span style={{ color: '#374151' }}>·</span>
+          <span>History <span style={{ color: '#64748b', fontWeight: 600 }}>{Math.round(leg.honestRate * 100)}%</span></span>
+        </div>
+      )}
     </div>
   )
 }
@@ -94,6 +122,7 @@ function SGPCard({ sgp, rank, onNavigate }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
             <span style={{ fontSize: 10, color: '#4b5563' }}>{sgp.legCount} legs</span>
             <span style={{ fontSize: 10, color: styleMeta.color, background: `${styleMeta.color}12`, border: `1px solid ${styleMeta.color}22`, borderRadius: 4, padding: '1px 6px' }}>{styleMeta.icon} {styleMeta.label}</span>
+            <ValueBadge rating={sgp.valueRating} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <TeamBadge team={f.homeTeam} size={20} />
@@ -117,7 +146,7 @@ function SGPCard({ sgp, rank, onNavigate }) {
 
       {/* Legs */}
       <div style={{ padding: '2px 14px 8px' }}>
-        <div style={{ fontSize: 9, color: '#374151', fontWeight: 700, letterSpacing: '0.08em', padding: '7px 0 3px' }}>LEGS — last 10 games</div>
+        <div style={{ fontSize: 9, color: '#374151', fontWeight: 700, letterSpacing: '0.08em', padding: '7px 0 3px' }}>LEGS — model + history blend</div>
         {sgp.legs.map((leg, i) => <LegRow key={`${leg.statKey}:${leg.isHome ?? 'match'}:${i}`} leg={leg} />)}
       </div>
 
@@ -168,7 +197,7 @@ export default function SGPPage({ fixtures = [], loading, searchQuery, onSearchC
             <span style={{ fontSize: 11, color: '#4b5563', marginLeft: 4 }}>{sgpResults.length} fixture{sgpResults.length !== 1 ? 's' : ''}</span>
           )}
         </div>
-        <p style={{ margin: '0 0 10px', fontSize: 12, color: '#6b7280' }}>{tr('sgp_subtitle', 'Best multi-leg combinations backed by historical data')} · highest probability first</p>
+        <p style={{ margin: '0 0 10px', fontSize: 12, color: '#6b7280' }}>{tr('sgp_subtitle', 'Best multi-leg combinations backed by historical data')} · sorted by value rating</p>
 
         {!useExternalSearch && (
           <input
