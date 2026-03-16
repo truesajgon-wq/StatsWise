@@ -153,12 +153,6 @@ if (isStripeConfigured()) {
     )
   }
 }
-if (IS_PRODUCTION && !path.isAbsolute(BILLING_STORE_FILE)) {
-  failStartup(
-    'BILLING_STORE_PATH should be an absolute persistent path in production.',
-    'Point BILLING_STORE_PATH at mounted persistent storage, for example /var/lib/statswise/billing-store.json'
-  )
-}
 const dbPool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : false,
@@ -510,23 +504,119 @@ function canUseMockBilling() {
   return !isStripeConfigured() && ALLOW_MOCK_BILLING && !IS_PRODUCTION
 }
 
-async function loadBillingStore() {
+// ─── Billing store (PostgreSQL-backed, survives deploys) ─────────────────────
+
+let _billingSchemaApplied = false
+async function ensureBillingSchema() {
+  if (_billingSchemaApplied) return
   try {
-    if (!existsSync(BILLING_STORE_FILE)) return { users: {}, sessions: {}, processedEvents: {} }
-    const raw = await fs.readFile(BILLING_STORE_FILE, 'utf8')
-    const parsed = JSON.parse(raw)
-    return {
-      users: parsed?.users || {},
-      sessions: parsed?.sessions || {},
-      processedEvents: parsed?.processedEvents || {},
-    }
-  } catch {
-    return { users: {}, sessions: {}, processedEvents: {} }
+    const schemaPath = path.join(__dirname, 'sql', 'billing_schema.sql')
+    const sql = await fs.readFile(schemaPath, 'utf8')
+    await dbPool.query(sql)
+    _billingSchemaApplied = true
+  } catch (err) {
+    console.error('[billing] schema apply error:', err.message)
   }
 }
 
+function rowToUserRecord(row) {
+  if (!row) return null
+  return {
+    user_id: row.user_id,
+    email: row.email,
+    country: row.country,
+    plan: row.plan || 'free',
+    subscription: row.sub_provider ? {
+      provider: row.sub_provider,
+      status: row.sub_status,
+      plan: row.sub_plan,
+      current_period_end: row.sub_period_end ? new Date(row.sub_period_end).toISOString() : null,
+      cancel_at_period_end: Boolean(row.sub_cancel_at_end),
+    } : null,
+    trial: row.trial_used ? {
+      started_at: row.trial_started_at ? new Date(row.trial_started_at).toISOString() : null,
+      ends_at: row.trial_ends_at ? new Date(row.trial_ends_at).toISOString() : null,
+      used: true,
+    } : null,
+    created_at: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+    updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString(),
+  }
+}
+
+async function loadBillingStore() {
+  await ensureBillingSchema()
+  const store = { users: {}, sessions: {}, processedEvents: {} }
+  try {
+    const { rows } = await dbPool.query('SELECT * FROM billing_users')
+    for (const row of rows) {
+      store.users[row.key] = rowToUserRecord(row)
+    }
+    const { rows: sessRows } = await dbPool.query('SELECT * FROM billing_sessions')
+    for (const row of sessRows) {
+      store.sessions[row.session_id] = row.data
+    }
+    const { rows: evtRows } = await dbPool.query('SELECT * FROM billing_processed_events')
+    for (const row of evtRows) {
+      store.processedEvents[row.event_id] = row.processed_at ? new Date(row.processed_at).getTime() : Date.now()
+    }
+  } catch (err) {
+    console.error('[billing] loadBillingStore error:', err.message)
+  }
+  return store
+}
+
 async function saveBillingStore(store) {
-  await fs.writeFile(BILLING_STORE_FILE, JSON.stringify(store, null, 2), 'utf8')
+  await ensureBillingSchema()
+  try {
+    // Upsert users
+    for (const [key, record] of Object.entries(store.users || {})) {
+      const sub = record.subscription || {}
+      await dbPool.query(`
+        INSERT INTO billing_users (key, user_id, email, country, plan,
+          sub_provider, sub_status, sub_plan, sub_period_end, sub_cancel_at_end,
+          trial_started_at, trial_ends_at, trial_used, created_at, updated_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+        ON CONFLICT (key) DO UPDATE SET
+          user_id=EXCLUDED.user_id, email=EXCLUDED.email, country=EXCLUDED.country, plan=EXCLUDED.plan,
+          sub_provider=EXCLUDED.sub_provider, sub_status=EXCLUDED.sub_status, sub_plan=EXCLUDED.sub_plan,
+          sub_period_end=EXCLUDED.sub_period_end, sub_cancel_at_end=EXCLUDED.sub_cancel_at_end,
+          trial_started_at=EXCLUDED.trial_started_at, trial_ends_at=EXCLUDED.trial_ends_at,
+          trial_used=EXCLUDED.trial_used, updated_at=EXCLUDED.updated_at
+      `, [
+        key,
+        record.user_id || null,
+        record.email || null,
+        record.country || null,
+        record.plan || 'free',
+        sub.provider || null,
+        sub.status || null,
+        sub.plan || null,
+        sub.current_period_end || null,
+        Boolean(sub.cancel_at_period_end),
+        record.trial?.started_at || null,
+        record.trial?.ends_at || null,
+        Boolean(record.trial?.used),
+        record.created_at || new Date().toISOString(),
+        record.updated_at || new Date().toISOString(),
+      ])
+    }
+    // Upsert sessions
+    for (const [sid, data] of Object.entries(store.sessions || {})) {
+      await dbPool.query(`
+        INSERT INTO billing_sessions (session_id, data) VALUES ($1, $2)
+        ON CONFLICT (session_id) DO UPDATE SET data = EXCLUDED.data
+      `, [sid, JSON.stringify(data)])
+    }
+    // Upsert processed events
+    for (const [eid, ts] of Object.entries(store.processedEvents || {})) {
+      await dbPool.query(`
+        INSERT INTO billing_processed_events (event_id, processed_at) VALUES ($1, $2)
+        ON CONFLICT (event_id) DO NOTHING
+      `, [eid, new Date(ts).toISOString()])
+    }
+  } catch (err) {
+    console.error('[billing] saveBillingStore error:', err.message)
+  }
 }
 
 function billingUserKey({ userId, email }) {
