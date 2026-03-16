@@ -488,6 +488,22 @@ function PlayerCard({ player, onSelect, selected }) {
   )
 }
 
+// ─── Shared dropdown styles ──────────────────────────────────────────────────
+
+const CHEVRON_SVG = `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`
+
+const DROPDOWN_LABEL = {
+  position: 'absolute', top: -7, left: 10, fontSize: 9, fontWeight: 700, color: '#64748b',
+  background: 'var(--sw-surface-0)', padding: '0 4px', letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 1,
+}
+
+const DROPDOWN_SELECT = {
+  width: '100%', padding: '9px 30px 9px 12px', borderRadius: 10, border: '1px solid var(--sw-border)',
+  background: 'var(--sw-surface-1)', color: '#e2e8f0', fontSize: 13, fontWeight: 600, appearance: 'none',
+  cursor: 'pointer', outline: 'none', backgroundImage: CHEVRON_SVG, backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'right 12px center',
+}
+
 // ─── Stat ranking options ────────────────────────────────────────────────────
 
 const STAT_RANK_OPTIONS = [
@@ -771,133 +787,73 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
         </div>
 
         {/* ─── Top Players tab ─── */}
-        {activeTab === 'topPlayers' && (
-          <>
-            {/* Filter row */}
-            <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-              <div style={{ position: 'relative', flex: '1 1 140px', maxWidth: 220 }}>
-                <label style={{ position: 'absolute', top: -7, left: 10, fontSize: 9, fontWeight: 700, color: '#64748b', background: 'var(--sw-surface-0)', padding: '0 4px', letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 1 }}>League</label>
-                <select
-                  value={topLeagueFilter}
-                  onChange={e => setTopLeagueFilter(e.target.value)}
-                  style={{ width: '100%', padding: '9px 30px 9px 12px', borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#e2e8f0', fontSize: 13, fontWeight: 600, appearance: 'none', cursor: 'pointer', outline: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
-                >
-                  {LEAGUE_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ position: 'relative', flex: '1 1 140px', maxWidth: 220 }}>
-                <label style={{ position: 'absolute', top: -7, left: 10, fontSize: 9, fontWeight: 700, color: '#64748b', background: 'var(--sw-surface-0)', padding: '0 4px', letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 1 }}>Sort by</label>
-                <select
-                  value={activeStat}
-                  onChange={e => setActiveStat(e.target.value)}
-                  style={{ width: '100%', padding: '9px 30px 9px 12px', borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#e2e8f0', fontSize: 13, fontWeight: 600, appearance: 'none', cursor: 'pointer', outline: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
-                >
-                  {STAT_RANK_OPTIONS.map(opt => (
-                    <option key={opt.key} value={opt.key}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+        {activeTab === 'topPlayers' && (() => {
+          const activeLabel = STAT_RANK_OPTIONS.find(s => s.key === activeStat)?.label || activeStat
+          const ranked = [...topPlayers].sort((a, b) => getRankStatValue(b, activeStat) - getRankStatValue(a, activeStat))
 
-            {topPlayersLoading && (
-              <div style={{ padding: '30px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>Loading top players...</div>
-              </div>
-            )}
-
-            {!topPlayersLoading && topPlayers.length === 0 && (
-              <div style={{ padding: '24px 16px', background: 'var(--sw-surface-0)', borderRadius: 12, border: '1px solid var(--sw-border)', textAlign: 'center' }}>
-                <div style={{ fontSize: 13, color: '#6b7280' }}>No player data available. Run the seed script: <code style={{ fontSize: 12, color: '#94a3b8' }}>node backend/scripts/seed-player-stats.js</code></div>
-              </div>
-            )}
-
-            {!topPlayersLoading && topPlayers.length > 0 && (() => {
-              const activeLabel = STAT_RANK_OPTIONS.find(s => s.key === activeStat)?.label || activeStat
-              const ranked = [...topPlayers].sort((a, b) => getRankStatValue(b, activeStat) - getRankStatValue(a, activeStat))
-
-              return (
-                <>
-                  <div style={{ marginBottom: 8, fontSize: 12, color: '#94a3b8' }}>
-                    Top players ranked by <strong style={{ color: '#f8fafc' }}>{activeLabel}</strong>{topLeagueFilter ? ` in ${topLeagueFilter}` : ' across top 5 leagues'}. Season 2025/26.
-                  </div>
-                  <div style={{ border: '1px solid var(--sw-border)', borderRadius: 12, overflow: 'hidden', background: 'var(--sw-surface-0)', marginBottom: 14 }}>
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: isNarrowRankList ? '36px minmax(0,1fr)' : '42px minmax(0,1fr) 70px 90px 90px',
-                        padding: '10px 12px',
-                        borderBottom: '1px solid var(--sw-border)',
-                        color: '#64748b',
-                        fontSize: 11,
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.06em',
-                        gap: isNarrowRankList ? 8 : 0,
-                      }}
-                    >
-                      <div>#</div>
-                      <div>Player</div>
-                      {!isNarrowRankList && <div>{activeLabel}</div>}
-                      {!isNarrowRankList && <div>Team</div>}
-                      {!isNarrowRankList && <div>League</div>}
-                    </div>
+          return (
+            <>
+              {/* Filter row — 3 uniform dropdowns */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 16 }}>
+                <div style={{ position: 'relative' }}>
+                  <label style={DROPDOWN_LABEL}>League</label>
+                  <select value={topLeagueFilter} onChange={e => setTopLeagueFilter(e.target.value)} style={DROPDOWN_SELECT}>
+                    {LEAGUE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <label style={DROPDOWN_LABEL}>Sort by</label>
+                  <select value={activeStat} onChange={e => setActiveStat(e.target.value)} style={DROPDOWN_SELECT}>
+                    {STAT_RANK_OPTIONS.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)}
+                  </select>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <label style={DROPDOWN_LABEL}>Player</label>
+                  <select
+                    value={selected?.id || ''}
+                    onChange={e => {
+                      const p = ranked.find(x => String(x.id) === e.target.value)
+                      setSelected(p || null)
+                    }}
+                    style={DROPDOWN_SELECT}
+                  >
+                    <option value="">Select a player...</option>
                     {ranked.map((p, idx) => {
-                      const total = getRankStatValue(p, activeStat)
-                      return (
-                        <button
-                          key={p.id || `${p.teamId}-${p.name}`}
-                          type="button"
-                          onClick={() => setSelected(p)}
-                          style={{
-                            width: '100%',
-                            display: 'grid',
-                            gridTemplateColumns: isNarrowRankList ? '36px minmax(0,1fr)' : '42px minmax(0,1fr) 70px 90px 90px',
-                            gap: isNarrowRankList ? 8 : 0,
-                            padding: '10px 12px',
-                            border: 'none',
-                            borderBottom: idx === ranked.length - 1 ? 'none' : '1px solid #1d2939',
-                            background: selected?.id === p.id ? 'rgba(255,74,31,0.13)' : 'transparent',
-                            color: '#dbe7f8',
-                            textAlign: 'left',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <div style={{ fontWeight: 900, color: idx < 3 ? '#f97316' : '#93a4be', fontSize: 12 }}>#{idx + 1}</div>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              {p.photo ? (
-                                <img src={p.photo} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                              ) : (
-                                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #f97316, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{(p.name || '').split(' ').map(w => w[0]).join('').slice(0, 2)}</div>
-                              )}
-                              <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                                <div style={{ fontSize: 10, color: '#6b7280' }}>{p.position}{p.nationality ? ` · ${p.nationality}` : ''}{p.appearances ? ` · ${p.appearances} apps` : ''}</div>
-                              </div>
-                            </div>
-                            {isNarrowRankList && (
-                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-                                <span style={{ fontSize: 11, color: '#f97316', fontWeight: 700 }}>{Number.isInteger(total) ? total : total.toFixed(1)} {activeLabel}</span>
-                                <span style={{ fontSize: 10, color: '#6b7280' }}>{p.team}</span>
-                              </div>
-                            )}
-                          </div>
-                          {!isNarrowRankList && <div style={{ fontSize: 14, fontWeight: 900, color: '#f8fafc' }}>{Number.isInteger(total) ? total : total.toFixed(1)}</div>}
-                          {!isNarrowRankList && <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.team}</div>}
-                          {!isNarrowRankList && <div style={{ fontSize: 10, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.league}</div>}
-                        </button>
-                      )
+                      const stat = getRankStatValue(p, activeStat)
+                      const statStr = Number.isInteger(stat) ? stat : stat.toFixed(1)
+                      return <option key={p.id || idx} value={p.id}>#{idx + 1} {p.name} — {statStr} {activeLabel}</option>
                     })}
-                  </div>
-                </>
-              )
-            })()}
+                  </select>
+                </div>
+              </div>
 
-            {selected && <PlayerProfile player={selected} />}
-          </>
-        )}
+              {topPlayersLoading && (
+                <div style={{ padding: '30px 12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>Loading top players...</div>
+                </div>
+              )}
+
+              {!topPlayersLoading && topPlayers.length === 0 && (
+                <div style={{ padding: '24px 16px', background: 'var(--sw-surface-0)', borderRadius: 12, border: '1px solid var(--sw-border)', textAlign: 'center' }}>
+                  <div style={{ fontSize: 13, color: '#6b7280' }}>No player data available yet.</div>
+                </div>
+              )}
+
+              {!topPlayersLoading && !selected && topPlayers.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '30px 12px' }}>
+                  <div style={{ width: 'min(100%, 520px)', padding: '20px', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>Select a player</div>
+                    <div style={{ fontSize: 13, marginTop: 6, color: '#6b7280', lineHeight: 1.5 }}>
+                      {ranked.length} players ranked by <strong style={{ color: '#f8fafc' }}>{activeLabel}</strong>{topLeagueFilter ? ` in ${topLeagueFilter}` : ''}. Pick one from the dropdown above.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selected && <PlayerProfile player={selected} />}
+            </>
+          )
+        })()}
 
         {/* ─── Fixtures tab ─── */}
         {activeTab === 'fixtures' && (
@@ -937,123 +893,57 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
           </div>
         )}
 
-        {selectedFixtureId && !matchLoading && hasPlayers && (
-          <>
-            {!useExternalSearch && <div style={{ marginBottom: 12 }}>
-              <input
-                type="text"
-                placeholder="Search player..."
-                value={search}
-                onChange={e => setSearchValue(e.target.value)}
-                style={{ width: '100%', maxWidth: 420, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#f1f5f9', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
-              />
-            </div>}
+        {selectedFixtureId && !matchLoading && hasPlayers && (() => {
+          const fixtureRanked = [...results].sort((a, b) => getRankStatValue(b, activeStat) - getRankStatValue(a, activeStat))
+          const activeLabel = STAT_RANK_OPTIONS.find(s => s.key === activeStat)?.label || activeStat
 
-            {selectorLineups.length > 0 && (
-              <FixturePitchSelector lineups={selectorLineups} players={results} selected={selected} onSelect={setSelected} search={search} />
-            )}
+          return (
+            <>
+              {selectorLineups.length > 0 && (
+                <FixturePitchSelector lineups={selectorLineups} players={results} selected={selected} onSelect={setSelected} search={search} />
+              )}
 
-            {/* Player ranking table */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-                <div style={{ position: 'relative', flex: '0 1 200px' }}>
-                  <label style={{ position: 'absolute', top: -7, left: 10, fontSize: 9, fontWeight: 700, color: '#64748b', background: 'var(--sw-surface-0)', padding: '0 4px', letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 1 }}>Sort by</label>
+              {/* Sort + Player dropdowns */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 16 }}>
+                <div style={{ position: 'relative' }}>
+                  <label style={DROPDOWN_LABEL}>Sort by</label>
+                  <select value={activeStat} onChange={e => setActiveStat(e.target.value)} style={DROPDOWN_SELECT}>
+                    {STAT_RANK_OPTIONS.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)}
+                  </select>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <label style={DROPDOWN_LABEL}>Player</label>
                   <select
-                    value={activeStat}
-                    onChange={e => setActiveStat(e.target.value)}
-                    style={{ width: '100%', padding: '9px 30px 9px 12px', borderRadius: 10, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#e2e8f0', fontSize: 13, fontWeight: 600, appearance: 'none', cursor: 'pointer', outline: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+                    value={selected ? playerIdentity(selected) : ''}
+                    onChange={e => {
+                      const p = fixtureRanked.find(x => playerIdentity(x) === e.target.value)
+                      setSelected(p || null)
+                    }}
+                    style={DROPDOWN_SELECT}
                   >
-                    {STAT_RANK_OPTIONS.map(opt => (
-                      <option key={opt.key} value={opt.key}>{opt.label}</option>
-                    ))}
+                    <option value="">Select a player...</option>
+                    {fixtureRanked.map((p, idx) => {
+                      const stat = getRankStatValue(p, activeStat)
+                      const statStr = Number.isInteger(stat) ? stat : stat.toFixed(1)
+                      return <option key={playerIdentity(p)} value={playerIdentity(p)}>#{idx + 1} {p.name} — {statStr} {activeLabel}</option>
+                    })}
                   </select>
                 </div>
               </div>
 
-              {(() => {
-                const ranked = [...results].sort((a, b) => getRankStatValue(b, activeStat) - getRankStatValue(a, activeStat))
-                const activeLabel = STAT_RANK_OPTIONS.find(s => s.key === activeStat)?.label || activeStat
-                const shown = ranked.slice(0, visibleCount)
+              {!selected && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 12px' }}>
+                  <div style={{ width: 'min(100%, 520px)', padding: '18px 20px', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>Select a player</div>
+                    <div style={{ fontSize: 13, marginTop: 6, color: '#6b7280', lineHeight: 1.5 }}>Choose a player from the dropdown or pitch above to view their statistics.</div>
+                  </div>
+                </div>
+              )}
 
-                return (
-                  <>
-                    <div style={{ marginBottom: 8, fontSize: 12, color: '#94a3b8' }}>
-                      Players ranked by <strong style={{ color: '#f8fafc' }}>{activeLabel}</strong> in this match.
-                    </div>
-                    <div style={{ border: '1px solid var(--sw-border)', borderRadius: 12, overflow: 'hidden', background: 'var(--sw-surface-0)', marginBottom: 14 }}>
-                      <div
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: isNarrowRankList ? '44px minmax(0,1fr)' : '52px minmax(0,1fr) 86px 76px',
-                          padding: '10px 12px',
-                          borderBottom: '1px solid var(--sw-border)',
-                          color: '#64748b',
-                          fontSize: 11,
-                          fontWeight: 800,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.06em',
-                          gap: isNarrowRankList ? 10 : 0,
-                        }}
-                      >
-                        <div>#</div>
-                        <div>{isNarrowRankList ? 'Player / Stats' : 'Player'}</div>
-                        {!isNarrowRankList && <div>Value</div>}
-                        {!isNarrowRankList && <div>Team</div>}
-                      </div>
-                      {shown.map((p, idx) => {
-                        const total = getRankStatValue(p, activeStat)
-                        return (
-                          <button
-                            key={p.id || `${p.teamId}-${p.name}`}
-                            type="button"
-                            onClick={() => setSelected(p)}
-                            style={{ width: '100%', display: 'grid', gridTemplateColumns: isNarrowRankList ? '44px minmax(0,1fr)' : '52px minmax(0,1fr) 86px 76px', gap: isNarrowRankList ? 10 : 0, padding: '10px 12px', border: 'none', borderBottom: idx === shown.length - 1 ? 'none' : '1px solid #1d2939', background: selected?.id === p.id ? 'rgba(255,74,31,0.13)' : 'transparent', color: '#dbe7f8', textAlign: 'left', cursor: 'pointer' }}
-                          >
-                            <div style={{ fontWeight: 900, color: idx < 3 ? '#f97316' : '#93a4be' }}>#{idx + 1}</div>
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                {p.photo ? (
-                                  <img src={p.photo} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                                ) : (
-                                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'linear-gradient(135deg, #f97316, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{(p.name || '').split(' ').map(w => w[0]).join('').slice(0, 2)}</div>
-                                )}
-                                <div style={{ minWidth: 0 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                                  <div style={{ fontSize: 10, color: '#6b7280' }}>{p.position}{p.number ? ` #${p.number}` : ''}</div>
-                                </div>
-                              </div>
-                              {isNarrowRankList && (
-                                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
-                                  <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 700 }}>{Number.isInteger(total) ? total : total.toFixed(1)}</span>
-                                  <span style={{ fontSize: 11, color: '#6b7280' }}>{p.team}</span>
-                                </div>
-                              )}
-                            </div>
-                            {!isNarrowRankList && <div style={{ fontSize: 13, fontWeight: 900, color: '#f8fafc' }}>{Number.isInteger(total) ? total : total.toFixed(1)}</div>}
-                            {!isNarrowRankList && <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.team}</div>}
-                          </button>
-                        )
-                      })}
-                      {!shown.length && <div style={{ textAlign: 'center', color: '#4b5563', padding: '20px 10px', fontSize: 13 }}>No players found</div>}
-                    </div>
-
-                    {ranked.length > visibleCount && (
-                      <button
-                        type="button"
-                        onClick={() => setVisibleCount(v => v + 10)}
-                        style={{ minHeight: 36, padding: '0 12px', borderRadius: 8, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-1)', color: '#cbd5e1', fontWeight: 700, cursor: 'pointer', marginBottom: 14 }}
-                      >
-                        Show More
-                      </button>
-                    )}
-                  </>
-                )
-              })()}
-            </div>
-
-            {selected && <PlayerProfile player={selected} />}
-          </>
-        )}
+              {selected && <PlayerProfile player={selected} />}
+            </>
+          )
+        })()}
           </>
         )}
       </div>
