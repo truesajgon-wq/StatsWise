@@ -623,16 +623,25 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  // Fetch top players when tab is active
+  // Fetch top players when tab is active (or when search triggers it)
   useEffect(() => {
-    if (activeTab !== 'topPlayers' || isDirectFixtureMode) return
+    if (isDirectFixtureMode) return
+    // Fetch when on topPlayers tab, or when search has 2+ chars (we switch tab automatically)
+    const isSearching = search.trim().length >= 2
+    if (activeTab !== 'topPlayers' && !isSearching) return
     let cancelled = false
     setTopPlayersLoading(true)
 
-    fetchTopPlayers({ sort: activeStat === 'cards' ? 'yellowCards' : activeStat, league: topLeagueFilter, limit: 50 })
+    const searchParam = isSearching ? search.trim() : undefined
+    fetchTopPlayers({ search: searchParam, sort: activeStat === 'cards' ? 'yellowCards' : activeStat, league: topLeagueFilter, limit: 50 })
       .then(data => {
         if (cancelled) return
-        setTopPlayers(Array.isArray(data) ? data : [])
+        const list = Array.isArray(data) ? data : []
+        setTopPlayers(list)
+        // Auto-select if search narrows to exactly 1 result
+        if (isSearching && list.length === 1) {
+          setSelected(list[0])
+        }
       })
       .catch(() => {
         if (!cancelled) setTopPlayers([])
@@ -642,7 +651,15 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
       })
 
     return () => { cancelled = true }
-  }, [activeTab, activeStat, topLeagueFilter, isDirectFixtureMode])
+  }, [activeTab, activeStat, topLeagueFilter, isDirectFixtureMode, search])
+
+  // Auto-switch to Top Players tab when user types in the search bar
+  useEffect(() => {
+    if (isDirectFixtureMode || !isFixtureSelectorMode) return
+    if (search.trim().length >= 2) {
+      setActiveTab('topPlayers')
+    }
+  }, [search, isDirectFixtureMode, isFixtureSelectorMode])
 
   // Fetch match details when a fixture is selected in selector mode
   useEffect(() => {
@@ -757,14 +774,16 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
     const hasPlayers = selectorPlayers.length > 0
 
     const TAB_STYLE = (active) => ({
-      padding: '8px 16px',
-      borderRadius: 8,
+      flex: 1,
+      padding: '9px 16px',
+      borderRadius: 10,
       border: active ? '1px solid rgba(255,74,31,0.5)' : '1px solid var(--sw-border)',
       background: active ? 'rgba(255,74,31,0.16)' : 'var(--sw-surface-1)',
       color: active ? '#fdba74' : '#9ca3af',
       fontWeight: 700,
       fontSize: 13,
       cursor: 'pointer',
+      textAlign: 'center',
     })
 
     const LEAGUE_OPTIONS = [
@@ -835,7 +854,7 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
 
               {!topPlayersLoading && topPlayers.length === 0 && (
                 <div style={{ padding: '24px 16px', background: 'var(--sw-surface-0)', borderRadius: 12, border: '1px solid var(--sw-border)', textAlign: 'center' }}>
-                  <div style={{ fontSize: 13, color: '#6b7280' }}>No player data available yet.</div>
+                  <div style={{ fontSize: 13, color: '#6b7280' }}>{search.trim().length >= 2 ? `No players found for "${search.trim()}"` : 'No player data available yet.'}</div>
                 </div>
               )}
 
@@ -844,7 +863,10 @@ export default function PlayerStatsPage({ players = null, lineups = null, fixtur
                   <div style={{ width: 'min(100%, 520px)', padding: '20px', borderRadius: 14, border: '1px solid var(--sw-border)', background: 'var(--sw-surface-0)', textAlign: 'center' }}>
                     <div style={{ fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>Select a player</div>
                     <div style={{ fontSize: 13, marginTop: 6, color: '#6b7280', lineHeight: 1.5 }}>
-                      {ranked.length} players ranked by <strong style={{ color: '#f8fafc' }}>{activeLabel}</strong>{topLeagueFilter ? ` in ${topLeagueFilter}` : ''}. Pick one from the dropdown above.
+                      {search.trim().length >= 2
+                        ? <>{ranked.length} player{ranked.length !== 1 ? 's' : ''} found for "<strong style={{ color: '#f8fafc' }}>{search.trim()}</strong>". Pick one from the dropdown above.</>
+                        : <>{ranked.length} players ranked by <strong style={{ color: '#f8fafc' }}>{activeLabel}</strong>{topLeagueFilter ? ` in ${topLeagueFilter}` : ''}. Pick one from the dropdown above.</>
+                      }
                     </div>
                   </div>
                 </div>
