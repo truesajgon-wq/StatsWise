@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { analyzeSGP } from '../data/sgpEngine.js'
+import { analyzeSGP, analyzeFixtureSGP } from '../data/sgpEngine.js'
 import { useLang } from '../context/LangContext.jsx'
 import { getAppToday } from '../utils/appDate.js'
 
 const GROUP_META = {
-  goals:       { label: 'Goals',   color: '#22c55e' },
-  corners:     { label: 'Corners', color: '#f97316' },
-  cards:       { label: 'Cards',   color: '#f59e0b' },
-  fouls:       { label: 'Fouls',   color: '#ef4444' },
-  shots:       { label: 'Shots',   color: '#a78bfa' },
+  goals:   { label: 'Goals',   color: '#22c55e' },
+  corners: { label: 'Corners', color: '#f97316' },
+  cards:   { label: 'Cards',   color: '#f59e0b' },
+  fouls:   { label: 'Fouls',   color: '#ef4444' },
+  shots:   { label: 'Shots',   color: '#a78bfa' },
 }
 
 const STYLE_META = {
@@ -48,7 +48,7 @@ function TeamBadge({ team, size = 20 }) {
 function GroupBadge({ group }) {
   const meta = GROUP_META[group] || { label: group, color: '#94a3b8' }
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 7px', borderRadius: 999, background: `${meta.color}18`, border: `1px solid ${meta.color}30`, color: meta.color, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 7px', borderRadius: 999, background: `${meta.color}18`, border: `1px solid ${meta.color}30`, color: meta.color, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0, minWidth: 52, textAlign: 'center', boxSizing: 'border-box' }}>
       {meta.label}
     </span>
   )
@@ -69,11 +69,11 @@ function ProbBar({ prob }) {
   const pct = Math.round(prob * 100)
   const color = pct >= 70 ? '#22c55e' : pct >= 55 ? '#f59e0b' : '#6b7280'
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, width: 80 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, width: 88 }}>
       <div style={{ flex: 1, height: 3, borderRadius: 999, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 999 }} />
       </div>
-      <span style={{ fontSize: 12, fontWeight: 800, color, fontFamily: 'monospace', minWidth: 32, textAlign: 'right' }}>{pct}%</span>
+      <span style={{ fontSize: 12, fontWeight: 800, color, fontFamily: 'monospace', width: 36, textAlign: 'right', flexShrink: 0 }}>{pct}%</span>
     </div>
   )
 }
@@ -114,7 +114,7 @@ function SGPCard({ sgp, rank, onNavigate }) {
   const pct = Math.round(sgp.combinedProbability * 100)
 
   return (
-    <div style={{ background: 'var(--sw-surface-1)', border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 14, overflow: 'hidden' }}>
+    <div style={{ background: 'var(--sw-surface-1)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <span style={{ fontSize: 11, fontWeight: 900, color: '#374151', fontFamily: 'monospace', flexShrink: 0, minWidth: 22 }}>#{rank}</span>
@@ -163,16 +163,97 @@ function SGPCard({ sgp, rank, onNavigate }) {
   )
 }
 
+// ─── Fixture explorer panel ──────────────────────────────────────────────────
+
+function ExplorerPanel({ analysis, fixture, onNavigate }) {
+  if (!analysis) return null
+  const { sgp, availableLegs, styleTag } = analysis
+  const styleMeta = STYLE_META[styleTag] || STYLE_META.balanced
+  const f = fixture
+
+  // Full parlay found — render as a card
+  if (sgp) {
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, letterSpacing: '0.06em', marginBottom: 6 }}>EXPLORER RESULT</div>
+        <SGPCard sgp={sgp} rank={'—'} onNavigate={onNavigate} />
+      </div>
+    )
+  }
+
+  // No full parlay — show individual qualifying legs
+  return (
+    <div style={{ background: 'var(--sw-surface-1)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+            <span style={{ fontSize: 10, color: styleMeta.color, background: `${styleMeta.color}12`, border: `1px solid ${styleMeta.color}22`, borderRadius: 4, padding: '1px 6px' }}>{styleMeta.icon} {styleMeta.label}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <TeamBadge team={f.homeTeam} size={20} />
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#f1f5f9' }}>{f.homeTeam?.name}</span>
+            <span style={{ fontSize: 11, color: '#374151' }}>vs</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#f1f5f9' }}>{f.awayTeam?.name}</span>
+            <TeamBadge team={f.awayTeam} size={20} />
+          </div>
+          {f.league?.name && <div style={{ fontSize: 11, color: '#374151', marginTop: 2 }}>{f.league.name}</div>}
+        </div>
+        <button onClick={() => onNavigate(f.id)} style={{ padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(56,189,248,0.28)', background: 'rgba(56,189,248,0.07)', color: '#38bdf8', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+          Match Details
+        </button>
+      </div>
+
+      <div style={{ padding: '2px 14px 8px' }}>
+        {availableLegs.length > 0 ? (
+          <>
+            <div style={{ fontSize: 9, color: '#374151', fontWeight: 700, letterSpacing: '0.08em', padding: '7px 0 3px' }}>
+              AVAILABLE LEGS — doesn't qualify as full parlay
+            </div>
+            {availableLegs.map((leg, i) => <LegRow key={`${leg.statKey}:${leg.isHome ?? 'match'}:${i}`} leg={leg} />)}
+          </>
+        ) : (
+          <div style={{ padding: '16px 0', textAlign: 'center', fontSize: 12, color: '#4b5563' }}>
+            {!f.homeHistory?.length || !f.awayHistory?.length
+              ? 'Historical data still loading for this match...'
+              : 'No qualifying legs found — not enough statistical signal.'}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main page ───────────────────────────────────────────────────────────────
+
 export default function SGPPage({ fixtures = [], loading, searchQuery, onSearchChange }) {
   const { t } = useLang()
   const navigate = useNavigate()
   const [internalSearch, setInternalSearch] = useState('')
+  const [selectedFixtureId, setSelectedFixtureId] = useState('')
 
   const useExternalSearch = typeof searchQuery === 'string' && typeof onSearchChange === 'function'
   const search = useExternalSearch ? searchQuery : internalSearch
   const setSearchValue = useExternalSearch ? onSearchChange : setInternalSearch
 
   const sgpResults = useMemo(() => (!fixtures.length ? [] : analyzeSGP(fixtures, getAppToday())), [fixtures])
+  const sgpFixtureIds = useMemo(() => new Set(sgpResults.map(r => r.fixture?.id)), [sgpResults])
+
+  // Enriched fixtures available for the explorer dropdown
+  const enrichedFixtures = useMemo(() =>
+    (fixtures || []).filter(f => f.homeHistory?.length && f.awayHistory?.length),
+  [fixtures])
+
+  // Single-fixture analysis for the explorer
+  const selectedAnalysis = useMemo(() => {
+    if (!selectedFixtureId) return null
+    const fixture = fixtures.find(f => String(f.id) === String(selectedFixtureId))
+    if (!fixture) return null
+    return analyzeFixtureSGP(fixture)
+  }, [selectedFixtureId, fixtures])
+
+  const selectedFixture = selectedFixtureId
+    ? fixtures.find(f => String(f.id) === String(selectedFixtureId))
+    : null
 
   const visibleResults = useMemo(() => {
     if (!search.trim()) return sgpResults
@@ -199,6 +280,34 @@ export default function SGPPage({ fixtures = [], loading, searchQuery, onSearchC
         </div>
         <p style={{ margin: '0 0 10px', fontSize: 12, color: '#6b7280' }}>{tr('sgp_subtitle', 'Best multi-leg combinations backed by historical data')} · sorted by value rating</p>
 
+        {/* Explorer dropdown */}
+        <div style={{ marginBottom: 10 }}>
+          <select
+            value={selectedFixtureId}
+            onChange={e => setSelectedFixtureId(e.target.value)}
+            style={{
+              width: '100%', maxWidth: 480, minHeight: 36, padding: '7px 12px',
+              borderRadius: 10, border: '1px solid rgba(255,255,255,0.10)',
+              background: 'var(--sw-surface-1)', color: '#f1f5f9', fontSize: 12,
+              outline: 'none', boxSizing: 'border-box', cursor: 'pointer',
+              appearance: 'none', WebkitAppearance: 'none',
+              backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%236b7280\' stroke-width=\'2\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")',
+              backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
+              paddingRight: 32,
+            }}
+          >
+            <option value="" style={{ background: '#1e293b', color: '#94a3b8' }}>Explore any match for SGP analysis...</option>
+            {enrichedFixtures.map(f => {
+              const inAutoList = sgpFixtureIds.has(f.id)
+              return (
+                <option key={f.id} value={f.id} style={{ background: '#1e293b', color: inAutoList ? '#22c55e' : '#f1f5f9' }}>
+                  {f.homeTeam?.name} vs {f.awayTeam?.name} — {f.league?.name || 'Unknown'}{inAutoList ? ' ✓' : ''}
+                </option>
+              )
+            })}
+          </select>
+        </div>
+
         {!useExternalSearch && (
           <input
             type="text"
@@ -210,6 +319,11 @@ export default function SGPPage({ fixtures = [], loading, searchQuery, onSearchC
         )}
       </div>
 
+      {/* Explorer result */}
+      {selectedAnalysis && selectedFixture && (
+        <ExplorerPanel analysis={selectedAnalysis} fixture={selectedFixture} onNavigate={id => navigate(`/match/${id}`)} />
+      )}
+
       {/* Loading */}
       {loading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -220,7 +334,7 @@ export default function SGPPage({ fixtures = [], loading, searchQuery, onSearchC
       )}
 
       {/* Empty */}
-      {!loading && visibleResults.length === 0 && (
+      {!loading && visibleResults.length === 0 && !selectedAnalysis && (
         <div style={{ textAlign: 'center', padding: '60px 20px' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🔗</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: '#6b7280', marginBottom: 6 }}>
@@ -232,7 +346,7 @@ export default function SGPPage({ fixtures = [], loading, searchQuery, onSearchC
         </div>
       )}
 
-      {/* List — sorted highest to lowest SGP probability */}
+      {/* Auto-qualified list */}
       {!loading && visibleResults.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {visibleResults.map((sgp, idx) => (

@@ -33,6 +33,23 @@ const CORRELATION_DISCOUNTS = [1.0, 1.0, 0.97, 0.95, 0.93]
 // Baseline combined probability per leg count (for value rating)
 const BASELINE_COMBINED = { 2: 0.28, 3: 0.15, 4: 0.08, 5: 0.04 }
 
+// Minimum alt thresholds — filters out lines bookmakers won't realistically offer
+const MIN_SGP_ALT = {
+  teamShots:  3.5,
+  goals:      2.5,
+  teamCorners: 3.5,
+  cards:      3.5,
+  teamFouls:  9.5,
+  fouls:      20.5,
+}
+
+function isAltAllowed(statKey, alt, statDef) {
+  if (statDef.binary || alt == null) return true
+  const min = MIN_SGP_ALT[statKey]
+  if (min == null) return true
+  return Number(alt) >= min
+}
+
 // ─── Correlation groups ────────────────────────────────────────────────────────
 
 function getCorrGroup(statKey) {
@@ -225,6 +242,7 @@ function buildSGP(fixture) {
   for (const statDef of STATS_ORDER) {
     const { key: statKey, alts } = statDef
     for (const alt of alts) {
+      if (!isAltAllowed(statKey, alt, statDef)) continue
       const candidates = evaluateFixturePrediction(fixture, statKey, alt)
       for (const candidate of candidates) {
         const legScore = computeLegScore(candidate)
@@ -351,6 +369,64 @@ function buildSGP(fixture) {
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────────
+
+// Single-fixture analysis — returns full SGP if it qualifies, plus all
+// individual qualifying legs (even if they don't form a valid parlay).
+// Used by the fixture explorer dropdown.
+export function analyzeFixtureSGP(fixture) {
+  const sgp = buildSGP(fixture)
+  if (sgp) return { sgp, availableLegs: sgp.legs, styleTag: sgp.styleTag }
+
+  if (!fixture.homeHistory?.length || !fixture.awayHistory?.length) {
+    return { sgp: null, availableLegs: [], styleTag: 'balanced' }
+  }
+
+  const styleInfo = computeStyleInfo(fixture.homeHistory, fixture.awayHistory)
+  const bestPerSide = {}
+
+  for (const statDef of STATS_ORDER) {
+    const { key: statKey, alts } = statDef
+    for (const alt of alts) {
+      if (!isAltAllowed(statKey, alt, statDef)) continue
+      const candidates = evaluateFixturePrediction(fixture, statKey, alt)
+      for (const candidate of candidates) {
+        const legScore = computeLegScore(candidate)
+        if (legScore == null || legScore < HONEST_FLOOR) continue
+        const boost = styleBoostFor(styleInfo, statKey)
+        const adjustedScore = clamp01(legScore + boost)
+        const sideKey = `${statKey}:${candidate.isHome ?? 'match'}`
+        if (!bestPerSide[sideKey] || adjustedScore > bestPerSide[sideKey].adjustedScore) {
+          bestPerSide[sideKey] = { candidate, statKey, alt: candidate.alt, adjustedScore, legScore, statDef }
+        }
+      }
+    }
+  }
+
+  const availableLegs = Object.values(bestPerSide)
+    .sort((a, b) => b.adjustedScore - a.adjustedScore)
+    .slice(0, 10)
+    .map(item => {
+      const { candidate, statKey, statDef: sd, legScore } = item
+      const raw = rawHitStats(candidate)
+      let teamName = null
+      if (candidate.teamScope && candidate.isHome != null) {
+        teamName = candidate.isHome ? fixture.homeTeam?.name : fixture.awayTeam?.name
+      }
+      return {
+        statKey, alt: candidate.alt, isHome: candidate.isHome,
+        teamScope: candidate.teamScope, teamName,
+        label: sd.shortLabel,
+        threshold: formatThreshold(sd, candidate.alt),
+        probability: legScore,
+        modelRate: candidate.combinedRate,
+        honestRate: getHonestRate(candidate),
+        rawHits: raw?.hits ?? null, rawTotal: raw?.total ?? null,
+        statGroup: getCorrGroup(statKey),
+      }
+    })
+
+  return { sgp: null, availableLegs, styleTag: styleInfo.style }
+}
 
 export function analyzeSGP(fixtures) {
   const results = []
