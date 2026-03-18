@@ -30,6 +30,7 @@ import {
   trialStatus,
   applyCancelAtPeriodEnd,
 } from './billingUtils.js'
+import { FootballDataOrg } from './footballDataOrg.js'
 
 // ─── Load .env ─────────────────────────────────────────────────────────────
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -64,6 +65,7 @@ const ODDS_BOOKMAKERS = String(process.env.ODDS_BOOKMAKERS || 'bet365,superbet')
   .split(',')
   .map(x => x.trim().toLowerCase())
   .filter(Boolean)
+const FDO_API_KEY = process.env.FOOTBALL_DATA_ORG_KEY || ''
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''
 const STRIPE_PRICE_PREMIUM_MONTHLY = process.env.STRIPE_PRICE_PREMIUM_MONTHLY || ''
@@ -108,10 +110,9 @@ if (!IS_PRODUCTION) {
   allowedCorsOrigins.add('http://127.0.0.1:5173')
 }
 
-if ((DATA_MODE === 'api' || DATA_MODE === 'hybrid') && !API_KEY) {
-  console.error('\n❌  API_FOOTBALL_KEY is not set!')
-  console.error('    Create the file  backend/.env  with this content:')
-  console.error('    API_FOOTBALL_KEY=your_key_here\n')
+if ((DATA_MODE === 'api' || DATA_MODE === 'hybrid') && !API_KEY && !FDO_API_KEY) {
+  console.error('\n❌  No fixtures API key set!')
+  console.error('    Set API_FOOTBALL_KEY or FOOTBALL_DATA_ORG_KEY in backend/.env\n')
   process.exit(1)
 }
 
@@ -179,6 +180,10 @@ const TTL = {
   h2h:        1800,   // 30 min
   odds:        180,   // 3 min
 }
+
+// ─── football-data.org adapter ────────────────────────────────────────────────
+const fdo = FDO_API_KEY ? new FootballDataOrg(FDO_API_KEY, cache) : null
+if (FDO_API_KEY) console.log('  football-data.org API configured')
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({
@@ -1472,6 +1477,12 @@ app.get('/api/matches/:date', async (req, res) => {
       return res.json({ success: true, fromCache: false, data: normalized.map(toMappedFixture) })
     }
 
+    // Use football-data.org when available and API-Football key is missing
+    if (fdo && !API_KEY) {
+      const data = await fdo.getMatchesByDate(date)
+      return res.json({ success: true, fromCache: false, data })
+    }
+
     const { data, fromCache } = await apiFetch(
       'fixtures',
       { date, timezone: tz },
@@ -2064,60 +2075,85 @@ app.get('/api/match/:id/details', async (req, res) => {
       })
     }
 
-    // ── Hybrid mode: fixture + live data from API, history from DB ──
+    // ── Hybrid mode: fixture + live data from API (or fdo), history from DB ──
     if (DATA_MODE === 'hybrid') {
-      const fallbackDate = String(req.query.date || '').trim()
+      const useFdo = fdo && !API_KEY
+      let mappedFixture, statistics, events, lineups, players, squadPlayers
 
-      const [fixtureRes, statsRes, eventsRes, lineupsRes, playersRes] = await Promise.allSettled([
-        apiFetch('fixtures',            { id },         TTL.fixtures),
-        apiFetch('fixtures/statistics', { fixture: id }, TTL.statistics),
-        apiFetch('fixtures/events',     { fixture: id }, TTL.events),
-        apiFetch('fixtures/lineups',    { fixture: id }, TTL.lineups),
-        apiFetch('fixtures/players',    { fixture: id }, TTL.players),
-      ])
+      if (useFdo) {
+        // football-data.org: fixture only (no stats/events/lineups/players on free tier)
+        const fdoFixture = await fdo.getMatch(Number(id))
+        if (!fdoFixture) return res.status(404).json({ success: false, error: 'Match not found' })
+        mappedFixture = fdoFixture
+        statistics = []
+        events = []
+        lineups = []
+        players = []
+        squadPlayers = []
+      } else {
+        // API-Football: full live data
+        const fallbackDate = String(req.query.date || '').trim()
 
-      let fixture = fixtureRes.value?.data?.[0]
-      if (!fixture && /^\d{4}-\d{2}-\d{2}$/.test(fallbackDate)) {
-        const fallbackFixturesRes = await apiFetch(
-          'fixtures',
-          { date: fallbackDate, timezone: 'Europe/Warsaw' },
-          TTL.fixtures,
-        )
-        fixture = (fallbackFixturesRes?.data ?? []).find(item => String(item?.fixture?.id || '') === String(id))
+        const [fixtureRes, statsRes, eventsRes, lineupsRes, playersRes] = await Promise.allSettled([
+          apiFetch('fixtures',            { id },         TTL.fixtures),
+          apiFetch('fixtures/statistics', { fixture: id }, TTL.statistics),
+          apiFetch('fixtures/events',     { fixture: id }, TTL.events),
+          apiFetch('fixtures/lineups',    { fixture: id }, TTL.lineups),
+          apiFetch('fixtures/players',    { fixture: id }, TTL.players),
+        ])
+
+        let fixture = fixtureRes.value?.data?.[0]
+        if (!fixture && /^\d{4}-\d{2}-\d{2}$/.test(fallbackDate)) {
+          const fallbackFixturesRes = await apiFetch(
+            'fixtures',
+            { date: fallbackDate, timezone: 'Europe/Warsaw' },
+            TTL.fixtures,
+          )
+          fixture = (fallbackFixturesRes?.data ?? []).find(item => String(item?.fixture?.id || '') === String(id))
+        }
+        if (!fixture) {
+          return res.status(404).json({ success: false, error: 'Match not found' })
+        }
+
+        const homeApiId = fixture.teams.home.id
+        const awayApiId = fixture.teams.away.id
+        const [homeSquadRes, awaySquadRes] = await Promise.allSettled([
+          apiFetch('players/squads', { team: homeApiId }, TTL.squads),
+          apiFetch('players/squads', { team: awayApiId }, TTL.squads),
+        ])
+        const squadPlayersRaw = [
+          ...mapSquadPlayers(homeSquadRes.value?.data ?? [], homeApiId, fixture.teams.home.name || ''),
+          ...mapSquadPlayers(awaySquadRes.value?.data ?? [], awayApiId, fixture.teams.away.name || ''),
+        ]
+        const mappedFixturePlayers = mapFixturePlayers(playersRes.value?.data ?? [])
+        const [cachedPlayers, cachedSquad] = await Promise.all([
+          cachePlayersMedia(mappedFixturePlayers),
+          cachePlayersMedia(squadPlayersRaw),
+        ])
+
+        mappedFixture = mapFixture(fixture)
+        statistics = mapStatistics(statsRes.value?.data ?? [])
+        events = (eventsRes.value?.data ?? []).map(mapEvent)
+        lineups = (lineupsRes.value?.data ?? []).map(mapLineup)
+        players = cachedPlayers
+        squadPlayers = cachedSquad
       }
-      if (!fixture) {
-        return res.status(404).json({ success: false, error: 'Match not found' })
-      }
 
-      const homeApiId = fixture.teams.home.id
-      const awayApiId = fixture.teams.away.id
-      const homeTeamName = fixture.teams.home.name || ''
-      const awayTeamName = fixture.teams.away.name || ''
-      const leagueCountry = fixture.league?.country || ''
-      const leagueName = fixture.league?.name || ''
-      const season = Number(fixture?.league?.season) || new Date().getFullYear()
-      const apiLeagueId = Number(fixture?.league?.id) || undefined
+      // Extract team info for DB lookups (works with both fdo and api-football shapes)
+      const homeApiId = mappedFixture.homeTeam?.id || mappedFixture.homeTeamId
+      const awayApiId = mappedFixture.awayTeam?.id || mappedFixture.awayTeamId
+      const homeTeamName = mappedFixture.homeTeam?.name || ''
+      const awayTeamName = mappedFixture.awayTeam?.name || ''
+      const leagueCountry = mappedFixture.league?.country || ''
+      const leagueName = mappedFixture.league?.name || ''
+      const season = Number(mappedFixture.league?.season) || new Date().getFullYear()
+      const apiLeagueId = Number(mappedFixture.league?.id) || undefined
 
       // Resolve API IDs → DB IDs for historical lookups
       const [homeDbId, awayDbId, dbLeagueId] = await Promise.all([
         resolveCanonicalTeamId(homeApiId, homeTeamName, leagueCountry),
         resolveCanonicalTeamId(awayApiId, awayTeamName, leagueCountry),
         resolveCanonicalLeagueId(apiLeagueId, leagueName, leagueCountry),
-      ])
-
-      // Squads from API
-      const [homeSquadRes, awaySquadRes] = await Promise.allSettled([
-        apiFetch('players/squads', { team: homeApiId }, TTL.squads),
-        apiFetch('players/squads', { team: awayApiId }, TTL.squads),
-      ])
-      const squadPlayersRaw = [
-        ...mapSquadPlayers(homeSquadRes.value?.data ?? [], homeApiId, homeTeamName),
-        ...mapSquadPlayers(awaySquadRes.value?.data ?? [], awayApiId, awayTeamName),
-      ]
-      const mappedFixturePlayers = mapFixturePlayers(playersRes.value?.data ?? [])
-      const [players, squadPlayers] = await Promise.all([
-        cachePlayersMedia(mappedFixturePlayers),
-        cachePlayersMedia(squadPlayersRaw),
       ])
 
       // History + H2H from DB (no API calls!)
@@ -2140,10 +2176,10 @@ app.get('/api/match/:id/details', async (req, res) => {
       return res.json({
         success: true,
         data: {
-          fixture:    mapFixture(fixture),
-          statistics: mapStatistics(statsRes.value?.data ?? []),
-          events:     (eventsRes.value?.data ?? []).map(mapEvent),
-          lineups:    (lineupsRes.value?.data ?? []).map(mapLineup),
+          fixture: mappedFixture,
+          statistics,
+          events,
+          lineups,
           players,
           squadPlayers,
           homeHistory,
@@ -2310,20 +2346,35 @@ app.get('/api/match/:id/historical-stats', async (req, res) => {
       return res.json({ success: true, data: { homeHistory, awayHistory, h2h } })
     }
 
-    // ── Hybrid mode: fixture lookup from API, all history from DB ──
+    // ── Hybrid mode: fixture lookup from API (or fdo), all history from DB ──
     if (DATA_MODE === 'hybrid') {
-      const { data: fixtureData } = await apiFetch('fixtures', { id }, TTL.fixtures)
-      const fixture = fixtureData?.[0]
-      if (!fixture) return res.status(404).json({ success: false, error: 'Match not found' })
+      const useFdo = fdo && !API_KEY
+      let homeApiId, awayApiId, homeTeamName, awayTeamName, leagueCountry, leagueName, season, apiLeagueId
 
-      const homeApiId = fixture.teams.home.id
-      const awayApiId = fixture.teams.away.id
-      const homeTeamName = fixture.teams.home.name || ''
-      const awayTeamName = fixture.teams.away.name || ''
-      const leagueCountry = fixture.league?.country || ''
-      const leagueName = fixture.league?.name || ''
-      const season = Number(fixture?.league?.season) || new Date().getFullYear()
-      const apiLeagueId = Number(fixture?.league?.id) || undefined
+      if (useFdo) {
+        const fdoFixture = await fdo.getMatch(Number(id))
+        if (!fdoFixture) return res.status(404).json({ success: false, error: 'Match not found' })
+        homeApiId = fdoFixture.homeTeam?.id || fdoFixture.homeTeamId
+        awayApiId = fdoFixture.awayTeam?.id || fdoFixture.awayTeamId
+        homeTeamName = fdoFixture.homeTeam?.name || ''
+        awayTeamName = fdoFixture.awayTeam?.name || ''
+        leagueCountry = fdoFixture.league?.country || ''
+        leagueName = fdoFixture.league?.name || ''
+        season = Number(fdoFixture.league?.season) || new Date().getFullYear()
+        apiLeagueId = Number(fdoFixture.league?.id) || undefined
+      } else {
+        const { data: fixtureData } = await apiFetch('fixtures', { id }, TTL.fixtures)
+        const fixture = fixtureData?.[0]
+        if (!fixture) return res.status(404).json({ success: false, error: 'Match not found' })
+        homeApiId = fixture.teams.home.id
+        awayApiId = fixture.teams.away.id
+        homeTeamName = fixture.teams.home.name || ''
+        awayTeamName = fixture.teams.away.name || ''
+        leagueCountry = fixture.league?.country || ''
+        leagueName = fixture.league?.name || ''
+        season = Number(fixture?.league?.season) || new Date().getFullYear()
+        apiLeagueId = Number(fixture?.league?.id) || undefined
+      }
 
       const [homeDbId, awayDbId, dbLeagueId] = await Promise.all([
         resolveCanonicalTeamId(homeApiId, homeTeamName, leagueCountry),
