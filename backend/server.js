@@ -47,7 +47,8 @@ const argPort = readArgValue('--port')
 const HOST = argHost || process.env.HOST || '0.0.0.0'
 const PORT = Number(argPort || process.env.PORT || 3001)
 const IS_PRODUCTION = process.env.NODE_ENV === 'production'
-const DATA_MODE = String(process.env.BACKEND_DATA_MODE || 'db').toLowerCase() // db | api
+const DATA_MODE = String(process.env.BACKEND_DATA_MODE || 'db').toLowerCase() // db | api | hybrid
+const useDbForHistory = DATA_MODE === 'db' || DATA_MODE === 'hybrid'
 const STATIC_ROOT = path.join(__dirname, 'public')
 const STATIC_PLAYER_DIR = path.join(STATIC_ROOT, 'player-photos')
 const STATIC_TEAM_DIR = path.join(STATIC_ROOT, 'team-logos')
@@ -107,7 +108,7 @@ if (!IS_PRODUCTION) {
   allowedCorsOrigins.add('http://127.0.0.1:5173')
 }
 
-if (DATA_MODE === 'api' && !API_KEY) {
+if ((DATA_MODE === 'api' || DATA_MODE === 'hybrid') && !API_KEY) {
   console.error('\n❌  API_FOOTBALL_KEY is not set!')
   console.error('    Create the file  backend/.env  with this content:')
   console.error('    API_FOOTBALL_KEY=your_key_here\n')
@@ -115,7 +116,7 @@ if (DATA_MODE === 'api' && !API_KEY) {
 }
 
 const { Pool } = pg
-if (DATA_MODE === 'db' && !process.env.DATABASE_URL) {
+if ((DATA_MODE === 'db' || DATA_MODE === 'hybrid') && !process.env.DATABASE_URL) {
   console.error('\n❌  DATABASE_URL is not set!')
   console.error('    Set DATABASE_URL in backend/.env for PostgreSQL mode.\n')
   process.exit(1)
@@ -1909,7 +1910,7 @@ app.get('/api/teams/:id/last-matches', async (req, res) => {
   const league    = Number(req.query.league) || undefined
   const withStats = String(req.query.stats || '').toLowerCase() === '1' || String(req.query.stats || '').toLowerCase() === 'true'
   try {
-    if (DATA_MODE === 'db') {
+    if (useDbForHistory) {
       const teamId = Number(id)
       if (!Number.isFinite(teamId)) return res.status(400).json({ success: false, error: 'Invalid team id' })
       const seasonFilter = Number.isFinite(season) ? season : undefined
@@ -1969,7 +1970,7 @@ app.get('/api/head-to-head/:team1/:team2', async (req, res) => {
   const season = Number(req.query.season) || undefined
   const league = Number(req.query.league) || undefined
   try {
-    if (DATA_MODE === 'db') {
+    if (useDbForHistory) {
       const teamA = Number(team1)
       const teamB = Number(team2)
       if (!Number.isFinite(teamA) || !Number.isFinite(teamB)) {
@@ -2063,6 +2064,96 @@ app.get('/api/match/:id/details', async (req, res) => {
       })
     }
 
+    // ── Hybrid mode: fixture + live data from API, history from DB ──
+    if (DATA_MODE === 'hybrid') {
+      const fallbackDate = String(req.query.date || '').trim()
+
+      const [fixtureRes, statsRes, eventsRes, lineupsRes, playersRes] = await Promise.allSettled([
+        apiFetch('fixtures',            { id },         TTL.fixtures),
+        apiFetch('fixtures/statistics', { fixture: id }, TTL.statistics),
+        apiFetch('fixtures/events',     { fixture: id }, TTL.events),
+        apiFetch('fixtures/lineups',    { fixture: id }, TTL.lineups),
+        apiFetch('fixtures/players',    { fixture: id }, TTL.players),
+      ])
+
+      let fixture = fixtureRes.value?.data?.[0]
+      if (!fixture && /^\d{4}-\d{2}-\d{2}$/.test(fallbackDate)) {
+        const fallbackFixturesRes = await apiFetch(
+          'fixtures',
+          { date: fallbackDate, timezone: 'Europe/Warsaw' },
+          TTL.fixtures,
+        )
+        fixture = (fallbackFixturesRes?.data ?? []).find(item => String(item?.fixture?.id || '') === String(id))
+      }
+      if (!fixture) {
+        return res.status(404).json({ success: false, error: 'Match not found' })
+      }
+
+      const homeApiId = fixture.teams.home.id
+      const awayApiId = fixture.teams.away.id
+      const homeTeamName = fixture.teams.home.name || ''
+      const awayTeamName = fixture.teams.away.name || ''
+      const leagueCountry = fixture.league?.country || ''
+      const leagueName = fixture.league?.name || ''
+      const season = Number(fixture?.league?.season) || new Date().getFullYear()
+      const apiLeagueId = Number(fixture?.league?.id) || undefined
+
+      // Resolve API IDs → DB IDs for historical lookups
+      const [homeDbId, awayDbId, dbLeagueId] = await Promise.all([
+        resolveCanonicalTeamId(homeApiId, homeTeamName, leagueCountry),
+        resolveCanonicalTeamId(awayApiId, awayTeamName, leagueCountry),
+        resolveCanonicalLeagueId(apiLeagueId, leagueName, leagueCountry),
+      ])
+
+      // Squads from API
+      const [homeSquadRes, awaySquadRes] = await Promise.allSettled([
+        apiFetch('players/squads', { team: homeApiId }, TTL.squads),
+        apiFetch('players/squads', { team: awayApiId }, TTL.squads),
+      ])
+      const squadPlayersRaw = [
+        ...mapSquadPlayers(homeSquadRes.value?.data ?? [], homeApiId, homeTeamName),
+        ...mapSquadPlayers(awaySquadRes.value?.data ?? [], awayApiId, awayTeamName),
+      ]
+      const mappedFixturePlayers = mapFixturePlayers(playersRes.value?.data ?? [])
+      const [players, squadPlayers] = await Promise.all([
+        cachePlayersMedia(mappedFixturePlayers),
+        cachePlayersMedia(squadPlayersRaw),
+      ])
+
+      // History + H2H from DB (no API calls!)
+      const [homeHistoryRows, awayHistoryRows, h2hRows] = await Promise.all([
+        getTeamHistoryRowsWithFallback(homeDbId || homeApiId, 20, { season, league: dbLeagueId || apiLeagueId }),
+        getTeamHistoryRowsWithFallback(awayDbId || awayApiId, 20, { season, league: dbLeagueId || apiLeagueId }),
+        getH2HRowsWithFallback(homeDbId || homeApiId, awayDbId || awayApiId, 15, { season, league: dbLeagueId || apiLeagueId }),
+      ])
+
+      const homeHistory = homeHistoryRows
+        .slice(0, 15)
+        .map(r => mapHistoryEntry(fixtureRowToApiShape(r), homeDbId || homeApiId))
+      const awayHistory = awayHistoryRows
+        .slice(0, 15)
+        .map(r => mapHistoryEntry(fixtureRowToApiShape(r), awayDbId || awayApiId))
+      const h2h = h2hRows
+        .slice(0, 15)
+        .map(r => mapHistoryEntry(fixtureRowToApiShape(r), homeDbId || homeApiId))
+
+      return res.json({
+        success: true,
+        data: {
+          fixture:    mapFixture(fixture),
+          statistics: mapStatistics(statsRes.value?.data ?? []),
+          events:     (eventsRes.value?.data ?? []).map(mapEvent),
+          lineups:    (lineupsRes.value?.data ?? []).map(mapLineup),
+          players,
+          squadPlayers,
+          homeHistory,
+          awayHistory,
+          h2h,
+        },
+      })
+    }
+
+    // ── Pure API mode ──
     const fallbackDate = String(req.query.date || '').trim()
 
     const [fixtureRes, statsRes, eventsRes, lineupsRes, playersRes] = await Promise.allSettled([
@@ -2219,6 +2310,41 @@ app.get('/api/match/:id/historical-stats', async (req, res) => {
       return res.json({ success: true, data: { homeHistory, awayHistory, h2h } })
     }
 
+    // ── Hybrid mode: fixture lookup from API, all history from DB ──
+    if (DATA_MODE === 'hybrid') {
+      const { data: fixtureData } = await apiFetch('fixtures', { id }, TTL.fixtures)
+      const fixture = fixtureData?.[0]
+      if (!fixture) return res.status(404).json({ success: false, error: 'Match not found' })
+
+      const homeApiId = fixture.teams.home.id
+      const awayApiId = fixture.teams.away.id
+      const homeTeamName = fixture.teams.home.name || ''
+      const awayTeamName = fixture.teams.away.name || ''
+      const leagueCountry = fixture.league?.country || ''
+      const leagueName = fixture.league?.name || ''
+      const season = Number(fixture?.league?.season) || new Date().getFullYear()
+      const apiLeagueId = Number(fixture?.league?.id) || undefined
+
+      const [homeDbId, awayDbId, dbLeagueId] = await Promise.all([
+        resolveCanonicalTeamId(homeApiId, homeTeamName, leagueCountry),
+        resolveCanonicalTeamId(awayApiId, awayTeamName, leagueCountry),
+        resolveCanonicalLeagueId(apiLeagueId, leagueName, leagueCountry),
+      ])
+
+      const [homeHistoryRows, awayHistoryRows, h2hRows] = await Promise.all([
+        getTeamHistoryRowsWithFallback(homeDbId || homeApiId, 20, { season, league: dbLeagueId || apiLeagueId }),
+        getTeamHistoryRowsWithFallback(awayDbId || awayApiId, 20, { season, league: dbLeagueId || apiLeagueId }),
+        getH2HRowsWithFallback(homeDbId || homeApiId, awayDbId || awayApiId, 15, { season, league: dbLeagueId || apiLeagueId }),
+      ])
+
+      const homeHistory = homeHistoryRows.slice(0, 15).map(r => mapHistoryEntry(fixtureRowToApiShape(r), homeDbId || homeApiId))
+      const awayHistory = awayHistoryRows.slice(0, 15).map(r => mapHistoryEntry(fixtureRowToApiShape(r), awayDbId || awayApiId))
+      const h2h = h2hRows.slice(0, 15).map(r => mapHistoryEntry(fixtureRowToApiShape(r), homeDbId || homeApiId))
+
+      return res.json({ success: true, data: { homeHistory, awayHistory, h2h } })
+    }
+
+    // ── Pure API mode ──
     // First get the fixture to learn team IDs
     const { data: fixtureData } = await apiFetch('fixtures', { id }, TTL.fixtures)
     const fixture = fixtureData?.[0]
